@@ -1,23 +1,21 @@
-
 namespace OwlTree
 {
     /// <summary>
-    /// Unique integer Id for each client connected to the server. Ids are unique for each connection.
-    /// This means if a client disconnects and then reconnects, their PlayerId will be different.
+    /// Unique integer Id for each network object. 
     /// </summary>
-    public struct PlayerId
+    public struct NetworkId
     {
         // tracks the current id for the next id generated
         private static UInt32 _curId = 0;
 
         /// <summary>
-        /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any PlayerIds that are stored as integers 
+        /// Reset ids. Provide an array of all current network object ids, which will be re-assigned to reduce the max id value.
+        /// Use this for long-running servers which might run out available ids. Any NetworkIds that are stored as integers 
         /// will likely be inaccurate after a reset.<br />
         /// <br />
         /// newIds must be at least the same length as curIds.
         /// </summary>
-        public static void ResetIdsNonAlloc(PlayerId[] curIds, ref PlayerId[] newIds)
+        public static void ResetIdsNonAlloc(NetworkId[] curIds, ref NetworkId[] newIds)
         {
             if (curIds.Length > newIds.Length)
                 throw new ArgumentException("The newIds array must be at least the same size as the curIds array.");
@@ -31,13 +29,13 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any PlayerIds that are stored as integers 
+        /// Reset ids. Provide an array of all current network object ids, which will be re-assigned to reduce the max id value.
+        /// Use this for long-running servers which might run out available ids. Any NetworkIds that are stored as integers 
         /// will likely be inaccurate after a reset.
         /// </summary>
-        public static PlayerId[] ResetIds(PlayerId[] curIds)
+        public static NetworkId[] ResetIds(NetworkId[] curIds)
         {
-            PlayerId[] newIds = new PlayerId[curIds.Length];
+            NetworkId[] newIds = new NetworkId[curIds.Length];
             ResetIdsNonAlloc(curIds, ref newIds);
             return newIds;
         }
@@ -46,21 +44,21 @@ namespace OwlTree
         private UInt32 _id;
 
         /// <summary>
-        /// Generate a new player id.
+        /// Generate a new network object id.
         /// </summary>
-        public PlayerId()
+        public NetworkId()
         {
             _id = _curId;
             _curId++;
         }
 
         /// <summary>
-        /// Get a PlayerId instance using an existing id.
+        /// Get a NetworkId instance using an existing id.
         /// </summary>
-        public PlayerId(uint id)
+        public NetworkId(uint id)
         {
             if (id >= _curId)
-                throw new ArgumentException("Ids must be for an already generated player id.");
+                throw new ArgumentException("Ids must be for an already generated network object id.");
             _id = id;
         }
 
@@ -76,19 +74,19 @@ namespace OwlTree
 
         // Operators
 
-        public static bool operator ==(PlayerId a, PlayerId b)
+        public static bool operator ==(NetworkId a, NetworkId b)
         {
             return a._id == b._id;
         }
 
-        public static bool operator !=(PlayerId a, PlayerId b)
+        public static bool operator !=(NetworkId a, NetworkId b)
         {
             return a._id != b._id;
         }
 
         public override bool Equals(object? obj)
         {
-            return obj != null && obj.GetType() == typeof(PlayerId) && ((PlayerId)obj)._id == _id;
+            return obj != null && obj.GetType() == typeof(NetworkId) && ((NetworkId)obj)._id == _id;
         }
 
         public override int GetHashCode()

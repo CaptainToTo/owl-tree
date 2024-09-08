@@ -104,6 +104,10 @@ namespace OwlTree
                     reading = false;
                 }
             }
+            if (reading)
+            {
+                rpcBytes.Add(curRpcBytes);
+            }
         }
     }
 }

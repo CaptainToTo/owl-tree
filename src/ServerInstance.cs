@@ -33,26 +33,64 @@ namespace OwlTree
         List<Socket> readList = new List<Socket>();
         Dictionary<Socket, ClientBuffer> clients = new Dictionary<Socket, ClientBuffer>();
 
-        private void HandleBuffers()
+        public void Read()
         {
-            while (true)
+            Socket.Select(readList, null, null, 0);
+            byte[] data = new byte[1024];
+
+            List<byte[]> rpcBytes = new List<byte[]>();
+
+            foreach (var socket in readList)
             {
-                Socket.Select(readList, null, null, 0);
-
-                foreach (var socket in readList)
+                if (socket == _server)
                 {
-                    if (socket == _server)
-                    {
-                        var client = socket.Accept();
+                    var client = socket.Accept();
 
-                        readList.Add(client);
-                        clients.Add(
-                            client, 
-                            new ClientBuffer {
-                                id = new PlayerId(),
-                                buffer = new SendBuffer(1024)
-                            }
-                        );
+                    readList.Add(client);
+                    clients.Add(
+                        client, 
+                        new ClientBuffer {
+                            id = new PlayerId(),
+                            buffer = new SendBuffer(1024)
+                        }
+                    );
+                }
+                else
+                {
+                    int dataLen = -1;
+                    try
+                    {
+                        dataLen = socket.Receive(data);
+                    }
+                    catch 
+                    { 
+                        Console.WriteLine("Client disconnected unexpectedly.");
+                    }
+
+                    var clientBuffer = clients[socket];
+
+                    if (dataLen <= 0)
+                    {
+                        clients.Remove(socket);
+                        readList.Remove(socket);
+                        socket.Close();
+                        continue;
+                    }
+
+                    rpcBytes.Clear();
+                    SendBuffer.GetRpcBytes(data, ref rpcBytes);
+                    
+                    foreach (var rpcEncoding in rpcBytes)
+                    {
+                        try
+                        {
+                            // decode rpc
+                            // apply rpc
+                        }
+                        catch
+                        {
+                            Console.WriteLine("Failed to apply RPC");
+                        }
                     }
                 }
             }
