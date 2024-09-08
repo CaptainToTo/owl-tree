@@ -23,17 +23,17 @@ namespace OwlTree
         {
             if (args.role == Role.Client)
             {
-                _tcpStream = new ClientInstance(args.serverAddr, args.port);
+                _tcpStream = new ClientBuffer(args.serverAddr, args.port);
             }
             else
             {
-                _tcpStream = new ServerInstance(args.serverAddr, args.port, args.maxClients);
+                _tcpStream = new ServerBuffer(args.serverAddr, args.port, args.maxClients);
             }
             role = args.role;
         }
 
         public Role role { get; private set; }
 
-        private NetworkInstance _tcpStream;
+        private NetworkBuffer _tcpStream;
     }
 }

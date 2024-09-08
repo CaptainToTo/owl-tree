@@ -2,11 +2,11 @@
 namespace OwlTree
 {
     /// <summary>
-    /// Handles concatenating RPCs into a single buffer so that they can be sent in a single package.
-    /// RPCs are stacked in the format: <br />
+    /// Handles concatenating messages into a single buffer so that they can be sent in a single package.
+    /// messages are stacked in the format: <br />
     /// <c>[RPC byte length][RPC bytes][RPC byte length][RPC bytes]...</c>
     /// </summary>
-    public class SendBuffer
+    public class MessageBuffer
     {
         private byte[] _buffer; // the actual byte buffer containing
         private int _tail = 0;  // the current end of the buffer
@@ -34,7 +34,7 @@ namespace OwlTree
         /// <summary>
         /// Create a new buffer with a max size of bufferLen.
         /// </summary>
-        public SendBuffer(int bufferLen)
+        public MessageBuffer(int bufferLen)
         {
             _buffer = new byte[bufferLen];
         }
@@ -49,15 +49,15 @@ namespace OwlTree
 
         /// <summary>
         /// Concatenates the given byte array to the buffer. This will fail if there isn't enough space in the buffer.
-        /// RPCs are stacked in the format: <br />
-        /// <c>[RPC byte length][RPC bytes][RPC byte length][RPC bytes]...</c>
+        /// Messages are stacked in the format: <br />
+        /// <c>[message byte length][message bytes][message byte length][message bytes]...</c>
         /// </summary>
-        public void Add(byte[] rpcBytes)
+        public void Add(byte[] bytes)
         {
-            if (rpcBytes.Length > 255)
-                throw new ArgumentOutOfRangeException("RPC length is too long. Cannot be represented in a byte (<255).");
+            if (bytes.Length > 255)
+                throw new ArgumentOutOfRangeException("message length is too long. Cannot be represented in a byte (<255).");
 
-            byte len = (byte)rpcBytes.Length;
+            byte len = (byte)bytes.Length;
 
             if (!HasSpaceFor(len + 1))
                 throw new ArgumentOutOfRangeException("Buffer is too full to add " + len + " bytes.");
@@ -68,7 +68,7 @@ namespace OwlTree
 
             for (int i = _tail; i < end; i++)
             {
-                _buffer[_tail] = rpcBytes[i];
+                _buffer[_tail] = bytes[i];
                 _tail++;
             }
         }
@@ -79,34 +79,34 @@ namespace OwlTree
         public void Reset() { _tail = 0; }
 
         /// <summary>
-        /// Splits the given stream into individual RPC encoded byte arrays. These byte arrays are added to the rpcBytes list.
+        /// Splits the given stream into individual message byte arrays. These byte arrays are added to the messages list.
         /// </summary>
-        public static void GetRpcBytes(byte[] stream, ref List<byte[]> rpcBytes)
+        public static void SplitMessageBytes(byte[] stream, ref List<byte[]> messages)
         {
             bool reading = false;
-            int curRpcIndex = 0;
-            byte[] curRpcBytes = {};
+            int curIndex = 0;
+            byte[] curBytes = {};
             for (int i = 0; i < stream.Length; i++)
             {
                 if (!reading)
                 {
-                    curRpcBytes = new byte[stream[i]];
-                    curRpcIndex = 0;
+                    curBytes = new byte[stream[i]];
+                    curIndex = 0;
                     reading = true;
                     continue;
                 }
 
-                curRpcBytes[curRpcIndex] = stream[i];
-                curRpcIndex++;
-                if (curRpcIndex >= curRpcBytes.Length)
+                curBytes[curIndex] = stream[i];
+                curIndex++;
+                if (curIndex >= curBytes.Length)
                 {
-                    rpcBytes.Add(curRpcBytes);
+                    messages.Add(curBytes);
                     reading = false;
                 }
             }
             if (reading)
             {
-                rpcBytes.Add(curRpcBytes);
+                messages.Add(curBytes);
             }
         }
     }

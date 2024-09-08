@@ -3,9 +3,9 @@ using System.Text;
 
 namespace OwlTree
 {
-    public class ClientInstance : NetworkInstance
+    public class ClientBuffer : NetworkBuffer
     {
-        public ClientInstance(string addr, int port)
+        public ClientBuffer(string addr, int port)
         {
             var client = new TcpClient();
             client.Connect(addr, port);

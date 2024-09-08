@@ -6,7 +6,7 @@ namespace OwlTree
     public struct NetworkId
     {
         // tracks the current id for the next id generated
-        private static UInt32 _curId = 0;
+        private static UInt32 _curId = 1;
 
         /// <summary>
         /// Reset ids. Provide an array of all current network object ids, which will be re-assigned to reduce the max id value.
@@ -20,7 +20,7 @@ namespace OwlTree
             if (curIds.Length > newIds.Length)
                 throw new ArgumentException("The newIds array must be at least the same size as the curIds array.");
 
-            _curId = 0;
+            _curId = 1;
             for (int i = 0; i < curIds.Length; i++)
             {
                 newIds[i]._id = _curId;
@@ -71,6 +71,11 @@ namespace OwlTree
         /// True if this id has a valid value.
         /// </summary>
         public bool IsValid { get { return _id < _curId; } }
+
+        /// <summary>
+        /// The network object id used to signal that there is no object. Id value is 0.
+        /// </summary>
+        public static NetworkId None = new NetworkId(0);
 
         // Operators
 

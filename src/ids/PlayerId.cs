@@ -3,26 +3,26 @@ namespace OwlTree
 {
     /// <summary>
     /// Unique integer Id for each client connected to the server. Ids are unique for each connection.
-    /// This means if a client disconnects and then reconnects, their PlayerId will be different.
+    /// This means if a client disconnects and then reconnects, their ClientId will be different.
     /// </summary>
-    public struct PlayerId
+    public struct ClientId
     {
         // tracks the current id for the next id generated
-        private static UInt32 _curId = 0;
+        private static UInt32 _curId = 1;
 
         /// <summary>
         /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any PlayerIds that are stored as integers 
+        /// Use this for long-running servers which might run out available ids. Any ClientIds that are stored as integers 
         /// will likely be inaccurate after a reset.<br />
         /// <br />
         /// newIds must be at least the same length as curIds.
         /// </summary>
-        public static void ResetIdsNonAlloc(PlayerId[] curIds, ref PlayerId[] newIds)
+        public static void ResetIdsNonAlloc(ClientId[] curIds, ref ClientId[] newIds)
         {
             if (curIds.Length > newIds.Length)
                 throw new ArgumentException("The newIds array must be at least the same size as the curIds array.");
 
-            _curId = 0;
+            _curId = 1;
             for (int i = 0; i < curIds.Length; i++)
             {
                 newIds[i]._id = _curId;
@@ -32,12 +32,12 @@ namespace OwlTree
 
         /// <summary>
         /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any PlayerIds that are stored as integers 
+        /// Use this for long-running servers which might run out available ids. Any ClientIds that are stored as integers 
         /// will likely be inaccurate after a reset.
         /// </summary>
-        public static PlayerId[] ResetIds(PlayerId[] curIds)
+        public static ClientId[] ResetIds(ClientId[] curIds)
         {
-            PlayerId[] newIds = new PlayerId[curIds.Length];
+            ClientId[] newIds = new ClientId[curIds.Length];
             ResetIdsNonAlloc(curIds, ref newIds);
             return newIds;
         }
@@ -46,21 +46,21 @@ namespace OwlTree
         private UInt32 _id;
 
         /// <summary>
-        /// Generate a new player id.
+        /// Generate a new client id.
         /// </summary>
-        public PlayerId()
+        public ClientId()
         {
             _id = _curId;
             _curId++;
         }
 
         /// <summary>
-        /// Get a PlayerId instance using an existing id.
+        /// Get a ClientId instance using an existing id.
         /// </summary>
-        public PlayerId(uint id)
+        public ClientId(uint id)
         {
             if (id >= _curId)
-                throw new ArgumentException("Ids must be for an already generated player id.");
+                throw new ArgumentException("Ids must be for an already generated client id.");
             _id = id;
         }
 
@@ -74,21 +74,34 @@ namespace OwlTree
         /// </summary>
         public bool IsValid { get { return _id < _curId; } }
 
+        /// <summary>
+        /// The client id used to signal that there is no client. Id value is 0.
+        /// </summary>
+        public static ClientId None = new ClientId(0);
+
         // Operators
 
-        public static bool operator ==(PlayerId a, PlayerId b)
+        /// <summary>
+        /// Returns the id number as a string.
+        /// </summary>
+        public override string ToString()
+        {
+            return _id.ToString();
+        }
+
+        public static bool operator ==(ClientId a, ClientId b)
         {
             return a._id == b._id;
         }
 
-        public static bool operator !=(PlayerId a, PlayerId b)
+        public static bool operator !=(ClientId a, ClientId b)
         {
             return a._id != b._id;
         }
 
         public override bool Equals(object? obj)
         {
-            return obj != null && obj.GetType() == typeof(PlayerId) && ((PlayerId)obj)._id == _id;
+            return obj != null && obj.GetType() == typeof(ClientId) && ((ClientId)obj)._id == _id;
         }
 
         public override int GetHashCode()
