@@ -15,6 +15,7 @@ namespace OwlTree
             public string serverAddr = "127.0.0.1";
             public int port = 8080;
             public byte maxClients = 4;
+            public int bufferSize = 2048;
 
             public ConnectionArgs() { }
         }
@@ -23,11 +24,11 @@ namespace OwlTree
         {
             if (args.role == Role.Client)
             {
-                _tcpStream = new ClientBuffer(args.serverAddr, args.port);
+                _tcpStream = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
             }
             else
             {
-                _tcpStream = new ServerBuffer(args.serverAddr, args.port, args.maxClients);
+                _tcpStream = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize);
             }
             role = args.role;
         }

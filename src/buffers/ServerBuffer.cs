@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 
 namespace OwlTree
 {
@@ -17,21 +16,19 @@ namespace OwlTree
         /// <param name="addr">The server's IP address.</param>
         /// <param name="port">The port to bind to.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        public ServerBuffer(string addr, int port, byte maxClients)
+        /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
+        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize) : base (addr, port, bufferSize)
         {
-            address = IPAddress.Parse(addr);
-            this.port = port;
 
             _server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint endPoint = new IPEndPoint(address, port);
+            IPEndPoint endPoint = new IPEndPoint(Address, Port);
             _server.Bind(endPoint);
             _server.Listen(maxClients);
             readList.Add(_server);
+            MaxClients = maxClients;
         }
 
-        // ip and port number this server is bound to
-        public int port { get; private set; } 
-        public IPAddress address { get; private set; }
+        public int MaxClients { get; private set; }
 
         // used to map a client's socket to its id and buffer
         private struct ClientInstance
@@ -42,11 +39,11 @@ namespace OwlTree
 
         // server state
         private Socket _server;
-        List<Socket> readList = new List<Socket>();
-        Dictionary<Socket, ClientInstance> clients = new Dictionary<Socket, ClientInstance>();
+        private List<Socket> readList = new List<Socket>();
+        private Dictionary<Socket, ClientInstance> clients = new Dictionary<Socket, ClientInstance>();
 
         // currently read messages
-        Queue<Message> incoming = new Queue<Message>();
+        private Queue<Message> incoming = new Queue<Message>();
 
         /// <summary>
         /// Get the next message in the read queue.
@@ -65,20 +62,13 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Invoked when a new client connects.
-        /// </summary>
-        public Action<ClientId>? OnClientConnected;
-
-        public Action<ClientId>? OnClientDisconnected;
-
-        /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
         /// </summary>
         public void Read()
         {
             Socket.Select(readList, null, null, 0);
-            byte[] data = new byte[1024];
 
+            byte[] data = new byte[BufferSize];
             List<byte[]> messages = new List<byte[]>();
 
             foreach (var socket in readList)
@@ -93,7 +83,7 @@ namespace OwlTree
                         client, 
                         new ClientInstance {
                             id = new ClientId(),
-                            buffer = new MessageBuffer(1024)
+                            buffer = new MessageBuffer(BufferSize)
                         }
                     );
 
@@ -116,7 +106,7 @@ namespace OwlTree
                         clients.Remove(socket);
                         readList.Remove(socket);
                         socket.Close();
-                        Console.WriteLine("Client " + client.id.ToString() + " disconnected unexpectedly.");
+                        OnClientDisconnected?.Invoke(client.id);
                         continue;
                     }
 
