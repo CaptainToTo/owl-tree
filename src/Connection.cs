@@ -32,7 +32,11 @@ namespace OwlTree
             }
             role = args.role;
             _buffer.OnClientConnected = (id) => OnClientConnected?.Invoke(id);
-            _buffer.OnClientDisconnected = (id) => OnClientDisconnected?.Invoke(id);
+            _buffer.OnClientDisconnected = (id) => {
+                if (id == _buffer.LocalId)
+                    IsActive = false;
+                OnClientDisconnected?.Invoke(id);
+            };
             _buffer.OnReady = (id) => OnReady?.Invoke(id);
         }
 
@@ -45,6 +49,8 @@ namespace OwlTree
         public event ClientId.IdEvent? OnClientDisconnected;
 
         public event ClientId.IdEvent? OnReady;
+
+        public bool IsActive { get; private set; } = true;
 
         public void Read()
         {
@@ -74,6 +80,7 @@ namespace OwlTree
         public void Disconnect()
         {
             _buffer.Disconnect();
+            IsActive = false;
         }
 
         public void Disconnect(ClientId id)

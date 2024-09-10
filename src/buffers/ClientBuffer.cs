@@ -39,6 +39,12 @@ namespace OwlTree
         /// </summary>
         public override void Read()
         {
+            if (!_client.Connected)
+            {
+                _client.Close();
+                OnClientDisconnected?.Invoke(LocalId);
+                return;
+            }
             _readList[0] = _client;
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 

@@ -40,8 +40,14 @@ class Program
             while (connection.GetNextMessage(out var message))
             {
                 if (message.bytes != null)
+                {
                     Console.WriteLine(Encoding.UTF8.GetString(message.bytes));
+                    // connection.Disconnect();
+                    // break;
+                }
             }
+            if (!connection.IsActive)
+                break;
         }
     }
 }
