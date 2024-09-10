@@ -5,7 +5,7 @@ namespace OwlTree
     /// Unique integer Id for each client connected to the server. Ids are unique for each connection.
     /// This means if a client disconnects and then reconnects, their ClientId will be different.
     /// </summary>
-    public struct ClientId
+    public struct ClientId : IEncodable<ClientId>
     {
         public delegate void IdEvent(ClientId id);
 
@@ -164,6 +164,16 @@ namespace OwlTree
         public override int GetHashCode()
         {
             return _id.GetHashCode();
+        }
+
+        public static ClientId FromBytes(byte[] bytes)
+        {
+            return new ClientId(bytes);
+        }
+
+        public static ClientId FromBytes(byte[] bytes, int ind)
+        {
+            return new ClientId(bytes, ind);
         }
     }
 }

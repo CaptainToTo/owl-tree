@@ -3,7 +3,7 @@ namespace OwlTree
     /// <summary>
     /// Unique integer Id for each network object. 
     /// </summary>
-    public struct NetworkId
+    public struct NetworkId : IEncodable<NetworkId>
     {
         // tracks the current id for the next id generated
         private static UInt32 _curId = 1;
@@ -57,9 +57,45 @@ namespace OwlTree
         /// </summary>
         public NetworkId(uint id)
         {
-            if (id >= _curId)
-                throw new ArgumentException("Ids must be for an already generated network object id.");
             _id = id;
+            if (_id >= _curId)
+                _curId = _id + 1;
+        }
+
+        /// <summary>
+        /// Get a NetworkId instance by decoding it from a byte array.
+        /// </summary>
+        public NetworkId(byte[] bytes)
+        {
+            if (bytes.Length < 4)
+                throw new ArgumentException("Byte array must have 4 bytes to decode a ClientId from.");
+
+            UInt32 result = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                result |= ((UInt32)bytes[i]) << ((3 - i) * 8);
+            }
+            _id = result;
+            if (_id >= _curId)
+                _curId = _id + 1;
+        }
+
+        /// <summary>
+        /// Get a NetworkId instance by decoding it from a byte array, starting at ind.
+        /// </summary>
+        public NetworkId(byte[] bytes, int ind)
+        {
+            if (bytes.Length < ind + 4)
+                throw new ArgumentException("Byte array must have 4 bytes from ind to decode a ClientId from.");
+
+            UInt32 result = 0;
+            for (int i = 0; i < 4; i++)
+            {
+                result |= ((UInt32)bytes[ind + i]) << ((3 - i) * 8);
+            }
+            _id = result;
+            if (_id >= _curId)
+                _curId = _id + 1;
         }
 
         /// <summary>
@@ -68,9 +104,28 @@ namespace OwlTree
         public uint Id { get { return _id; } }
 
         /// <summary>
-        /// True if this id has a valid value.
+        /// Returns the id as a byte array.
         /// </summary>
-        public bool IsValid { get { return _id < _curId; } }
+        public byte[] ToBytes()
+        {
+            return BitConverter.GetBytes(_id);
+        }
+
+        /// <summary>
+        /// Inserts id as bytes into the given byte array, starting at ind.
+        /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
+        /// </summary>
+        public bool InsertBytes(ref byte[] bytes, int ind)
+        {
+            if (bytes.Length < ind + 4)
+                return false;
+            byte mask = 0xff;
+            for (int i = 0; i < 4; i++)
+            {
+                bytes[i + ind] = (byte)((_id >> ((3 - i) * 8)) & mask);
+            }
+            return true;
+        }
 
         /// <summary>
         /// The network object id used to signal that there is no object. Id value is 0.
@@ -97,6 +152,16 @@ namespace OwlTree
         public override int GetHashCode()
         {
             return _id.GetHashCode();
+        }
+
+        public static NetworkId FromBytes(byte[] bytes)
+        {
+            return new NetworkId(bytes);
+        }
+
+        public static NetworkId FromBytes(byte[] bytes, int ind)
+        {
+            return new NetworkId(bytes, ind);
         }
     }
 }
