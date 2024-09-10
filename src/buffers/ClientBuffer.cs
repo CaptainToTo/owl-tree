@@ -30,36 +30,16 @@ namespace OwlTree
         private Socket[] _readList;
         private List<ClientId> _clients = new List<ClientId>();
 
-        public ClientId LocalId { get; private set; }
-        
-        // currently read messages
-        private Queue<Message> _incoming = new Queue<Message>();
-
         // messages to be sent ot the sever
         private MessageBuffer _outgoing;
 
         /// <summary>
-        /// Get the next message in the read queue.
-        /// </summary>
-        /// <param name="message">The next message.</param>
-        /// <returns>True if there is a message, false if the queue is empty.</returns>
-        public bool GetNextMessage(out Message message)
-        {
-            if (_incoming.Count == 0)
-            {
-                message = Message.Empty;
-                return false;
-            }
-            message = _incoming.Dequeue();
-            return true;
-        }
-
-        /// <summary>
         /// Reads any data currently on the socket. Putting new messages in the queue.
+        /// Blocks infinitely while waiting for the server to initially assign the buffer a ClientId.
         /// </summary>
-        public void Read()
+        public override void Read()
         {
-            Socket.Select(_readList, null, null, 0);
+            Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
             byte[] data = new byte[BufferSize];
             List<byte[]> messages = new List<byte[]>();
@@ -88,9 +68,41 @@ namespace OwlTree
 
                     foreach (var message in messages)
                     {
-                        _incoming.Enqueue(new Message(ClientId.None, LocalId, message));
+                        int clientMessage;
+                        if ((clientMessage = ClientMessageDecode(message, out var clientId)) >= CLIENT_CONNECTED_MESSAGE_ID)
+                        {
+                            HandleClientConnectionMessage(clientMessage, clientId);
+                        }
+                        else
+                        {
+                            _incoming.Enqueue(new Message(ClientId.None, message));
+                        }
                     }
                 }
+            }
+        }
+
+        // handle connections and disconnections immediately, 
+        // they do not preserve the message execution order.
+        private void HandleClientConnectionMessage(int messageType, ClientId id)
+        {
+            switch (messageType)
+            {
+                case CLIENT_CONNECTED_MESSAGE_ID:
+                    _clients.Add(id);
+                    OnClientConnected?.Invoke(id);
+                    break;
+                case LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                    _clients.Add(id);
+                    LocalId = id;
+                    IsReady = true;
+                    OnReady?.Invoke(LocalId);
+                    break;
+                case CLIENT_DISCONNECTED_MESSAGE_ID:
+                    _clients.Remove(id);
+                    OnClientDisconnected?.Invoke(id);
+                    break;
+                default: break;
             }
         }
         
@@ -98,7 +110,7 @@ namespace OwlTree
         /// Add message to the outgoing buffer.
         /// Actually write the buffer to the socket with <c>Write()</c>.
         /// </summary>
-        public void Send(byte[] message)
+        public override void Write(byte[] message)
         {
             try
             {
@@ -108,10 +120,20 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// INVALID ON CLIENTS. Clients cannot directly send messages to other clients.
+        /// To do this, send a message to the server with <c>Send()</c> that contains the intended
+        /// recipient. The server can then pass that message to the recipient.
+        /// </summary>
+        public override void WriteTo(ClientId id, byte[] message)
+        {
+            throw new InvalidOperationException("Clients cannot directly send messages to other clients.");
+        }
+
+        /// <summary>
         /// Write current outgoing buffer to the server socket.
         /// Buffer is cleared after writing.
         /// </summary>
-        public void Write()
+        public override void Send()
         {
             _client.Send(_outgoing.GetBuffer());
             _outgoing.Reset();
@@ -121,10 +143,18 @@ namespace OwlTree
         /// Disconnect the client from the server.
         /// Invokes <c>OnClientDisconnected</c> with the local ClientId.
         /// </summary>
-        public void Disconnect()
+        public override void Disconnect()
         {
             _client.Close();
             OnClientDisconnected?.Invoke(LocalId);
+        }
+
+        /// <summary>
+        /// INVALID ON CLIENTS. Clients cannot disconnect other clients.
+        /// </summary>
+        public override void Disconnect(ClientId id)
+        {
+            throw new InvalidOperationException("Clients cannot disconnect other clients.");
         }
     }
 }

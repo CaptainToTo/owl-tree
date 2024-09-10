@@ -24,70 +24,69 @@ namespace OwlTree
             IPEndPoint endPoint = new IPEndPoint(Address, Port);
             _server.Bind(endPoint);
             _server.Listen(maxClients);
-            readList.Add(_server);
+            _readList.Add(_server);
             MaxClients = maxClients;
+            LocalId = ClientId.None;
+            IsReady = true;
         }
 
         public int MaxClients { get; private set; }
 
         // used to map a client's socket to its id and buffer
-        private struct ClientInstance
+        private class ClientInstance
         {
             public ClientId id;
             public MessageBuffer buffer;
+            public Socket socket;
+
+            public ClientInstance(ClientId id, MessageBuffer buffer, Socket socket)
+            {
+                this.id = id;
+                this.buffer = buffer;
+                this.socket = socket;
+            }
         }
 
         // server state
         private Socket _server;
-        private List<Socket> readList = new List<Socket>();
-        private Dictionary<Socket, ClientInstance> clients = new Dictionary<Socket, ClientInstance>();
-
-        // currently read messages
-        private Queue<Message> incoming = new Queue<Message>();
-
-        /// <summary>
-        /// Get the next message in the read queue.
-        /// </summary>
-        /// <param name="message">The next message.</param>
-        /// <returns>True if there is a message, false if the queue is empty.</returns>
-        public bool GetNextMessage(out Message message)
-        {
-            if (incoming.Count == 0)
-            {
-                message = Message.Empty;
-                return false;
-            }
-            message = incoming.Dequeue();
-            return true;
-        }
+        private List<Socket> _readList = new List<Socket>();
+        private Dictionary<Socket, ClientInstance> _clientsSockets = new Dictionary<Socket, ClientInstance>();
+        private Dictionary<ClientId, ClientInstance> _clientsIds = new Dictionary<ClientId, ClientInstance>();
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
         /// </summary>
-        public void Read()
+        public override void Read()
         {
-            Socket.Select(readList, null, null, 0);
+            Socket.Select(_readList, null, null, 0);
 
             byte[] data = new byte[BufferSize];
             List<byte[]> messages = new List<byte[]>();
 
-            foreach (var socket in readList)
+            foreach (var socket in _readList)
             {
                 // new client connects
                 if (socket == _server)
                 {
                     var client = socket.Accept();
 
-                    readList.Add(client);
-                    clients.Add(
-                        client, 
-                        new ClientInstance {
-                            id = new ClientId(),
-                            buffer = new MessageBuffer(BufferSize)
-                        }
-                    );
+                    var clientInstance = new ClientInstance(new ClientId(), new MessageBuffer(BufferSize), client);
 
-                    OnClientConnected?.Invoke(clients[client].id);
+                    _readList.Add(client);
+                    _clientsSockets.Add(client, clientInstance);
+                    _clientsIds.Add(clientInstance.id, clientInstance);
+
+                    OnClientConnected?.Invoke(_clientsSockets[client].id);
+
+                    // send new client their id
+                    client.Send(LocalClientConnectEncode(clientInstance.id));
+
+                    // notify clients of a new client in the next send
+                    var clientConnectedMessage = ClientConnectEncode(clientInstance.id);
+                    foreach (var otherClient in _clientsIds)
+                    {
+                        WriteTo(otherClient.Key, clientConnectedMessage);
+                    }
                 }
                 else // receive client messages
                 {
@@ -98,15 +97,17 @@ namespace OwlTree
                     }
                     catch { }
 
-                    var client = clients[socket];
+                    var client = _clientsSockets[socket];
 
                     // disconnect if receive fails
                     if (dataLen <= 0)
                     {
-                        clients.Remove(socket);
-                        readList.Remove(socket);
+                        _clientsSockets.Remove(socket);
+                        _clientsIds.Remove(client.id);
+                        _readList.Remove(socket);
                         socket.Close();
                         OnClientDisconnected?.Invoke(client.id);
+                        Write(ClientDisconnectEncode(client.id));
                         continue;
                     }
 
@@ -115,7 +116,7 @@ namespace OwlTree
                     
                     foreach (var message in messages)
                     {
-                        incoming.Enqueue(new Message(client.id, ClientId.None, message));
+                        _incoming.Enqueue(new Message(client.id, message));
                     }
                 }
             }
@@ -125,9 +126,9 @@ namespace OwlTree
         /// Add message to all clients' buffers.
         /// Actually write buffers to sockets with <c>Write()</c>.
         /// </summary>
-        public void Broadcast(byte[] message)
+        public override void Write(byte[] message)
         {
-            foreach (var client in clients)
+            foreach (var client in _clientsSockets)
             {
                 try
                 {
@@ -137,30 +138,17 @@ namespace OwlTree
             }
         }
 
-        private Socket? GetSocket(ClientId id)
-        {
-            foreach (var client in clients)
-            {
-                if (client.Value.id == id)
-                {
-                    return client.Key;
-                }
-            }
-            return null;
-        }
-
         /// <summary>
         /// Add message to a specific client's buffer.
         /// Actually write buffers to sockets with <c>Write()</c>.
         /// </summary>
-        public void SendTo(ClientId id, byte[] message)
+        public override void WriteTo(ClientId id, byte[] message)
         {
-            var client = GetSocket(id);
-            if (client != null)
+            if (_clientsIds.TryGetValue(id, out var client))
             {
                 try
                 {
-                    clients[client].buffer.Add(message);
+                    client.buffer.Add(message);
                 }
                 catch { }
             }
@@ -170,9 +158,9 @@ namespace OwlTree
         /// Write current buffers to client sockets.
         /// Buffers are cleared after writing.
         /// </summary>
-        public void Write()
+        public override void Send()
         {
-            foreach (var client in clients)
+            foreach (var client in _clientsSockets)
             {
                 client.Key.Send(client.Value.buffer.GetBuffer());
                 client.Value.buffer.Reset();
@@ -180,18 +168,32 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// Disconnects all clients, and closes the server.
+        /// </summary>
+        public override void Disconnect()
+        {
+            var ids = _clientsIds.Keys;
+            foreach (var id in ids)
+            {
+                Disconnect(id);
+            }
+            _server.Close();
+        }
+
+        /// <summary>
         /// Disconnect a client from the server.
         /// Invokes <c>OnClientDisconnected</c>.
         /// </summary>
-        public void Disconnect(ClientId id)
+        public override void Disconnect(ClientId id)
         {
-            var socket = GetSocket(id);
-            if (socket != null)
+            if (_clientsIds.TryGetValue(id, out var client))
             {
-                clients.Remove(socket);
-                readList.Remove(socket);
-                socket.Close();
+                _clientsSockets.Remove(client.socket);
+                _clientsIds.Remove(id);
+                _readList.Remove(client.socket);
+                client.socket.Close();
                 OnClientDisconnected?.Invoke(id);
+                Write(ClientDisconnectEncode(client.id));
             }
         }
     }
