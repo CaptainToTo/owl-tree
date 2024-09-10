@@ -24,17 +24,61 @@ namespace OwlTree
         {
             if (args.role == Role.Client)
             {
-                _tcpStream = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
+                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
             }
             else
             {
-                _tcpStream = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize);
+                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize);
             }
             role = args.role;
+            _buffer.OnClientConnected = (id) => OnClientConnected?.Invoke(id);
+            _buffer.OnClientDisconnected = (id) => OnClientDisconnected?.Invoke(id);
+            _buffer.OnReady = (id) => OnReady?.Invoke(id);
         }
 
         public Role role { get; private set; }
 
-        private NetworkBuffer _tcpStream;
+        private NetworkBuffer _buffer;
+
+        public event ClientId.IdEvent? OnClientConnected;
+
+        public event ClientId.IdEvent? OnClientDisconnected;
+
+        public event ClientId.IdEvent? OnReady;
+
+        public void Read()
+        {
+            _buffer.Read();
+        }
+
+        public bool GetNextMessage(out NetworkBuffer.Message message)
+        {
+            return _buffer.GetNextMessage(out message);
+        }
+
+        public void Write(byte[] message)
+        {
+            _buffer.Write(message);
+        }
+
+        public void WriteTo(ClientId id, byte[] message)
+        {
+            _buffer.WriteTo(id, message);
+        }
+
+        public void Send()
+        {
+            _buffer.Send();
+        }
+
+        public void Disconnect()
+        {
+            _buffer.Disconnect();
+        }
+
+        public void Disconnect(ClientId id)
+        {
+            _buffer.Disconnect(id);
+        }
     }
 }

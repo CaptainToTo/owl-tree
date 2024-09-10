@@ -7,6 +7,8 @@ namespace OwlTree
     /// </summary>
     public struct ClientId
     {
+        public delegate void IdEvent(ClientId id);
+
         // tracks the current id for the next id generated
         private static UInt32 _curId = 1;
 

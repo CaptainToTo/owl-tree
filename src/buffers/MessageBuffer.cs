@@ -17,7 +17,8 @@ namespace OwlTree
         public byte[] GetBuffer()
         {
             byte[] copy = new byte[_tail];
-            _buffer.CopyTo(copy, 0);
+            for (int i = 0; i < _tail; i++)
+                copy[i] = _buffer[i];
             return copy;
         }
         
@@ -64,9 +65,8 @@ namespace OwlTree
             
             _buffer[_tail] = len;
             _tail++;
-            var end = _tail + len;
 
-            for (int i = _tail; i < end; i++)
+            for (int i = 0; i < len; i++)
             {
                 _buffer[_tail] = bytes[i];
                 _tail++;
@@ -90,6 +90,8 @@ namespace OwlTree
             {
                 if (!reading)
                 {
+                    if (stream[i] == 0)
+                        break;
                     curBytes = new byte[stream[i]];
                     curIndex = 0;
                     reading = true;

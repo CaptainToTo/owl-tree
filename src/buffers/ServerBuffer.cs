@@ -58,6 +58,11 @@ namespace OwlTree
         /// </summary>
         public override void Read()
         {
+            _readList.Clear();
+            _readList.Add(_server);
+            foreach (var client in _clientsSockets)
+                _readList.Add(client.Key);
+            
             Socket.Select(_readList, null, null, 0);
 
             byte[] data = new byte[BufferSize];
@@ -72,14 +77,15 @@ namespace OwlTree
 
                     var clientInstance = new ClientInstance(new ClientId(), new MessageBuffer(BufferSize), client);
 
-                    _readList.Add(client);
                     _clientsSockets.Add(client, clientInstance);
                     _clientsIds.Add(clientInstance.id, clientInstance);
 
                     OnClientConnected?.Invoke(_clientsSockets[client].id);
 
                     // send new client their id
-                    client.Send(LocalClientConnectEncode(clientInstance.id));
+                    clientInstance.buffer.Add(LocalClientConnectEncode(clientInstance.id));
+                    client.Send(clientInstance.buffer.GetBuffer());
+                    clientInstance.buffer.Reset();
 
                     // notify clients of a new client in the next send
                     var clientConnectedMessage = ClientConnectEncode(clientInstance.id);
@@ -104,7 +110,6 @@ namespace OwlTree
                     {
                         _clientsSockets.Remove(socket);
                         _clientsIds.Remove(client.id);
-                        _readList.Remove(socket);
                         socket.Close();
                         OnClientDisconnected?.Invoke(client.id);
                         Write(ClientDisconnectEncode(client.id));
@@ -190,7 +195,6 @@ namespace OwlTree
             {
                 _clientsSockets.Remove(client.socket);
                 _clientsIds.Remove(id);
-                _readList.Remove(client.socket);
                 client.socket.Close();
                 OnClientDisconnected?.Invoke(id);
                 Write(ClientDisconnectEncode(client.id));

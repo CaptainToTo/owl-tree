@@ -20,7 +20,7 @@ namespace OwlTree
             IPEndPoint endPoint = new IPEndPoint(Address, port);
             _client.Connect(endPoint);
 
-            _readList = [_client];
+            _readList = new Socket[1]{_client};
 
             _outgoing = new MessageBuffer(bufferSize);
         }
@@ -39,6 +39,7 @@ namespace OwlTree
         /// </summary>
         public override void Read()
         {
+            _readList[0] = _client;
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
             byte[] data = new byte[BufferSize];
