@@ -4,7 +4,6 @@ namespace OwlTree
     /// <summary>
     /// Implement to a make a struct or class a valid RPC argument.
     /// </summary>
-    /// <typeparam name="T">The type this is implementing this interface.</typeparam>
     public interface IEncodable<T>
     {
         /// <summary>
@@ -14,8 +13,10 @@ namespace OwlTree
 
         /// <summary>
         /// Inserts a byte array representation of the object into bytes, starting at index ind.
+        /// ind should be updated to be after the last byte inserted.<br />
+        /// Return true if the bytes were successfully inserted, false otherwise.
         /// </summary>
-        public bool InsertBytes(ref byte[] bytes, int ind);
+        public bool InsertBytes(ref byte[] bytes, ref int ind);
 
         /// <summary>
         /// Constructs an instance of the object from a byte array representation.
@@ -24,7 +25,8 @@ namespace OwlTree
 
         /// <summary>
         /// Constructs an instance of the object from a byte array representation, starting from ind.
+        /// ind should be updated to be after the last byte read.
         /// </summary>
-        public static abstract T FromBytes(byte[] bytes, int ind);
+        public static abstract T FromBytes(byte[] bytes, ref int ind);
     }
 }

@@ -11,7 +11,7 @@ namespace OwlTree
         }
 
         [Rpc(RpcCaller.Server)]
-        private void TestRpc(NetworkId id)
+        private void TestRpc(NetworkId id, int i)
         {
             Console.WriteLine("Network Id: " + id.ToString());
         }

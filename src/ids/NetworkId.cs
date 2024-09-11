@@ -115,7 +115,7 @@ namespace OwlTree
         /// Inserts id as bytes into the given byte array, starting at ind.
         /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
         /// </summary>
-        public bool InsertBytes(ref byte[] bytes, int ind)
+        public bool InsertBytes(ref byte[] bytes, ref int ind)
         {
             if (bytes.Length < ind + 4)
                 return false;
@@ -124,6 +124,7 @@ namespace OwlTree
             {
                 bytes[i + ind] = (byte)((_id >> ((3 - i) * 8)) & mask);
             }
+            ind += 4;
             return true;
         }
 
@@ -159,9 +160,11 @@ namespace OwlTree
             return new NetworkId(bytes);
         }
 
-        public static NetworkId FromBytes(byte[] bytes, int ind)
+        public static NetworkId FromBytes(byte[] bytes, ref int ind)
         {
-            return new NetworkId(bytes, ind);
+            var newId = new NetworkId(bytes, ind);
+            ind += 4;
+            return newId;
         }
     }
 }

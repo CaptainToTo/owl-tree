@@ -151,21 +151,24 @@ namespace OwlTree
         protected static byte[] ClientConnectEncode(ClientId id)
         {
             var bytes = new byte[]{CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            id.InsertBytes(ref bytes, 1);
+            var ind = 1;
+            id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
         protected static byte[] LocalClientConnectEncode(ClientId id)
         {
             var bytes = new byte[]{LOCAL_CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            id.InsertBytes(ref bytes, 1);
+            var ind = 1;
+            id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
         protected static byte[] ClientDisconnectEncode(ClientId id)
         {
             var bytes = new byte[]{CLIENT_DISCONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            id.InsertBytes(ref bytes, 1);
+            var ind = 1;
+            id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
