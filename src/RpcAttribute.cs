@@ -1,4 +1,5 @@
 
+using System.Diagnostics;
 using System.Reflection;
 
 namespace OwlTree
@@ -74,6 +75,26 @@ namespace OwlTree
                 _protocolsByMethod.Add(rpc, protocol);
                 _protocolsById.Add(protocol.Id, protocol);
             }
+        }
+
+        public static byte[] EncodeRPC(NetworkObject? source, params object[] args)
+        {
+            var stack = new StackTrace(true);
+            var frame = stack.GetFrame(1);
+            if (frame == null)
+                throw new InvalidOperationException("Encode operation must be executed from an RPC");
+
+            var method = frame.GetMethod() as MethodInfo;
+            if (method == null || method.GetCustomAttribute<RpcAttribute>() == null)
+                throw new InvalidOperationException("Encode operation must be executed from an RPC");
+            Console.WriteLine("Encoding: " + method.Name);
+            return _protocolsByMethod[method].Encode(args);
+        }
+
+        public static object?[] DecodeRPC(byte[] bytes)
+        {
+            int ind = 0;
+            return _protocolsById[bytes[0]].Decode(bytes, ref ind);
         }
     }
 }

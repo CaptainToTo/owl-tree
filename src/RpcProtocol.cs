@@ -38,19 +38,19 @@ namespace OwlTree
 
             bytes[0] = Id;
 
-            int i = 1;
-            foreach (var arg in args)
+            int ind = 1;
+            for (int i = 0; i < ParamTypes.Length; i++)
             {
                 if (ParamTypes[i] != args[i].GetType())
                     throw new ArgumentException("args must have the same types as the expected method parameters, in the correct order.");
                 
-                InsertBytes(ref bytes, arg, ref i);
+                InsertBytes(bytes, args[i], ref ind);
             }
 
             return bytes;
         }
 
-        public object?[] Decode(byte[] bytes, int ind)
+        public object?[] Decode(byte[] bytes, ref int ind)
         {
             if (bytes[ind] != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
@@ -126,7 +126,7 @@ namespace OwlTree
                     {
                         int curInd = ind;
                         object[] paramList = [bytes, curInd];
-                        result = t.GetMethod("FromBytes")?.Invoke(null, paramList);
+                        result = t.GetMethod("FromBytesAt")?.Invoke(null, paramList);
                         ind = (int)paramList[1];
                         break;
                     }
@@ -136,7 +136,7 @@ namespace OwlTree
             return result;
         }
 
-        private static void InsertBytes(ref byte[] bytes, object arg, ref int ind)
+        private static void InsertBytes(byte[] bytes, object arg, ref int ind)
         {
             var t = arg.GetType();
             if (t == typeof(int))

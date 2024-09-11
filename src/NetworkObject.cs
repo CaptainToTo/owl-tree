@@ -11,9 +11,13 @@ namespace OwlTree
         }
 
         [Rpc(RpcCaller.Server)]
-        private void TestRpc(NetworkId id, int i)
+        public void TestRpc(NetworkId id, int i)
         {
-            Console.WriteLine("Network Id: " + id.ToString());
+            var bytes = RpcAttribute.EncodeRPC(this, id, i);
+            Console.WriteLine(BitConverter.ToString(bytes));
+            var args = RpcAttribute.DecodeRPC(bytes);
+            Console.WriteLine("Id: " + args[0]?.ToString());
+            Console.WriteLine("i: " + args[1]?.ToString());
         }
 
         [Rpc(RpcCaller.Any)]

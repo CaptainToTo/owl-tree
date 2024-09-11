@@ -137,6 +137,14 @@ namespace OwlTree
 
         // Operators
 
+        /// <summary>
+        /// Returns the id number as a string.
+        /// </summary>
+        public override string ToString()
+        {
+            return _id.ToString();
+        }
+
         public static bool operator ==(NetworkId a, NetworkId b)
         {
             return a._id == b._id;
@@ -162,7 +170,7 @@ namespace OwlTree
             return new NetworkId(bytes);
         }
 
-        public static object FromBytes(byte[] bytes, ref int ind)
+        public static object FromBytesAt(byte[] bytes, ref int ind)
         {
             var newId = new NetworkId(bytes, ind);
             ind += 4;

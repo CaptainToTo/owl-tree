@@ -8,6 +8,8 @@ class Program
     static void Main(string[] args)
     {
         RpcAttribute.GenerateRpcProtocols();
+        var obj = new NetworkObject(new NetworkId());
+        obj.TestRpc(obj.Id, 5);
         return;
         // if (args[0] == "s")
         // {

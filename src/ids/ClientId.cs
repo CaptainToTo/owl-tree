@@ -174,7 +174,7 @@ namespace OwlTree
             return new ClientId(bytes);
         }
 
-        public static object FromBytes(byte[] bytes, ref int ind)
+        public static object FromBytesAt(byte[] bytes, ref int ind)
         {
             var newId = new ClientId(bytes, ind);
             ind += 4;
