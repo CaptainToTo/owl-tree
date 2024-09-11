@@ -128,6 +128,8 @@ namespace OwlTree
             return true;
         }
 
+        public int ExpectedLength() { return 4; }
+
         /// <summary>
         /// The network object id used to signal that there is no object. Id value is 0.
         /// </summary>

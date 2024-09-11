@@ -38,13 +38,8 @@ namespace OwlTree
             this.caller = caller;
         }
 
-        struct RpcProtocol
-        {
-            public byte id;
-            public Type[] paramTypes;
-        }
-
-        // private static 
+        private static Dictionary<MethodInfo, RpcProtocol> _protocolsByMethod = new Dictionary<MethodInfo, RpcProtocol>();
+        private static Dictionary<byte, RpcProtocol> _protocolsById = new Dictionary<byte, RpcProtocol>();
 
         public static void GenerateRpcProtocols()
         {
@@ -58,26 +53,23 @@ namespace OwlTree
             foreach (var rpc in rpcs)
             {
                 var args = rpc.GetParameters();
+                Type[] paramTypes = new Type[args.Length];
+
                 Console.WriteLine(rpc.Name + ":");
-                foreach (var arg in args)
+                for (int i = 0; i < args.Length; i++)
                 {
+                    var arg = args[i];
                     Console.WriteLine("    " + arg.ParameterType.FullName + " " + arg.Name);
-                    var encodableTypes = arg.ParameterType.GetInterfaces();
-                    bool foundEncodable = false;
-                    foreach (var a in encodableTypes)
-                    {
-                        if (a.IsGenericType)
-                        {
-                            if (a.GetGenericTypeDefinition() == encodable)
-                                foundEncodable = true;
-                                break;
-                        }
-                    }
-                    if (encodableTypes == null || encodableTypes.Length == 0 || !foundEncodable)
-                    {
-                        throw new ArgumentException("All arguments must be convertable to a byte array.");
-                    }
+
+                    if (!RpcProtocol.IsEncodableParam(arg))
+                        throw new ArgumentException("All arguments must be convertible to a byte array.");
+                    
+                    paramTypes[i] = arg.ParameterType;
                 }
+
+                var protocol = new RpcProtocol(paramTypes);
+                _protocolsByMethod.Add(rpc, protocol);
+                _protocolsById.Add(protocol.Id, protocol);
             }
         }
     }

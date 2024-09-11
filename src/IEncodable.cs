@@ -19,6 +19,11 @@ namespace OwlTree
         public bool InsertBytes(ref byte[] bytes, ref int ind);
 
         /// <summary>
+        /// Returns the expected number of bytes it will take to encode this object.
+        /// </summary>
+        public int ExpectedLength();
+
+        /// <summary>
         /// Constructs an instance of the object from a byte array representation.
         /// </summary>
         public static abstract T FromBytes(byte[] bytes);

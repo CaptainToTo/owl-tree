@@ -76,7 +76,7 @@ namespace OwlTree
                     foreach (var message in messages)
                     {
                         int clientMessage;
-                        if ((clientMessage = ClientMessageDecode(message, out var clientId)) >= CLIENT_CONNECTED_MESSAGE_ID)
+                        if ((clientMessage = ClientMessageDecode(message, out var clientId)) >= RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID)
                         {
                             HandleClientConnectionMessage(clientMessage, clientId);
                         }
@@ -95,17 +95,17 @@ namespace OwlTree
         {
             switch (messageType)
             {
-                case CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID:
                     _clients.Add(id);
                     OnClientConnected?.Invoke(id);
                     break;
-                case LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
                     _clients.Add(id);
                     LocalId = id;
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
-                case CLIENT_DISCONNECTED_MESSAGE_ID:
+                case RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID:
                     _clients.Remove(id);
                     OnClientDisconnected?.Invoke(id);
                     break;

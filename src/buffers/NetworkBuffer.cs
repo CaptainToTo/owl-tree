@@ -144,13 +144,9 @@ namespace OwlTree
 
         // * Connection and Disconnection Message Protocols
 
-        protected const byte CLIENT_CONNECTED_MESSAGE_ID = 0;
-        protected const byte LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 1;
-        protected const byte CLIENT_DISCONNECTED_MESSAGE_ID = 2;
-
         protected static byte[] ClientConnectEncode(ClientId id)
         {
-            var bytes = new byte[]{CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
+            var bytes = new byte[]{RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
             var ind = 1;
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
@@ -158,7 +154,7 @@ namespace OwlTree
 
         protected static byte[] LocalClientConnectEncode(ClientId id)
         {
-            var bytes = new byte[]{LOCAL_CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
+            var bytes = new byte[]{RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
             var ind = 1;
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
@@ -166,7 +162,7 @@ namespace OwlTree
 
         protected static byte[] ClientDisconnectEncode(ClientId id)
         {
-            var bytes = new byte[]{CLIENT_DISCONNECTED_MESSAGE_ID, 0, 0, 0, 0};
+            var bytes = new byte[]{RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID, 0, 0, 0, 0};
             var ind = 1;
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
@@ -177,14 +173,14 @@ namespace OwlTree
             int result;
             switch(message[0])
             {
-                case CLIENT_CONNECTED_MESSAGE_ID:
-                    result = CLIENT_CONNECTED_MESSAGE_ID;
+                case RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID:
+                    result = RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID;
                     break;
-                case LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
-                    result = LOCAL_CLIENT_CONNECTED_MESSAGE_ID;
+                case RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                    result = RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID;
                     break;
-                case CLIENT_DISCONNECTED_MESSAGE_ID:
-                    result = CLIENT_DISCONNECTED_MESSAGE_ID;
+                case RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID:
+                    result = RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID;
                     break;
                 default:
                     id = ClientId.None;

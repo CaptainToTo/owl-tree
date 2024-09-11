@@ -15,5 +15,11 @@ namespace OwlTree
         {
             Console.WriteLine("Network Id: " + id.ToString());
         }
+
+        [Rpc(RpcCaller.Any)]
+        public void TestRpc2(ClientId id, float a, float b, string x)
+        {
+            Console.WriteLine("Client Id: " + id.ToString());
+        }
     }
 }
