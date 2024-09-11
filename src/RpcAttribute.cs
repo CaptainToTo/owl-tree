@@ -44,7 +44,7 @@ namespace OwlTree
         public static void GenerateRpcProtocols()
         {
             Type t = typeof(NetworkObject);
-            Type encodable = typeof(IEncodable<>);
+            // Type encodable = typeof(IEncodable);
 
             var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Public)
                         .Where(m => m.GetCustomAttributes(typeof(RpcAttribute), false).Length > 0)
@@ -52,6 +52,9 @@ namespace OwlTree
             
             foreach (var rpc in rpcs)
             {
+                if (rpc.ReturnType != typeof(void))
+                    throw new InvalidOperationException("RPC return types must be void.");
+
                 var args = rpc.GetParameters();
                 Type[] paramTypes = new Type[args.Length];
 
@@ -67,7 +70,7 @@ namespace OwlTree
                     paramTypes[i] = arg.ParameterType;
                 }
 
-                var protocol = new RpcProtocol(paramTypes);
+                var protocol = new RpcProtocol(rpc, paramTypes);
                 _protocolsByMethod.Add(rpc, protocol);
                 _protocolsById.Add(protocol.Id, protocol);
             }

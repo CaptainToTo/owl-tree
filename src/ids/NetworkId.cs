@@ -3,7 +3,7 @@ namespace OwlTree
     /// <summary>
     /// Unique integer Id for each network object. 
     /// </summary>
-    public struct NetworkId : IEncodable<NetworkId>
+    public struct NetworkId : IEncodable
     {
         // tracks the current id for the next id generated
         private static UInt32 _curId = 1;
@@ -157,12 +157,12 @@ namespace OwlTree
             return _id.GetHashCode();
         }
 
-        public static NetworkId FromBytes(byte[] bytes)
+        public static object FromBytes(byte[] bytes)
         {
             return new NetworkId(bytes);
         }
 
-        public static NetworkId FromBytes(byte[] bytes, ref int ind)
+        public static object FromBytes(byte[] bytes, ref int ind)
         {
             var newId = new NetworkId(bytes, ind);
             ind += 4;
