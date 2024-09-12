@@ -13,19 +13,31 @@ namespace OwlTree
         internal const byte NETWORK_OBJECT_DESTROY            = 4;
         internal const byte FIRST_RPC_ID                      = 5;
 
+        internal const int RPC_ID_BYTE_LEN = 1;
+        internal const int MAX_RPC_ID      = 255;
+
         private static byte _curId = FIRST_RPC_ID;
 
-        public RpcProtocol(MethodInfo method, Type[] paramTypes)
+        public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes)
         {
             Id = _curId;
             _curId++;
             ParamTypes = paramTypes;
             Method = method;
+            var data = Method.GetCustomAttribute<RpcAttribute>();
+            if (data == null)
+                throw new ArgumentException("Methods must be RPCs to be assigned a protocol.");
+            RpcData = data;
+            NetworkObjectType = networkObjectType;
         }
 
         public byte Id { get; private set; }
 
+        public Type NetworkObjectType { get; private set; }
+
         public MethodInfo Method { get; private set; }
+
+        public RpcAttribute RpcData { get; private set; }
 
         public Type[] ParamTypes { get; private set; }
 
@@ -48,6 +60,17 @@ namespace OwlTree
             }
 
             return bytes;
+        }
+
+        public void Invoke(NetworkObject? target, byte[] encoding, ref int ind)
+        {
+            if (target == null && !Method.IsStatic)
+                throw new ArgumentException("Target can only be null if the RPC is a static method.");
+
+            if (target != null && target.GetType() != NetworkObjectType)
+                throw new ArgumentException("Target must match this RPC's type");
+            var args = Decode(encoding, ref ind);
+            Method.Invoke(target, args);
         }
 
         public object?[] Decode(byte[] bytes, ref int ind)

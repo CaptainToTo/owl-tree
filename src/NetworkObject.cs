@@ -4,10 +4,26 @@ namespace OwlTree
     public class NetworkObject
     {
         public NetworkId Id { get; private set; }
+        public bool IsActive { get; private set; }
+
+        internal void SetIdInternal(NetworkId id)
+        {
+            Id = id;
+        }
+
+        internal void SetActiveInternal(bool state)
+        {
+            IsActive = state;
+        }
 
         public NetworkObject(NetworkId id)
         {
             Id = id;
+        }
+
+        public NetworkObject()
+        {
+            Id = NetworkId.None;
         }
 
         [Rpc(RpcCaller.Server)]

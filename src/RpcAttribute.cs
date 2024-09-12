@@ -71,7 +71,7 @@ namespace OwlTree
                     paramTypes[i] = arg.ParameterType;
                 }
 
-                var protocol = new RpcProtocol(rpc, paramTypes);
+                var protocol = new RpcProtocol(t, rpc, paramTypes);
                 _protocolsByMethod.Add(rpc, protocol);
                 _protocolsById.Add(protocol.Id, protocol);
             }
