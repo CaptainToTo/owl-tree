@@ -19,7 +19,7 @@ class Program
             });
             server.OnClientConnected += (ClientId id) => Console.WriteLine(id.ToString());
             server.OnClientConnected += (ClientId id) => {
-                var netObj = server.Spawn<NetworkObject>();
+                var netObj = server.Spawn<Radio>();
                 // server.Send();
                 server.Destroy(netObj);
                 server.Send();
@@ -33,6 +33,8 @@ class Program
                 role = Connection.Role.Client
             });
             client.OnReady += (ClientId id) => Console.WriteLine("Local Id: " + id.ToString());
+            client.OnObjectSpawn += (obj) => Console.WriteLine("Spawned: " + obj.ToString());
+            client.OnObjectDestroy += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
             client.Read();
             Loop(client);
         }

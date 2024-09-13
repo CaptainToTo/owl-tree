@@ -21,6 +21,11 @@ namespace OwlTree
         /// then the object has been "destroyed".
         /// </summary>
         public bool IsActive { get; private set; }
+        
+        /// <summary>
+        /// The connection this object associated with, and managed by.
+        /// </summary>
+        public Connection? Connection { get; private set; }
 
         /// <summary>
         /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.
@@ -38,6 +43,15 @@ namespace OwlTree
         internal void SetActiveInternal(bool state)
         {
             IsActive = state;
+        }
+
+        /// <summary>
+        /// FOR INTERNAL USE ONLY. Sets the connection this object is associated with.
+        /// </summary>
+        /// <param name="connection"></param>
+        internal void SetConnectionInternal(Connection connection)
+        {
+            Connection = connection;
         }
 
         /// <summary>
