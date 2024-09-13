@@ -69,14 +69,15 @@ namespace OwlTree
                         OnClientDisconnected?.Invoke(LocalId);
                         return;
                     }
+                    Console.WriteLine(BitConverter.ToString(data));
 
                     messages.Clear();
                     MessageBuffer.SplitMessageBytes(data, ref messages);
 
                     foreach (var message in messages)
                     {
-                        int clientMessage;
-                        if ((clientMessage = ClientMessageDecode(message, out var clientId)) >= RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID)
+                        int clientMessage = ClientMessageDecode(message, out var clientId);
+                        if (RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID)
                         {
                             HandleClientConnectionMessage(clientMessage, clientId);
                         }

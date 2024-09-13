@@ -1,45 +1,110 @@
 
 namespace OwlTree
 {
-    public class NetworkObject
+    /// <summary>
+    /// Base class for any object type that can be synchronously spawned.
+    /// </summary>
+    public class NetworkObject : IEncodable
     {
+        /// <summary>
+        /// Basic function signature for passing NetworkObjects.
+        /// </summary>
+        public delegate void Delegate(NetworkObject obj);
+
+        /// <summary>
+        /// The object's network id. This is synchronized across clients.
+        /// </summary>
         public NetworkId Id { get; private set; }
+
+        /// <summary>
+        /// Whether or not the object is currently being managed across clients. If false, 
+        /// then the object has been "destroyed".
+        /// </summary>
         public bool IsActive { get; private set; }
 
+        /// <summary>
+        /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.
+        /// </summary>
         internal void SetIdInternal(NetworkId id)
         {
             Id = id;
         }
 
+        /// <summary>
+        /// FOR INTERNAL USE ONLY. Sets whether the object is active. If false, 
+        /// then the object has been "destroyed".
+        /// </summary>
+        /// <param name="state"></param>
         internal void SetActiveInternal(bool state)
         {
             IsActive = state;
         }
 
+        /// <summary>
+        /// Create a new NetworkObject, and assign it the given network id.
+        /// </summary>
         public NetworkObject(NetworkId id)
         {
             Id = id;
         }
 
+        /// <summary>
+        /// Create a new NetworkObject. Id defaults to NetworkId.None.
+        /// </summary>
         public NetworkObject()
         {
             Id = NetworkId.None;
         }
 
-        [Rpc(RpcCaller.Server)]
-        public void TestRpc(NetworkId id, int i)
+        /// <summary>
+        /// Invoked when this object is spawned.
+        /// </summary>
+        public virtual void OnSpawn() { }
+
+        /// <summary>
+        /// Invoked when this object is destroyed.
+        /// </summary>
+        public virtual void OnDestroy() { }
+
+        // [Rpc(RpcCaller.Server)]
+        // public void TestRpc(NetworkId id, int i)
+        // {
+        //     var bytes = RpcAttribute.EncodeRPC(this, id, i);
+        //     Console.WriteLine(BitConverter.ToString(bytes));
+        //     var args = RpcAttribute.DecodeRPC(bytes);
+        //     Console.WriteLine("Id: " + args[0]?.ToString());
+        //     Console.WriteLine("i: " + args[1]?.ToString());
+        // }
+
+        // [Rpc(RpcCaller.Any)]
+        // public void TestRpc2(ClientId id, float a, float b, string x)
+        // {
+        //     Console.WriteLine("Client Id: " + id.ToString());
+        // }
+
+        public byte[] ToBytes()
         {
-            var bytes = RpcAttribute.EncodeRPC(this, id, i);
-            Console.WriteLine(BitConverter.ToString(bytes));
-            var args = RpcAttribute.DecodeRPC(bytes);
-            Console.WriteLine("Id: " + args[0]?.ToString());
-            Console.WriteLine("i: " + args[1]?.ToString());
+            return Id.ToBytes();
         }
 
-        [Rpc(RpcCaller.Any)]
-        public void TestRpc2(ClientId id, float a, float b, string x)
+        public bool InsertBytes(ref byte[] bytes, ref int ind)
         {
-            Console.WriteLine("Client Id: " + id.ToString());
+            return Id.InsertBytes(ref bytes, ref ind);
+        }
+
+        public int ExpectedLength()
+        {
+            return Id.ExpectedLength();
+        }
+
+        public static object FromBytes(byte[] bytes)
+        {
+            return NetworkId.FromBytes(bytes);
+        }
+
+        public static object FromBytesAt(byte[] bytes, ref int ind)
+        {
+            return NetworkId.FromBytesAt(bytes, ref ind);
         }
     }
 }

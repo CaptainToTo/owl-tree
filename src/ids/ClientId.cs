@@ -7,7 +7,10 @@ namespace OwlTree
     /// </summary>
     public struct ClientId : IEncodable
     {
-        public delegate void IdEvent(ClientId id);
+        /// <summary>
+        /// Basic function signature for passing ClientIds.
+        /// </summary>
+        public delegate void Delegate(ClientId id);
 
         // tracks the current id for the next id generated
         private static UInt32 _curId = 1;

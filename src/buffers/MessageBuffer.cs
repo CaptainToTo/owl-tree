@@ -111,5 +111,13 @@ namespace OwlTree
                 messages.Add(curBytes);
             }
         }
+
+        /// <summary>
+        /// Get the current buffer as a string of hex values.
+        /// </summary>
+        public override string ToString()
+        {
+            return BitConverter.ToString(_buffer);
+        }
     }
 }

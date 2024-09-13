@@ -64,18 +64,18 @@ namespace OwlTree
         /// <summary>
         /// Invoked when a new client connects.
         /// </summary>
-        public Action<ClientId>? OnClientConnected;
+        public ClientId.Delegate? OnClientConnected;
 
         /// <summary>
         /// Invoked when a client disconnects.
         /// </summary>
-        public Action<ClientId>? OnClientDisconnected;
+        public ClientId.Delegate? OnClientDisconnected;
 
         /// <summary>
         /// Invoked when the local connection is ready. Provides the local ClientId.
         /// If this is a server instance, then the ClientId will be <c>ClientId.None</c>.
         /// </summary>
-        public Action<ClientId>? OnReady;
+        public ClientId.Delegate? OnReady;
 
         /// <summary>
         /// Whether or not the connection is ready. 
