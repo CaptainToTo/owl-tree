@@ -24,10 +24,6 @@ namespace OwlTree
             _curId++;
             ParamTypes = paramTypes;
             Method = method;
-            // var data = Method.GetCustomAttribute<RpcAttribute>();
-            // if (data == null)
-            //     throw new ArgumentException("Methods must be RPCs to be assigned a protocol.");
-            // RpcData = data;
             NetworkObjectType = networkObjectType;
         }
 
@@ -37,9 +33,34 @@ namespace OwlTree
 
         public MethodInfo Method { get; private set; }
 
-        // public RpcAttribute RpcData { get; private set; }
-
         public Type[] ParamTypes { get; private set; }
+
+        public override string ToString()
+        {
+            string title = Method.Name + " <RpcId: " + Id + ">:\n";
+            string encoding = "  Bytes: [ RpcId:1b ][ NetId:" + NetworkId.MaxLength() + "b ]";
+            string parameters = "";
+            int maxSize = 1 + NetworkId.MaxLength();
+            var paramList = Method.GetParameters();
+            for (int i = 0; i < paramList.Length; i++)
+            {
+                var param = paramList[i];
+                int size = GetMaxLength(param.ParameterType);
+                maxSize += size;
+                encoding += "[ " + (i + 1) + ":" + size + "b ]";
+                parameters += "    " + (i + 1) + ": " + param.ParameterType.ToString() + " " + param.Name;
+                if (param.CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
+                {
+                    parameters += " [Callee]";
+                }
+                else if (param.CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+                {
+                    parameters += " [Caller]";
+                }
+                parameters += "\n";
+            }
+            return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
+        }
 
         public byte[] Encode(NetworkObject? source, object[] args)
         {
@@ -296,6 +317,54 @@ namespace OwlTree
                 {
                     if (a == encodable)
                         return ((IEncodable)arg).ExpectedLength();
+                }
+            }
+            return -1;
+        }
+
+        private static int GetMaxLength(Type t)
+        {
+            if (
+                t == typeof(int) ||
+                t == typeof(uint) ||
+                t == typeof(float)
+            )
+            {
+                return 4;
+            }
+            else if (
+                t == typeof(double) ||
+                t == typeof(long)
+            )
+            {
+                return 8;
+            }
+            else if (t == typeof(ushort))
+            {
+                return 2;
+            }
+            else if (
+                t == typeof(byte) ||
+                t == typeof(bool)
+            )
+            {
+                return 1;
+            }
+            else if (t == typeof(string))
+            {
+                return 256;
+            }
+            else
+            {
+                var encodable = typeof(IEncodable);
+                var encodableTypes = t.GetInterfaces();
+                foreach (var a in encodableTypes)
+                {
+                    if (a == encodable)
+                    {
+                        var method = t.GetMethod("MaxLength", BindingFlags.Static | BindingFlags.Public)!;
+                        return (int)method.Invoke(null, null)!;
+                    }
                 }
             }
             return -1;

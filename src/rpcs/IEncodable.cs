@@ -24,6 +24,11 @@ namespace OwlTree
         public int ExpectedLength();
 
         /// <summary>
+        /// Returns the max length this type of IEncodable can be.
+        /// </summary>
+        public static abstract int MaxLength();
+
+        /// <summary>
         /// Constructs an instance of the object from a byte array representation.
         /// </summary>
         public static abstract object FromBytes(byte[] bytes);

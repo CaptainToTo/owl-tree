@@ -25,4 +25,10 @@ public class Radio : NetworkObject
     {
         Console.WriteLine("Private message from server: " + message);
     }
+
+    [Rpc(RpcCaller.Server)]
+    public void RPC_SendNums(int i, float x, double z, byte j)
+    {
+
+    }
 }

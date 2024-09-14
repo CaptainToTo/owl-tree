@@ -183,5 +183,10 @@ namespace OwlTree
             ind += 4;
             return newId;
         }
+
+        public static int MaxLength()
+        {
+            return 4;
+        }
     }
 }

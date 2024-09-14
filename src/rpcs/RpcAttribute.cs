@@ -66,12 +66,14 @@ namespace OwlTree
 
         public static void GenerateRpcProtocols()
         {
+            Console.WriteLine("Generating RPC Protocols =====\n");
+
             IEnumerable<Type> types = NetworkObject.GetNetworkObjectTypes();
 
             foreach (var t in types)
             {
                 var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                            .Where(m => m.Name.ToLower().Contains("rpc"));
+                            .Where(m => m.Name.ToLower().Contains("rpc") && !m.Name.Contains("<"));
                 
                 foreach (var rpc in rpcs)
                 {
@@ -81,11 +83,9 @@ namespace OwlTree
                     var args = rpc.GetParameters();
                     Type[] paramTypes = new Type[args.Length];
 
-                    Console.WriteLine(rpc.Name + ":");
                     for (int i = 0; i < args.Length; i++)
                     {
                         var arg = args[i];
-                        Console.WriteLine("    " + arg.ParameterType.FullName + " " + arg.Name);
 
                         if (!RpcProtocol.IsEncodableParam(arg))
                             throw new ArgumentException("All arguments must be convertible to a byte array.");
@@ -96,8 +96,11 @@ namespace OwlTree
                     var protocol = new RpcProtocol(t, rpc, paramTypes);
                     _protocolsByMethod.Add(rpc, protocol);
                     _protocolsById.Add(protocol.Id, protocol);
+                    Console.WriteLine(protocol.ToString());
                 }
             }
+
+            Console.WriteLine("Completed RPC Protocols ======");
         }
 
         public override void OnInvoke(MethodInterceptionArgs args)
@@ -125,20 +128,24 @@ namespace OwlTree
 
                 if (!_protocolsByMethod.ContainsKey(method))
                     throw new InvalidOperationException("RPC protocol does not exist.");
-
-                Console.WriteLine(method.Name);
                 
                 var paramList = method.GetParameters();
                 var argsList = args.Arguments.ToArray();
+                ClientId callee = ClientId.None;
 
                 for (int i = 0; i < paramList.Length; i++)
                 {
                     if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
                         args.Arguments.SetArgument(i, netObj.Connection.LocalId);
+                    else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
+                        callee = (ClientId)argsList[i];
                 }
 
                 var bytes = _protocolsByMethod[method].Encode(netObj, argsList);
-                netObj.Connection.Write(bytes);
+                if (callee == ClientId.None)
+                    netObj.Connection.Write(bytes);
+                else
+                    netObj.Connection.WriteTo(callee, bytes);
 
                 // args.FlowBehavior = InvokeOnCaller ? FlowBehavior.Default : FlowBehavior.Return;
                 if (InvokeOnCaller)

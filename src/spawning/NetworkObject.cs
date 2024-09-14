@@ -128,5 +128,10 @@ namespace OwlTree
         {
             return NetworkId.FromBytesAt(bytes, ref ind);
         }
+
+        public static int MaxLength()
+        {
+            return NetworkId.MaxLength();
+        }
     }
 }
