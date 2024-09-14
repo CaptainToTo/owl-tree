@@ -114,8 +114,8 @@ namespace OwlTree
                 throw new InvalidOperationException("RPCs can only be called on an active connection.");
             
             if (
-                (caller == RpcCaller.Server && netObj.Connection.role == Connection.Role.Server) ||
-                (caller == RpcCaller.Client && netObj.Connection.role == Connection.Role.Client)
+                (caller == (RpcCaller)netObj.Connection.role) ||
+                (caller == (RpcCaller)netObj.Connection.role)
             )
             {
                 var method = args.Method as MethodInfo;

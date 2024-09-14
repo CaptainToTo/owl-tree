@@ -11,8 +11,8 @@ namespace OwlTree
         /// </summary>
         public enum Role
         {
-            Client,
-            Server
+            Server,
+            Client
         }
 
         /// <summary>
