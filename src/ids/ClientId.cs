@@ -149,7 +149,7 @@ namespace OwlTree
         /// </summary>
         public override string ToString()
         {
-            return _id.ToString();
+            return "[Client: " + _id.ToString() + "]";
         }
 
         public static bool operator ==(ClientId a, ClientId b)

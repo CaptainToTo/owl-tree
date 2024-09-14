@@ -24,10 +24,10 @@ namespace OwlTree
             _curId++;
             ParamTypes = paramTypes;
             Method = method;
-            var data = Method.GetCustomAttribute<RpcAttribute>();
-            if (data == null)
-                throw new ArgumentException("Methods must be RPCs to be assigned a protocol.");
-            RpcData = data;
+            // var data = Method.GetCustomAttribute<RpcAttribute>();
+            // if (data == null)
+            //     throw new ArgumentException("Methods must be RPCs to be assigned a protocol.");
+            // RpcData = data;
             NetworkObjectType = networkObjectType;
         }
 
@@ -37,20 +37,25 @@ namespace OwlTree
 
         public MethodInfo Method { get; private set; }
 
-        public RpcAttribute RpcData { get; private set; }
+        // public RpcAttribute RpcData { get; private set; }
 
         public Type[] ParamTypes { get; private set; }
 
-        public byte[] Encode(object[] args)
+        public byte[] Encode(NetworkObject? source, object[] args)
         {
             if (args.Length != ParamTypes.Length)
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
 
-            byte[] bytes = new byte[1 + ExpectedLength(args)];
+            byte[] bytes = new byte[5 + ExpectedLength(args)];
 
             bytes[0] = Id;
 
             int ind = 1;
+            if (source == null)
+                NetworkId.None.InsertBytes(ref bytes, ref ind);
+            else
+                source.InsertBytes(ref bytes, ref ind);
+
             for (int i = 0; i < ParamTypes.Length; i++)
             {
                 if (ParamTypes[i] != args[i].GetType())

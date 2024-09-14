@@ -1,6 +1,7 @@
 
-using System.Diagnostics;
 using System.Reflection;
+using PostSharp.Aspects;
+using PostSharp.Serialization;
 
 namespace OwlTree
 {
@@ -52,8 +53,8 @@ namespace OwlTree
     /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method)]
-    public class RpcAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Method), PSerializable]
+    public class RpcAttribute : OnMethodBoundaryAspect
     {
         public RpcPerms caller = RpcPerms.Any;
 
@@ -68,58 +69,79 @@ namespace OwlTree
         private static Dictionary<MethodInfo, RpcProtocol> _protocolsByMethod = new Dictionary<MethodInfo, RpcProtocol>();
         private static Dictionary<byte, RpcProtocol> _protocolsById = new Dictionary<byte, RpcProtocol>();
 
+        Type netObjType = typeof(NetworkObject);
+
         public static void GenerateRpcProtocols()
         {
-            Type t = typeof(NetworkObject);
-            // Type encodable = typeof(IEncodable);
+            var types = NetworkObject.GetNetworkObjectTypes().ToArray();
 
-            var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Public)
-                        .Where(m => m.GetCustomAttributes(typeof(RpcAttribute), false).Length > 0)
-                        .ToArray();
-            
-            foreach (var rpc in rpcs)
+            Console.WriteLine(types.Length.ToString() + " network object types ");
+
+            foreach (var t in types)
             {
-                if (rpc.ReturnType != typeof(void))
-                    throw new InvalidOperationException("RPC return types must be void.");
-
-                var args = rpc.GetParameters();
-                Type[] paramTypes = new Type[args.Length];
-
-                Console.WriteLine(rpc.Name + ":");
-                for (int i = 0; i < args.Length; i++)
+                var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                            .Where(m => m.Name.ToLower().Contains("rpc"))
+                            .ToArray();
+                
+                foreach (var rpc in rpcs)
                 {
-                    var arg = args[i];
-                    Console.WriteLine("    " + arg.ParameterType.FullName + " " + arg.Name);
+                    if (rpc.ReturnType != typeof(void))
+                        throw new InvalidOperationException("RPC return types must be void.");
 
-                    if (!RpcProtocol.IsEncodableParam(arg))
-                        throw new ArgumentException("All arguments must be convertible to a byte array.");
-                    
-                    paramTypes[i] = arg.ParameterType;
+                    var args = rpc.GetParameters();
+                    Type[] paramTypes = new Type[args.Length];
+
+                    Console.WriteLine(rpc.Name + ":");
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        var arg = args[i];
+                        Console.WriteLine("    " + arg.ParameterType.FullName + " " + arg.Name);
+
+                        if (!RpcProtocol.IsEncodableParam(arg))
+                            throw new ArgumentException("All arguments must be convertible to a byte array.");
+                        
+                        paramTypes[i] = arg.ParameterType;
+                    }
+
+                    var protocol = new RpcProtocol(t, rpc, paramTypes);
+                    _protocolsByMethod.Add(rpc, protocol);
+                    _protocolsById.Add(protocol.Id, protocol);
                 }
-
-                var protocol = new RpcProtocol(t, rpc, paramTypes);
-                _protocolsByMethod.Add(rpc, protocol);
-                _protocolsById.Add(protocol.Id, protocol);
             }
+
         }
 
-        public static byte[] EncodeRPC(NetworkObject? source, params object[] args)
+        public override void OnEntry(MethodExecutionArgs args)
         {
-            var stack = new StackTrace(true);
-            var frame = stack.GetFrame(1);
-            if (frame == null)
-                throw new InvalidOperationException("Encode operation must be executed from an RPC");
+            if (!netObjType.IsAssignableFrom(args.Instance.GetType()))
+                throw new InvalidOperationException("RPCs cannot be called on non-NetworkObjects.");
+            
+            var netObj = (NetworkObject)args.Instance;
 
-            var method = frame.GetMethod() as MethodInfo;
-            if (method == null || method.GetCustomAttribute<RpcAttribute>() == null)
-                throw new InvalidOperationException("Encode operation must be executed from an RPC");
-            Console.WriteLine("Encoding: " + method.Name);
-            return _protocolsByMethod[method].Encode(args);
+            if (!netObj.IsActive)
+                throw new InvalidOperationException("RPCs can only be called on active network objects.");
+
+            if (netObj.Connection == null)
+                throw new InvalidOperationException("RPCs can only be called on an active connection.");
+            
+            var method = args.Method as MethodInfo;
+
+            if (method == null)
+                throw new InvalidOperationException("RPC does not exist");
+
+            if (!_protocolsByMethod.ContainsKey(method))
+                throw new InvalidOperationException("RPC protocol does not exist.");
+
+            var bytes = _protocolsByMethod[method].Encode(netObj, args.Arguments.ToArray());
+            netObj.Connection.Write(bytes);
+
+            args.FlowBehavior = FlowBehavior.Return;
         }
 
-        public static object?[] DecodeRPC(byte[] bytes)
+        public static object?[] DecodeRpc(byte[] bytes, out RpcProtocol protocol)
         {
             int ind = 0;
+            protocol = _protocolsById[bytes[0]];
             return _protocolsById[bytes[0]].Decode(bytes, ref ind);
         }
     }

@@ -9,18 +9,10 @@ namespace OwlTree
         private static Dictionary<Type, byte> _typeToIds = new Dictionary<Type, byte>();
         private static Dictionary<byte, Type> _idsToType = new Dictionary<byte, Type>();
 
-        // collect all sub-types
-        private static IEnumerable<Type> GetNetworkObjectTypes()
-        {
-            return AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract && typeof(NetworkObject).IsAssignableFrom(t));
-        }
-
         /// <summary>
         /// Initialize spawner, requires a NetworkBuffer for sending spawn and destroy messages.
         /// </summary>
-        public NetworkSpawner(NetworkBuffer buffer)
+        public NetworkSpawner(Connection connection, NetworkBuffer buffer)
         {
             byte id = 1;
             _typeToIds.Add(typeof(NetworkObject), id);
@@ -28,7 +20,7 @@ namespace OwlTree
 
             id += 1;
 
-            var subClasses = GetNetworkObjectTypes();
+            var subClasses = NetworkObject.GetNetworkObjectTypes();
 
             foreach (var subClass in subClasses)
             {
@@ -38,6 +30,7 @@ namespace OwlTree
                 id++;
             }
 
+            _connection = connection;
             _buffer = buffer;
         }
 
@@ -63,6 +56,7 @@ namespace OwlTree
         }
 
         private NetworkBuffer _buffer;
+        private Connection _connection;
 
         /// <summary>
         /// Invoked when a new object is spawned. Provides the spawned object. 
@@ -84,6 +78,7 @@ namespace OwlTree
             var newObj = new T();
             newObj.SetIdInternal(new NetworkId());
             newObj.SetActiveInternal(true);
+            newObj.SetConnectionInternal(_connection);
             _netObjects.Add(newObj.Id, newObj);
             _buffer.Write(SpawnEncode(typeof(T), newObj.Id));
             newObj.OnSpawn();
@@ -106,6 +101,7 @@ namespace OwlTree
             
             newObj.SetIdInternal(new NetworkId());
             newObj.SetActiveInternal(true);
+            newObj.SetConnectionInternal(_connection);
             _netObjects.Add(newObj.Id, newObj);
 
             _buffer.Write(SpawnEncode(t, newObj.Id));
@@ -129,6 +125,7 @@ namespace OwlTree
             
             newObj.SetIdInternal(id);
             newObj.SetActiveInternal(true);
+            newObj.SetConnectionInternal(_connection);
             _netObjects.Add(newObj.Id, newObj);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);

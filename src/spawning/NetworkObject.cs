@@ -6,6 +6,14 @@ namespace OwlTree
     /// </summary>
     public class NetworkObject : IEncodable
     {
+        // collect all sub-types
+        internal static IEnumerable<Type> GetNetworkObjectTypes()
+        {
+            return AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract && typeof(NetworkObject).IsAssignableFrom(t));
+        }
+
         /// <summary>
         /// Basic function signature for passing NetworkObjects.
         /// </summary>

@@ -52,6 +52,7 @@ namespace OwlTree
         /// </summary>
         public Connection(ConnectionArgs args)
         {
+            RpcAttribute.GenerateRpcProtocols();
             if (args.role == Role.Client)
             {
                 _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
@@ -69,7 +70,7 @@ namespace OwlTree
             };
             _buffer.OnReady = (id) => OnReady?.Invoke(id);
 
-            _spawner = new NetworkSpawner(_buffer);
+            _spawner = new NetworkSpawner(this, _buffer);
 
             _spawner.OnObjectSpawn = (obj) => OnObjectSpawn?.Invoke(obj);
             _spawner.OnObjectDestroy = (obj) => OnObjectDestroy?.Invoke(obj);
@@ -120,6 +121,13 @@ namespace OwlTree
                 )
                 {
                     _spawner.Decode(message.bytes);
+                }
+                else
+                {
+                    var args = RpcAttribute.DecodeRpc(message.bytes, out var protocol);
+                    Console.WriteLine(protocol.Method.Name + " call received:");
+                    for (int i = 0; i < args.Length; i++)
+                        if (args[i] != null) Console.WriteLine("   arg " + i + ": " + args[i]!.ToString());
                 }
             }
         }

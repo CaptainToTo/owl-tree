@@ -69,7 +69,7 @@ namespace OwlTree
                         OnClientDisconnected?.Invoke(LocalId);
                         return;
                     }
-                    Console.WriteLine(BitConverter.ToString(data));
+                    // Console.WriteLine(BitConverter.ToString(data));
 
                     messages.Clear();
                     MessageBuffer.SplitMessageBytes(data, ref messages);

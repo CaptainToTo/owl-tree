@@ -5,6 +5,8 @@ using OwlTree;
 
 class Program
 {
+    static Radio? radio = null;
+
     static void Main(string[] args)
     {
         // RpcAttribute.GenerateRpcProtocols();
@@ -17,11 +19,9 @@ class Program
             {
                 role = Connection.Role.Server
             });
-            server.OnClientConnected += (ClientId id) => Console.WriteLine(id.ToString());
+            server.OnClientConnected += (ClientId id) => Console.WriteLine("Client Joined: " + id.ToString());
             server.OnClientConnected += (ClientId id) => {
-                var netObj = server.Spawn<Radio>();
-                // server.Send();
-                server.Destroy(netObj);
+                radio = server.Spawn<Radio>();
                 server.Send();
             };
             Loop(server);
@@ -33,7 +33,10 @@ class Program
                 role = Connection.Role.Client
             });
             client.OnReady += (ClientId id) => Console.WriteLine("Local Id: " + id.ToString());
-            client.OnObjectSpawn += (obj) => Console.WriteLine("Spawned: " + obj.ToString());
+            client.OnObjectSpawn += (obj) => {
+                Console.WriteLine("Spawned: " + obj.ToString());
+                radio = (Radio)obj;
+            };
             client.OnObjectDestroy += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
             client.Read();
             Loop(client);
@@ -42,9 +45,23 @@ class Program
 
     public static void Loop(Connection connection)
     {
+        bool sent = false;
         while (true)
         {
             connection.Read();
+            if (radio != null && !sent)
+            {
+                if (connection.role == Connection.Role.Server)
+                {
+                    radio.RPC_PingClients("Hello from server");
+                }
+                else
+                {
+                    radio.RPC_PingServer("Hello from client");
+                }
+                connection.Send();
+                sent = true;
+            }
             if (!connection.IsActive)
                 break;
         }

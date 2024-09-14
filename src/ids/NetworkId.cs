@@ -142,7 +142,7 @@ namespace OwlTree
         /// </summary>
         public override string ToString()
         {
-            return _id.ToString();
+            return "[NetworkId: " + _id.ToString() + "]";
         }
 
         public static bool operator ==(NetworkId a, NetworkId b)
