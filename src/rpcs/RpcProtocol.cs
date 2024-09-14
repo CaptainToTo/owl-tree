@@ -60,36 +60,45 @@ namespace OwlTree
             {
                 if (ParamTypes[i] != args[i].GetType())
                     throw new ArgumentException("args must have the same types as the expected method parameters, in the correct order.");
-                
                 InsertBytes(bytes, args[i], ref ind);
             }
 
             return bytes;
         }
 
-        public void Invoke(NetworkObject? target, byte[] encoding, ref int ind)
+        public void Invoke(NetworkObject? target, object?[] args)
         {
             if (target == null && !Method.IsStatic)
                 throw new ArgumentException("Target can only be null if the RPC is a static method.");
 
             if (target != null && target.GetType() != NetworkObjectType)
                 throw new ArgumentException("Target must match this RPC's type");
-            var args = Decode(encoding, ref ind);
+            
             Method.Invoke(target, args);
         }
 
-        public object?[] Decode(byte[] bytes, ref int ind)
+        public object?[] Decode(ClientId source, byte[] bytes, ref int ind, out NetworkId target)
         {
             if (bytes[ind] != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
 
             ind += 1;
 
+            target = (NetworkId)NetworkId.FromBytesAt(bytes, ref ind);
+
             object?[] args = new object[ParamTypes.Length];
 
+            var paramList = Method.GetParameters();
             for (int i = 0; i < ParamTypes.Length; i++)
             {
-                args[i] = DecodeObject(bytes, ref ind, ParamTypes[i]);
+                if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+                {
+                    args[i] = source;
+                }
+                else
+                {
+                    args[i] = DecodeObject(bytes, ref ind, ParamTypes[i]);
+                }
             }
 
             return args;

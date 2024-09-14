@@ -7,19 +7,20 @@ public class Radio : NetworkObject
         return "Radio No. " + Id.ToString();
     }
 
-    [Rpc(RpcPerms.Client), RpcHash("PingServer")]
+    [Rpc(RpcCaller.Client, InvokeOnCaller = true)]
     public void RPC_PingServer(string message, [RpcCaller] ClientId caller = default)
     {
         Console.WriteLine("Message from client " + caller.ToString() + ":\n" + message);
     }
 
-    [Rpc(RpcPerms.Server), RpcHash("PingClients")]
+    [Rpc(RpcCaller.Server)]
     public void RPC_PingClients(string message)
     {
         Console.WriteLine("Message from server:\n" + message);
+        RPC_PingServer("hello from client");
     }
 
-    [Rpc(RpcPerms.Server), RpcHash("PingClient")]
+    [Rpc(RpcCaller.Server, Key = "PingClient")]
     public void RPC_PingClient([RpcCallee] ClientId callee, string message)
     {
         Console.WriteLine("Private message from server: " + message);

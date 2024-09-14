@@ -60,6 +60,7 @@ namespace OwlTree
             else
             {
                 _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize);
+                IsActive = true;
             }
             role = args.role;
             _buffer.OnClientConnected = (id) => OnClientConnected?.Invoke(id);
@@ -68,7 +69,10 @@ namespace OwlTree
                     IsActive = false;
                 OnClientDisconnected?.Invoke(id);
             };
-            _buffer.OnReady = (id) => OnReady?.Invoke(id);
+            _buffer.OnReady = (id) => {
+                IsActive = true;
+                OnReady?.Invoke(id);
+            };
 
             _spawner = new NetworkSpawner(this, _buffer);
 
@@ -102,7 +106,12 @@ namespace OwlTree
         /// <summary>
         /// Whether this connection is active. Will be false for clients if they have been disconnected from the server.
         /// </summary>
-        public bool IsActive { get; private set; } = true;
+        public bool IsActive { get; private set; } = false;
+
+        /// <summary>
+        /// The client id assigned to this local instance. Servers will have a LocalId of <c>ClientId.None</c>
+        /// </summary>
+        public ClientId LocalId { get { return _buffer.LocalId; } }
 
         /// <summary>
         /// Receive and execute any RPCs.
@@ -124,12 +133,28 @@ namespace OwlTree
                 }
                 else
                 {
-                    var args = RpcAttribute.DecodeRpc(message.bytes, out var protocol);
-                    Console.WriteLine(protocol.Method.Name + " call received:");
-                    for (int i = 0; i < args.Length; i++)
-                        if (args[i] != null) Console.WriteLine("   arg " + i + ": " + args[i]!.ToString());
+                    var args = RpcAttribute.DecodeRpc(message.source, message.bytes, out var protocol, out var target);
+                    // Console.WriteLine(protocol.Method.Name + " call received on " + GetNetworkObject(target)!.ToString() + ":");
+                    // Console.WriteLine("  " + BitConverter.ToString(message.bytes));
+                    // for (int i = 0; i < args.Length; i++)
+                    //     if (args[i] != null) Console.WriteLine("   arg " + i + ": " + args[i]!.ToString());
+                        protocol.Invoke(GetNetworkObject(target), args);
+                    try
+                    {
+                    }
+                    catch
+                    {
+                        Console.WriteLine("failed to execute RPC");
+                    }
                 }
             }
+        }
+
+
+        public void AwaitConnection()
+        {
+            if (!_buffer.IsReady)
+                _buffer.Read();
         }
 
         public bool GetNextMessage(out NetworkBuffer.Message message)

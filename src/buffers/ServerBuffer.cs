@@ -28,6 +28,7 @@ namespace OwlTree
             MaxClients = maxClients;
             LocalId = ClientId.None;
             IsReady = true;
+            OnReady?.Invoke(LocalId);
         }
 
         public int MaxClients { get; private set; }
@@ -167,8 +168,6 @@ namespace OwlTree
         {
             foreach (var client in _clientsSockets)
             {
-                // TODO: remove 
-                // Console.WriteLine(client.Value.buffer.ToString());
                 client.Key.Send(client.Value.buffer.GetBuffer());
                 client.Value.buffer.Reset();
             }

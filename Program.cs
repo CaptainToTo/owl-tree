@@ -22,6 +22,7 @@ class Program
             server.OnClientConnected += (ClientId id) => Console.WriteLine("Client Joined: " + id.ToString());
             server.OnClientConnected += (ClientId id) => {
                 radio = server.Spawn<Radio>();
+                radio.RPC_PingClients("Hello from server");
                 server.Send();
             };
             Loop(server);
@@ -38,7 +39,7 @@ class Program
                 radio = (Radio)obj;
             };
             client.OnObjectDestroy += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
-            client.Read();
+            client.AwaitConnection();
             Loop(client);
         }
     }
@@ -53,11 +54,11 @@ class Program
             {
                 if (connection.role == Connection.Role.Server)
                 {
-                    radio.RPC_PingClients("Hello from server");
+                    
                 }
                 else
                 {
-                    radio.RPC_PingServer("Hello from client");
+                    // radio.RPC_PingServer("Hello from client");
                 }
                 connection.Send();
                 sent = true;
