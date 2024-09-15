@@ -12,7 +12,7 @@ namespace OwlTree
         /// <summary>
         /// Initialize spawner, requires a NetworkBuffer for sending spawn and destroy messages.
         /// </summary>
-        public NetworkSpawner(Connection connection, NetworkBuffer buffer)
+        public NetworkSpawner(Connection connection)
         {
             byte id = 1;
             _typeToIds.Add(typeof(NetworkObject), id);
@@ -31,7 +31,6 @@ namespace OwlTree
             }
 
             _connection = connection;
-            _buffer = buffer;
         }
 
         // all active network objects
@@ -55,7 +54,6 @@ namespace OwlTree
             return _netObjects[id];
         }
 
-        private NetworkBuffer _buffer;
         private Connection _connection;
 
         /// <summary>
@@ -65,10 +63,10 @@ namespace OwlTree
         public NetworkObject.Delegate? OnObjectSpawn;
 
         /// <summary>
-        /// Invoked when an object is destroyed. Provides the "destroyed" object, marked as not active.
-        /// Invoked after the object's OnDestroy() method has been called.
+        /// Invoked when an object is despawned. Provides the "despawned" object, marked as not active.
+        /// Invoked after the object's OnDespawn() method has been called.
         /// </summary>
-        public NetworkObject.Delegate? OnObjectDestroy;
+        public NetworkObject.Delegate? OnObjectDespawn;
 
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
@@ -80,7 +78,7 @@ namespace OwlTree
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
             _netObjects.Add(newObj.Id, newObj);
-            _buffer.Write(SpawnEncode(typeof(T), newObj.Id));
+            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_NEW, [_typeToIds[typeof(T)], newObj.Id]);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
             return newObj;
@@ -104,7 +102,7 @@ namespace OwlTree
             newObj.SetConnectionInternal(_connection);
             _netObjects.Add(newObj.Id, newObj);
 
-            _buffer.Write(SpawnEncode(t, newObj.Id));
+            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_NEW, [_typeToIds[t], newObj.Id]);
 
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
@@ -143,13 +141,13 @@ namespace OwlTree
         /// <summary>
         /// Destroy the given NetworkObject across all clients.
         /// </summary>
-        public void Destroy(NetworkObject target)
+        public void Despawn(NetworkObject target)
         {
             _netObjects.Remove(target.Id);
             target.SetActiveInternal(false);
-            _buffer.Write(DestroyEncode(target.Id));
-            target.OnDestroy();
-            OnObjectDestroy?.Invoke(target);
+            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_DESTROY, [target.Id]);
+            target.OnDespawn();
+            OnObjectDespawn?.Invoke(target);
         }
 
         // run destroy on client
@@ -158,8 +156,8 @@ namespace OwlTree
             var target = _netObjects[id];
             _netObjects.Remove(id);
             target.SetActiveInternal(false);
-            target.OnDestroy();
-            OnObjectDestroy?.Invoke(target);
+            target.OnDespawn();
+            OnObjectDespawn?.Invoke(target);
         }
 
         // encodes destroy into byte array for send
@@ -175,17 +173,18 @@ namespace OwlTree
         /// Decodes the given message, assuming it is either a spawn or destroy instruction from the server.
         /// If decoded, the spawn or destroy instruction will be executed.
         /// </summary>
-        public void Decode(byte[] message)
+        public void Decode(byte rpcId, object[]? args)
         {
-            switch(message[0])
+            if (args == null) return;
+            switch(rpcId)
             {
                 case RpcProtocol.NETWORK_OBJECT_NEW:
-                    var objType = _idsToType[message[1]];
-                    var id = new NetworkId(message, 2);
+                    var objType = _idsToType[(byte)args[0]];
+                    var id = (NetworkId)args[1];
                     ReceiveSpawn(objType, id);
                     break;
                 case RpcProtocol.NETWORK_OBJECT_DESTROY:
-                    ReceiveDestroy(new NetworkId(message, 1));
+                    ReceiveDestroy((NetworkId)args[0]);
                     break;
             }
         }

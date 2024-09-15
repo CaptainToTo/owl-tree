@@ -38,7 +38,7 @@ class Program
                 Console.WriteLine("Spawned: " + obj.ToString());
                 radio = (Radio)obj;
             };
-            client.OnObjectDestroy += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
+            client.OnObjectDespawn += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
             client.AwaitConnection();
             Loop(client);
         }

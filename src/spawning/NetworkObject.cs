@@ -4,7 +4,7 @@ namespace OwlTree
     /// <summary>
     /// Base class for any object type that can be synchronously spawned.
     /// </summary>
-    public class NetworkObject : IEncodable
+    public class NetworkObject
     {
         // collect all sub-types
         internal static IEnumerable<Type> GetNetworkObjectTypes()
@@ -18,6 +18,8 @@ namespace OwlTree
         /// Basic function signature for passing NetworkObjects.
         /// </summary>
         public delegate void Delegate(NetworkObject obj);
+
+        internal Action<ClientId, byte, NetworkId, object[]?>? OnRpcCall;
 
         /// <summary>
         /// The object's network id. This is synchronized across clients.
@@ -86,52 +88,6 @@ namespace OwlTree
         /// <summary>
         /// Invoked when this object is destroyed.
         /// </summary>
-        public virtual void OnDestroy() { }
-
-        // [Rpc(RpcCaller.Server)]
-        // public void TestRpc(NetworkId id, int i)
-        // {
-        //     var bytes = RpcAttribute.EncodeRPC(this, id, i);
-        //     Console.WriteLine(BitConverter.ToString(bytes));
-        //     var args = RpcAttribute.DecodeRPC(bytes);
-        //     Console.WriteLine("Id: " + args[0]?.ToString());
-        //     Console.WriteLine("i: " + args[1]?.ToString());
-        // }
-
-        // [Rpc(RpcCaller.Any)]
-        // public void TestRpc2(ClientId id, float a, float b, string x)
-        // {
-        //     Console.WriteLine("Client Id: " + id.ToString());
-        // }
-
-        public byte[] ToBytes()
-        {
-            return Id.ToBytes();
-        }
-
-        public bool InsertBytes(ref byte[] bytes, ref int ind)
-        {
-            return Id.InsertBytes(ref bytes, ref ind);
-        }
-
-        public int ExpectedLength()
-        {
-            return Id.ExpectedLength();
-        }
-
-        public static object FromBytes(byte[] bytes)
-        {
-            return NetworkId.FromBytes(bytes);
-        }
-
-        public static object FromBytesAt(byte[] bytes, ref int ind)
-        {
-            return NetworkId.FromBytesAt(bytes, ref ind);
-        }
-
-        public static int MaxLength()
-        {
-            return NetworkId.MaxLength();
-        }
+        public virtual void OnDespawn() { }
     }
 }

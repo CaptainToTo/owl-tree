@@ -43,6 +43,22 @@ namespace OwlTree
             /// </summary>
             public int bufferSize = 2048;
 
+            /// <summary>
+            /// If false <b>(Default)</b>, Reading and writing to sockets will need to called by your program with <c>Read()</c>
+            /// and <c>Send()</c>. These operations will be done synchronously.
+            /// <br /><br />
+            /// If true, reading and writing will be handled autonomously in a separate, dedicated thread. 
+            /// Reading will fill a queue of RPCs to be executed in the main program thread by calling <c>ExecuteQueue()</c>.
+            /// Reading and writing will be done at a regular frequency, as defined by the <c>threadUpdateDelta</c> arg.
+            /// </summary>
+            public bool threaded = false;
+
+            /// <summary>
+            /// If the connection is threaded, specify the number of milliseconds the read/write thread will spend sleeping
+            /// between updates. <b>Default = 17 (60 ticks/sec)</b>
+            /// </summary>
+            public int threadUpdateDelta = 17;
+
             public Args() { }
         }
 
@@ -74,10 +90,10 @@ namespace OwlTree
                 OnReady?.Invoke(id);
             };
 
-            _spawner = new NetworkSpawner(this, _buffer);
+            _spawner = new NetworkSpawner(this);
 
             _spawner.OnObjectSpawn = (obj) => OnObjectSpawn?.Invoke(obj);
-            _spawner.OnObjectDestroy = (obj) => OnObjectDestroy?.Invoke(obj);
+            _spawner.OnObjectDespawn = (obj) => OnObjectDespawn?.Invoke(obj);
         }
 
         /// <summary>
@@ -119,37 +135,7 @@ namespace OwlTree
         public void Read()
         {
             _buffer.Read();
-
-            while (GetNextMessage(out var message))
-            {
-                if (message.bytes == null) continue;
-
-                if (
-                    role == Role.Client && 
-                    (message.bytes[0] == RpcProtocol.NETWORK_OBJECT_NEW || message.bytes[0] == RpcProtocol.NETWORK_OBJECT_DESTROY)
-                )
-                {
-                    _spawner.Decode(message.bytes);
-                }
-                else
-                {
-                    var args = RpcAttribute.DecodeRpc(message.source, message.bytes, out var protocol, out var target);
-                    // Console.WriteLine(protocol.Method.Name + " call received on " + GetNetworkObject(target)!.ToString() + ":");
-                    // Console.WriteLine("  " + BitConverter.ToString(message.bytes));
-                    // for (int i = 0; i < args.Length; i++)
-                    //     if (args[i] != null) Console.WriteLine("   arg " + i + ": " + args[i]!.ToString());
-                        protocol.Invoke(GetNetworkObject(target), args);
-                    try
-                    {
-                    }
-                    catch
-                    {
-                        Console.WriteLine("failed to execute RPC");
-                    }
-                }
-            }
         }
-
 
         public void AwaitConnection()
         {
@@ -157,28 +143,42 @@ namespace OwlTree
                 _buffer.Read();
         }
 
-        public bool GetNextMessage(out NetworkBuffer.Message message)
+        internal bool GetNextMessage(out NetworkBuffer.Message message)
         {
             return _buffer.GetNextMessage(out message);
         }
 
-        /// <summary>
-        /// Add message to outgoing buffers. Actually send buffers with <c>Send()</c>.
-        /// </summary>
-        public void Write(byte[] message)
+        public void ExecuteQueue()
         {
-            _buffer.Write(message);
+            while (GetNextMessage(out var message))
+            {
+                if (
+                    role == Role.Client && 
+                    (message.rpcId == RpcProtocol.NETWORK_OBJECT_NEW || message.rpcId == RpcProtocol.NETWORK_OBJECT_DESTROY)
+                )
+                {
+                    _spawner.Decode(message.rpcId, message.args);
+                }
+                else if (TryGetObject(message.target, out var target))
+                {
+                    RpcAttribute.InvokeRpc(message.rpcId, target!, message.args);
+                }
+            }
         }
 
-        /// <summary>
-        /// ONLY ALLOWED ON SERVER. Add message to the outgoing buffer of a specific client.
-        /// Actually send buffers with <c>Send()</c>.
-        /// </summary>
-        public void WriteTo(ClientId id, byte[] message)
+        internal void AddRpc(ClientId callee, byte rpcId, NetworkId target, object[]? args)
         {
-            if (role == Role.Client)
-                throw new InvalidOperationException("Clients cannot send messages directly to other clients.");
-            _buffer.WriteTo(id, message);
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, args));
+        }
+
+        internal void AddRpc(ClientId callee, byte rpcId, object[]? args)
+        {
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, args));
+        }
+
+        internal void AddRpc(byte rpcId, object[]? args)
+        {
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, args));
         }
 
         /// <summary>
@@ -218,10 +218,10 @@ namespace OwlTree
         public event NetworkObject.Delegate? OnObjectSpawn;
 
         /// <summary>
-        /// Invoked when an object is destroyed. Provides the "destroyed" object, marked as not active.
-        /// Invoked after the object's OnDestroy() method has been called.
+        /// Invoked when an object is despawned. Provides the "despawned" object, marked as not active.
+        /// Invoked after the object's OnDespawn() method has been called.
         /// </summary>
-        public event NetworkObject.Delegate? OnObjectDestroy;
+        public event NetworkObject.Delegate? OnObjectDespawn;
 
         /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.
@@ -246,7 +246,9 @@ namespace OwlTree
         {
             if (role == Role.Client)
                 throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
-            return _spawner.Spawn<T>();
+            var obj = _spawner.Spawn<T>();
+            obj.OnRpcCall = AddRpc;
+            return obj;
         }
 
         /// <summary>
@@ -255,18 +257,18 @@ namespace OwlTree
         public object Spawn(Type t)
         {
             if (role == Role.Client)
-                throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
+                throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
             return _spawner.Spawn(t);
         }
 
         /// <summary>
-        /// Destroy the given NetworkObject across all clients.
+        /// Despawns the given NetworkObject across all clients.
         /// </summary>
-        public void Destroy(NetworkObject target)
+        public void Despawn(NetworkObject target)
         {
             if (role == Role.Client)
-                throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
-            _spawner.Destroy(target);
+                throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
+            _spawner.Despawn(target);
         }
     }
 }

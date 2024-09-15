@@ -126,7 +126,7 @@ namespace OwlTree
                 if (method == null)
                     throw new InvalidOperationException("RPC does not exist");
 
-                if (!_protocolsByMethod.ContainsKey(method))
+                if (!_protocolsByMethod.TryGetValue(method, out var protocol))
                     throw new InvalidOperationException("RPC protocol does not exist.");
                 
                 var paramList = method.GetParameters();
@@ -140,14 +140,9 @@ namespace OwlTree
                     else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
                         callee = (ClientId)argsList[i];
                 }
+                
+                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, argsList);
 
-                var bytes = _protocolsByMethod[method].Encode(netObj, argsList);
-                if (callee == ClientId.None)
-                    netObj.Connection.Write(bytes);
-                else
-                    netObj.Connection.WriteTo(callee, bytes);
-
-                // args.FlowBehavior = InvokeOnCaller ? FlowBehavior.Default : FlowBehavior.Return;
                 if (InvokeOnCaller)
                     args.Proceed();
             }
@@ -157,11 +152,21 @@ namespace OwlTree
             }
         }
 
-        public static object?[] DecodeRpc(ClientId source, byte[] bytes, out RpcProtocol protocol, out NetworkId target)
+        public static byte[] EncodeRpc(byte id, NetworkId source, object[]? args)
+        {
+            return _protocolsById[id].Encode(source, args);
+        }
+
+        public static object[] DecodeRpc(ClientId source, byte[] bytes, out RpcProtocol protocol, out NetworkId target)
         {
             int ind = 0;
             protocol = _protocolsById[bytes[0]];
             return _protocolsById[bytes[0]].Decode(source, bytes, ref ind, out target);
+        }
+
+        public static void InvokeRpc(byte id, NetworkObject target, object[]? args)
+        {
+            _protocolsById[id].Invoke(target, args);
         }
     }
 }

@@ -1,5 +1,4 @@
-
-
+using System.Collections.Concurrent;
 using System.Net;
 
 namespace OwlTree
@@ -11,37 +10,65 @@ namespace OwlTree
     {
 
         /// <summary>
-        /// Contains raw message bytes, and meta data about its source.
+        /// Describes an RPC call, and its relevant meta data.
         /// </summary>
         public struct Message
         {
             /// <summary>
-            /// Who sent the message. A source of ClientId.None means it came from the server.
+            /// Who sent the message. A caller of ClientId.None means it came from the server.
             /// </summary>
-            public ClientId source;
-            /// <summary>
-            /// The raw message bytes. This may be null to indicate an empty/non-existent message.
-            /// </summary>
-            public byte[]? bytes;
+            public ClientId caller;
 
             /// <summary>
-            /// Contains raw message bytes, and meta data about its source.
+            /// Who should receive the message. A callee of ClientId.None means is should be sent to all sockets.
             /// </summary>
-            public Message(ClientId source, byte[]? bytes)
+            public ClientId callee;
+
+            /// <summary>
+            /// The RPC this message is passing the arguments for.
+            /// </summary>
+            public byte rpcId;
+
+            /// <summary>
+            /// The NetworkId of the object that sent this message.
+            /// </summary>
+            public NetworkId target;
+
+            /// <summary>
+            /// The arguments of the RPC call this message represents.
+            /// </summary>
+            public object[]? args;
+
+            /// <summary>
+            /// Describes an RPC call, and its relevant meta data.
+            /// </summary>
+            public Message(ClientId caller, ClientId callee, byte rpcId, NetworkId target, object[]? args)
             {
-                this.source = source;
-                this.bytes = bytes;
+                this.caller = caller;
+                this.callee = callee;
+                this.rpcId = rpcId;
+                this.target = target;
+                this.args = args;
+            }
+
+            public Message(ClientId callee, byte rpcId, object[]? args)
+            {
+                this.caller = ClientId.None;
+                this.callee = callee;
+                this.rpcId = rpcId;
+                this.target = NetworkId.None;
+                this.args = args;
             }
 
             /// <summary>
             /// Represents an empty message.
             /// </summary>
-            public static Message Empty = new Message(ClientId.None, null);
+            public static Message Empty = new Message(ClientId.None, ClientId.None, 0, NetworkId.None, null);
 
             /// <summary>
             /// Returns true if this message doesn't contain anything.
             /// </summary>
-            public bool IsEmpty { get { return bytes == null || bytes.Length == 0; } }
+            public bool IsEmpty { get { return args == null; } }
         }
 
         /// <summary>
@@ -89,7 +116,9 @@ namespace OwlTree
         public ClientId LocalId { get; protected set; }
 
         // currently read messages
-        protected Queue<Message> _incoming = new Queue<Message>();
+        protected ConcurrentQueue<Message> _incoming = new ConcurrentQueue<Message>();
+
+        protected ConcurrentQueue<Message> _outgoing = new ConcurrentQueue<Message>();
 
         /// <summary>
         /// Get the next message in the read queue.
@@ -103,8 +132,7 @@ namespace OwlTree
                 message = Message.Empty;
                 return false;
             }
-            message = _incoming.Dequeue();
-            return true;
+            return _incoming.TryDequeue(out message);
         }
 
         /// <summary>
@@ -113,16 +141,17 @@ namespace OwlTree
         public abstract void Read();
 
         /// <summary>
-        /// Add message to all available buffers.
+        /// Add message to outgoing message queue.
         /// Actually send buffers to sockets with <c>Send()</c>.
         /// </summary>
-        public abstract void Write(byte[] message);
+        public void AddMessage(Message message)
+        {
+            _outgoing.Enqueue(message);
+        }
 
-        /// <summary>
-        /// Add message to a specific client's buffer.
-        /// Actually send buffers to sockets with <c>Send()</c>.
-        /// </summary>
-        public abstract void WriteTo(ClientId id, byte[] message);
+        protected abstract void Write(byte[] bytes);
+
+        protected abstract void WriteTo(ClientId callee, byte[] bytes);
 
         /// <summary>
         /// Send current buffers to associated sockets.

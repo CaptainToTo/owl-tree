@@ -122,7 +122,8 @@ namespace OwlTree
                     
                     foreach (var message in messages)
                     {
-                        _incoming.Enqueue(new Message(client.id, message));
+                        var args = RpcAttribute.DecodeRpc(client.id, message, out var protocol, out var target);
+                        _incoming.Enqueue(new Message(client.id, ClientId.None, protocol.Id, target, args));
                     }
                 }
             }
@@ -132,7 +133,7 @@ namespace OwlTree
         /// Add message to all clients' buffers.
         /// Actually write buffers to sockets with <c>Write()</c>.
         /// </summary>
-        public override void Write(byte[] message)
+        protected override void Write(byte[] message)
         {
             foreach (var client in _clientsSockets)
             {
@@ -148,7 +149,7 @@ namespace OwlTree
         /// Add message to a specific client's buffer.
         /// Actually write buffers to sockets with <c>Write()</c>.
         /// </summary>
-        public override void WriteTo(ClientId id, byte[] message)
+        protected override void WriteTo(ClientId id, byte[] message)
         {
             if (_clientsIds.TryGetValue(id, out var client))
             {
@@ -166,6 +167,13 @@ namespace OwlTree
         /// </summary>
         public override void Send()
         {
+            while (_outgoing.TryDequeue(out var message))
+            {
+                if (message.callee != ClientId.None)
+                    WriteTo(message.callee, RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+                else
+                    Write(RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+            }
             foreach (var client in _clientsSockets)
             {
                 client.Key.Send(client.Value.buffer.GetBuffer());

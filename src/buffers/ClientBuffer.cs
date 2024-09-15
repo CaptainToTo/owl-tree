@@ -22,7 +22,7 @@ namespace OwlTree
 
             _readList = new Socket[1]{_client};
 
-            _outgoing = new MessageBuffer(bufferSize);
+            _outgoingBytes = new MessageBuffer(bufferSize);
         }
 
         // client state
@@ -31,7 +31,7 @@ namespace OwlTree
         private List<ClientId> _clients = new List<ClientId>();
 
         // messages to be sent ot the sever
-        private MessageBuffer _outgoing;
+        private MessageBuffer _outgoingBytes;
 
         /// <summary>
         /// Reads any data currently on the socket. Putting new messages in the queue.
@@ -83,7 +83,8 @@ namespace OwlTree
                         }
                         else
                         {
-                            _incoming.Enqueue(new Message(ClientId.None, message));
+                            var args = RpcAttribute.DecodeRpc(ClientId.None, message, out var protocol, out var target);
+                            _incoming.Enqueue(new Message(ClientId.None, LocalId, protocol.Id, target, args));
                         }
                     }
                 }
@@ -118,11 +119,11 @@ namespace OwlTree
         /// Add message to the outgoing buffer.
         /// Actually write the buffer to the socket with <c>Write()</c>.
         /// </summary>
-        public override void Write(byte[] message)
+        protected override void Write(byte[] message)
         {
             try
             {
-                _outgoing.Add(message);
+                _outgoingBytes.Add(message);
             }
             catch { }
         }
@@ -132,7 +133,7 @@ namespace OwlTree
         /// To do this, send a message to the server with <c>Send()</c> that contains the intended
         /// recipient. The server can then pass that message to the recipient.
         /// </summary>
-        public override void WriteTo(ClientId id, byte[] message)
+        protected override void WriteTo(ClientId id, byte[] message)
         {
             throw new InvalidOperationException("Clients cannot directly send messages to other clients.");
         }
@@ -143,8 +144,12 @@ namespace OwlTree
         /// </summary>
         public override void Send()
         {
-            _client.Send(_outgoing.GetBuffer());
-            _outgoing.Reset();
+            while (_outgoing.TryDequeue(out var message))
+            {
+                Write(RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+            }
+            _client.Send(_outgoingBytes.GetBuffer());
+            _outgoingBytes.Reset();
         }
 
         /// <summary>

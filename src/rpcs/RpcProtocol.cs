@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -62,9 +63,9 @@ namespace OwlTree
             return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
         }
 
-        public byte[] Encode(NetworkObject? source, object[] args)
+        public byte[] Encode(NetworkId source, object[]? args)
         {
-            if (args.Length != ParamTypes.Length)
+            if ((args == null && ParamTypes.Length > 0) || (args != null && args.Length != ParamTypes.Length))
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
 
             byte[] bytes = new byte[5 + ExpectedLength(args)];
@@ -72,10 +73,10 @@ namespace OwlTree
             bytes[0] = Id;
 
             int ind = 1;
-            if (source == null)
-                NetworkId.None.InsertBytes(ref bytes, ref ind);
-            else
-                source.InsertBytes(ref bytes, ref ind);
+            source.InsertBytes(ref bytes, ref ind);
+
+            if (args == null)
+                return bytes;
 
             for (int i = 0; i < ParamTypes.Length; i++)
             {
@@ -87,7 +88,7 @@ namespace OwlTree
             return bytes;
         }
 
-        public void Invoke(NetworkObject? target, object?[] args)
+        public void Invoke(NetworkObject target, object[]? args)
         {
             if (target == null && !Method.IsStatic)
                 throw new ArgumentException("Target can only be null if the RPC is a static method.");
@@ -98,7 +99,7 @@ namespace OwlTree
             Method.Invoke(target, args);
         }
 
-        public object?[] Decode(ClientId source, byte[] bytes, ref int ind, out NetworkId target)
+        public object[] Decode(ClientId source, byte[] bytes, ref int ind, out NetworkId target)
         {
             if (bytes[ind] != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
@@ -107,7 +108,7 @@ namespace OwlTree
 
             target = (NetworkId)NetworkId.FromBytesAt(bytes, ref ind);
 
-            object?[] args = new object[ParamTypes.Length];
+            object[] args = new object[ParamTypes.Length];
 
             var paramList = Method.GetParameters();
             for (int i = 0; i < ParamTypes.Length; i++)
@@ -125,9 +126,9 @@ namespace OwlTree
             return args;
         }
 
-        private static object? DecodeObject(byte[] bytes, ref int ind, Type t)
+        private static object DecodeObject(byte[] bytes, ref int ind, Type t)
         {
-            object? result = null;
+            object result = Activator.CreateInstance(t)!;
             if (t == typeof(int))
             {
                 result = BitConverter.ToInt32(bytes.AsSpan(ind));
@@ -184,7 +185,7 @@ namespace OwlTree
                     {
                         int curInd = ind;
                         object[] paramList = [bytes, curInd];
-                        result = t.GetMethod("FromBytesAt")?.Invoke(null, paramList);
+                        result = t.GetMethod("FromBytesAt")!.Invoke(null, paramList)!;
                         ind = (int)paramList[1];
                         break;
                     }
@@ -262,8 +263,11 @@ namespace OwlTree
             }
         }
 
-        public int ExpectedLength(object[] args)
+        public int ExpectedLength(object[]? args)
         {
+            if (args == null)
+                return 0;
+
             if (args.Length != ParamTypes.Length)
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
             int sum = 1; // 1 for the rpc id
@@ -373,6 +377,7 @@ namespace OwlTree
         public static bool IsEncodableParam(ParameterInfo arg)
         {
             var t = arg.ParameterType;
+
             if (
                 t == typeof(int) ||
                 t == typeof(uint) ||
@@ -389,6 +394,9 @@ namespace OwlTree
             }
             else
             {
+                if (!t.IsValueType)
+                    return false;
+
                 var encodable = typeof(IEncodable);
                 var encodableTypes = t.GetInterfaces();
                 foreach (var a in encodableTypes)
