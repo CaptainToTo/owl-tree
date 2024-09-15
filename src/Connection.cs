@@ -18,7 +18,7 @@ namespace OwlTree
         /// <summary>
         /// Initialization arguments for building a new connection.
         /// </summary>
-        public struct ConnectionArgs
+        public struct Args
         {
             /// <summary>
             /// Whether this connection is a server or client.<b>Default = Server</b>
@@ -43,14 +43,14 @@ namespace OwlTree
             /// </summary>
             public int bufferSize = 2048;
 
-            public ConnectionArgs() { }
+            public Args() { }
         }
 
         /// <summary>
         /// Create a new connection. Server instances will be immediately ready. 
         /// Clients will require an initial <c>StartConnection()</c> call.
         /// </summary>
-        public Connection(ConnectionArgs args)
+        public Connection(Args args)
         {
             RpcAttribute.GenerateRpcProtocols();
             if (args.role == Role.Client)

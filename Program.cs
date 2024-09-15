@@ -15,7 +15,7 @@ class Program
         // return;
         if (args[0] == "s")
         {
-            var server = new Connection(new Connection.ConnectionArgs
+            var server = new Connection(new Connection.Args
             {
                 role = Connection.Role.Server
             });
@@ -29,7 +29,7 @@ class Program
         }
         else if (args[0] == "c")
         {
-            var client = new Connection(new Connection.ConnectionArgs
+            var client = new Connection(new Connection.Args
             {
                 role = Connection.Role.Client
             });
