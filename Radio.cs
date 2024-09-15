@@ -29,6 +29,6 @@ public class Radio : NetworkObject
     [Rpc(RpcCaller.Server)]
     public void RPC_SendNums(int i, float x, double z, byte j)
     {
-
+        
     }
 }
