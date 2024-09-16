@@ -222,7 +222,7 @@ namespace OwlTree
                     id = ClientId.None;
                     return RpcId.None;
             }
-            id = new ClientId(message, 1);
+            id = new ClientId(message, result.ExpectedLength());
             return result;
         }
     }

@@ -85,15 +85,17 @@ namespace OwlTree
 
                     // send new client their id
                     clientInstance.buffer.Add(LocalClientConnectEncode(clientInstance.id));
-                    client.Send(clientInstance.buffer.GetBuffer());
-                    clientInstance.buffer.Reset();
 
                     // notify clients of a new client in the next send
                     var clientConnectedMessage = ClientConnectEncode(clientInstance.id);
                     foreach (var otherClient in _clientsIds)
                     {
                         WriteTo(otherClient.Key, clientConnectedMessage);
+                        clientInstance.buffer.Add(ClientConnectEncode(otherClient.Key));
                     }
+                    
+                    client.Send(clientInstance.buffer.GetBuffer());
+                    clientInstance.buffer.Reset();
                 }
                 else // receive client messages
                 {

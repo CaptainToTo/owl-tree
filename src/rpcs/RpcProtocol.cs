@@ -25,7 +25,7 @@ namespace OwlTree
 
         public override string ToString()
         {
-            string title = Method.Name + " <RpcId: " + Id + ">:\n";
+            string title = Method.Name + " " + Id + ":\n";
             string encoding = "  Bytes: [ RpcId:" + RpcId.MaxLength() + "b ][ NetId:" + NetworkId.MaxLength() + "b ]";
             string parameters = "";
             int maxSize = RpcId.MaxLength() + NetworkId.MaxLength();
