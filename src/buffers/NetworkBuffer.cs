@@ -27,7 +27,7 @@ namespace OwlTree
             /// <summary>
             /// The RPC this message is passing the arguments for.
             /// </summary>
-            public byte rpcId;
+            public RpcId rpcId;
 
             /// <summary>
             /// The NetworkId of the object that sent this message.
@@ -42,7 +42,7 @@ namespace OwlTree
             /// <summary>
             /// Describes an RPC call, and its relevant meta data.
             /// </summary>
-            public Message(ClientId caller, ClientId callee, byte rpcId, NetworkId target, object[]? args)
+            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, object[]? args)
             {
                 this.caller = caller;
                 this.callee = callee;
@@ -51,7 +51,7 @@ namespace OwlTree
                 this.args = args;
             }
 
-            public Message(ClientId callee, byte rpcId, object[]? args)
+            public Message(ClientId callee, RpcId rpcId, object[]? args)
             {
                 this.caller = ClientId.None;
                 this.callee = callee;
@@ -63,7 +63,7 @@ namespace OwlTree
             /// <summary>
             /// Represents an empty message.
             /// </summary>
-            public static Message Empty = new Message(ClientId.None, ClientId.None, 0, NetworkId.None, null);
+            public static Message Empty = new Message(ClientId.None, ClientId.None, RpcId.None, NetworkId.None, null);
 
             /// <summary>
             /// Returns true if this message doesn't contain anything.
@@ -175,45 +175,52 @@ namespace OwlTree
 
         protected static byte[] ClientConnectEncode(ClientId id)
         {
-            var bytes = new byte[]{RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            var ind = 1;
+            var rpcId = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
+            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
+            var ind = 0;
+            rpcId.InsertBytes(ref bytes, ref ind);
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
         protected static byte[] LocalClientConnectEncode(ClientId id)
         {
-            var bytes = new byte[]{RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            var ind = 1;
+            var rpcId = new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
+            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
+            var ind = 0;
+            rpcId.InsertBytes(ref bytes, ref ind);
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
         protected static byte[] ClientDisconnectEncode(ClientId id)
         {
-            var bytes = new byte[]{RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID, 0, 0, 0, 0};
-            var ind = 1;
+            var rpcId = new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
+            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
+            var ind = 0;
+            rpcId.InsertBytes(ref bytes, ref ind);
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
 
-        protected static int ClientMessageDecode(byte[] message, out ClientId id)
+        protected static RpcId ClientMessageDecode(byte[] message, out ClientId id)
         {
-            int result;
-            switch(message[0])
+            RpcId result = RpcId.None;
+            UInt16 rpcId = BitConverter.ToUInt16(message);
+            switch(rpcId)
             {
-                case RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID:
-                    result = RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID;
+                case RpcId.CLIENT_CONNECTED_MESSAGE_ID:
+                    result = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
                     break;
-                case RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
-                    result = RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID;
+                case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                    result = new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
                     break;
-                case RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID:
-                    result = RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID;
+                case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
+                    result = new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
                     break;
                 default:
                     id = ClientId.None;
-                    return -1;
+                    return RpcId.None;
             }
             id = new ClientId(message, 1);
             return result;

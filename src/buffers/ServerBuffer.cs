@@ -169,9 +169,9 @@ namespace OwlTree
         {
             while (_outgoing.TryDequeue(out var message))
             {
-                if (message.rpcId == RpcProtocol.NETWORK_OBJECT_NEW)
+                if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
                     Write(NetworkSpawner.SpawnEncode((Type)message.args![0], (NetworkId)message.args![1]));
-                else if (message.rpcId == RpcProtocol.NETWORK_OBJECT_DESTROY)
+                else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
                     Write(NetworkSpawner.DespawnEncode((NetworkId)message.args![0]));
                 else if (message.callee != ClientId.None)
                     WriteTo(message.callee, RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));

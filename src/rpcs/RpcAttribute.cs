@@ -60,7 +60,7 @@ namespace OwlTree
         }
 
         private static Dictionary<MethodInfo, RpcProtocol> _protocolsByMethod = new Dictionary<MethodInfo, RpcProtocol>();
-        private static Dictionary<byte, RpcProtocol> _protocolsById = new Dictionary<byte, RpcProtocol>();
+        private static Dictionary<RpcId, RpcProtocol> _protocolsById = new Dictionary<RpcId, RpcProtocol>();
 
         Type netObjType = typeof(NetworkObject);
 
@@ -152,7 +152,7 @@ namespace OwlTree
             }
         }
 
-        public static byte[] EncodeRpc(byte id, NetworkId source, object[]? args)
+        public static byte[] EncodeRpc(RpcId id, NetworkId source, object[]? args)
         {
             return _protocolsById[id].Encode(source, args);
         }
@@ -160,11 +160,12 @@ namespace OwlTree
         public static object[] DecodeRpc(ClientId source, byte[] bytes, out RpcProtocol protocol, out NetworkId target)
         {
             int ind = 0;
-            protocol = _protocolsById[bytes[0]];
-            return _protocolsById[bytes[0]].Decode(source, bytes, ref ind, out target);
+            var rpcId = new RpcId(bytes, 0);
+            protocol = _protocolsById[rpcId];
+            return _protocolsById[rpcId].Decode(source, bytes, ref ind, out target);
         }
 
-        public static void InvokeRpc(byte id, NetworkObject target, object[]? args)
+        public static void InvokeRpc(RpcId id, NetworkObject target, object[]? args)
         {
             _protocolsById[id].Invoke(target, args);
         }

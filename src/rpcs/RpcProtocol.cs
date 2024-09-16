@@ -7,28 +7,15 @@ namespace OwlTree
     public class RpcProtocol
     {
 
-        internal const byte CLIENT_CONNECTED_MESSAGE_ID       = 0;
-        internal const byte LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 1;
-        internal const byte CLIENT_DISCONNECTED_MESSAGE_ID    = 2;
-        internal const byte NETWORK_OBJECT_NEW                = 3;
-        internal const byte NETWORK_OBJECT_DESTROY            = 4;
-        internal const byte FIRST_RPC_ID                      = 5;
-
-        internal const int RPC_ID_BYTE_LEN = 1;
-        internal const int MAX_RPC_ID      = 255;
-
-        private static byte _curId = FIRST_RPC_ID;
-
         public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes)
         {
-            Id = _curId;
-            _curId++;
+            Id = new RpcId();
             ParamTypes = paramTypes;
             Method = method;
             NetworkObjectType = networkObjectType;
         }
 
-        public byte Id { get; private set; }
+        public RpcId Id { get; private set; }
 
         public Type NetworkObjectType { get; private set; }
 
@@ -39,9 +26,9 @@ namespace OwlTree
         public override string ToString()
         {
             string title = Method.Name + " <RpcId: " + Id + ">:\n";
-            string encoding = "  Bytes: [ RpcId:1b ][ NetId:" + NetworkId.MaxLength() + "b ]";
+            string encoding = "  Bytes: [ RpcId:" + RpcId.MaxLength() + "b ][ NetId:" + NetworkId.MaxLength() + "b ]";
             string parameters = "";
-            int maxSize = 1 + NetworkId.MaxLength();
+            int maxSize = RpcId.MaxLength() + NetworkId.MaxLength();
             var paramList = Method.GetParameters();
             for (int i = 0; i < paramList.Length; i++)
             {
@@ -68,11 +55,10 @@ namespace OwlTree
             if ((args == null && ParamTypes.Length > 0) || (args != null && args.Length != ParamTypes.Length))
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
 
-            byte[] bytes = new byte[5 + ExpectedLength(args)];
+            byte[] bytes = new byte[Id.ExpectedLength() + source.ExpectedLength() + ExpectedLength(args)];
 
-            bytes[0] = Id;
-
-            int ind = 1;
+            int ind = 0;
+            Id.InsertBytes(ref bytes, ref ind);
             source.InsertBytes(ref bytes, ref ind);
 
             if (args == null)
@@ -101,10 +87,10 @@ namespace OwlTree
 
         public object[] Decode(ClientId source, byte[] bytes, ref int ind, out NetworkId target)
         {
-            if (bytes[ind] != Id)
+            if (new RpcId(bytes, ind) != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
 
-            ind += 1;
+            ind += Id.ExpectedLength();
 
             target = (NetworkId)NetworkId.FromBytesAt(bytes, ref ind);
 

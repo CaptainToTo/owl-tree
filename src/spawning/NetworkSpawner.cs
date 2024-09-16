@@ -79,7 +79,7 @@ namespace OwlTree
             newObj.SetConnectionInternal(_connection);
             newObj.OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
-            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_NEW, [typeof(T), newObj.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [typeof(T), newObj.Id]);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
             return newObj;
@@ -104,7 +104,7 @@ namespace OwlTree
             newObj.OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
 
-            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_NEW, [t, newObj.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [t, newObj.Id]);
 
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
@@ -135,8 +135,12 @@ namespace OwlTree
         // encodes spawn into byte array for send
         public static byte[] SpawnEncode(Type objType, NetworkId id)
         {
-            var bytes = new byte[]{RpcProtocol.NETWORK_OBJECT_NEW, _typeToIds[objType], 0, 0, 0, 0};
-            var ind = 2;
+            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_SPAWN);
+            var bytes = new byte[rpcId.ExpectedLength() + 1 + id.ExpectedLength()];
+            var ind = 0;
+            rpcId.InsertBytes(ref bytes, ref ind);
+            bytes[ind] = _typeToIds[objType];
+            ind++;
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
@@ -148,7 +152,7 @@ namespace OwlTree
         {
             _netObjects.Remove(target.Id);
             target.SetActiveInternal(false);
-            _connection.AddRpc(RpcProtocol.NETWORK_OBJECT_DESTROY, [target.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_DESPAWN), [target.Id]);
             target.OnDespawn();
             OnObjectDespawn?.Invoke(target);
         }
@@ -166,8 +170,10 @@ namespace OwlTree
         // encodes destroy into byte array for send
         public static byte[] DespawnEncode(NetworkId id)
         {
-            var bytes = new byte[]{RpcProtocol.NETWORK_OBJECT_DESTROY, 0, 0, 0, 0};
-            var ind = 1;
+            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_DESPAWN);
+            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
+            var ind = 0;
+            rpcId.InsertBytes(ref bytes, ref ind);
             id.InsertBytes(ref bytes, ref ind);
             return bytes;
         }
@@ -176,36 +182,34 @@ namespace OwlTree
         /// Decodes the given message, assuming it is either a spawn or destroy instruction from the server.
         /// If decoded, the spawn or destroy instruction will be executed.
         /// </summary>
-        public void ReceiveInstruction(byte rpcId, object[]? args)
+        public void ReceiveInstruction(RpcId rpcId, object[]? args)
         {
             if (args == null) return;
-            switch(rpcId)
+            switch(rpcId.Id)
             {
-                case RpcProtocol.NETWORK_OBJECT_NEW:
+                case RpcId.NETWORK_OBJECT_SPAWN:
                     var objType = _idsToType[(byte)args[0]];
                     var id = (NetworkId)args[1];
                     ReceiveSpawn(objType, id);
                     break;
-                case RpcProtocol.NETWORK_OBJECT_DESTROY:
+                case RpcId.NETWORK_OBJECT_DESPAWN:
                     ReceiveDestroy((NetworkId)args[0]);
                     break;
             }
         }
 
-        public static bool TryDecode(byte[] message, out byte rpcId, out object[]? args)
+        public static bool TryDecode(byte[] message, out RpcId rpcId, out object[]? args)
         {
             args = null;
-            rpcId = 0;
-            switch(message[0])
+            int ind = 0;
+            rpcId = (RpcId)RpcId.FromBytesAt(message, ref ind);
+            switch(rpcId.Id)
             {
-                case RpcProtocol.NETWORK_OBJECT_NEW:
-                    int ind = 2;
-                    rpcId = RpcProtocol.NETWORK_OBJECT_NEW;
-                    args = new object[]{message[1], NetworkId.FromBytesAt(message, ref ind)};
+                case RpcId.NETWORK_OBJECT_SPAWN:
+                    ind += 1;
+                    args = new object[]{message[2], NetworkId.FromBytesAt(message, ref ind)};
                     break;
-                case RpcProtocol.NETWORK_OBJECT_DESTROY:
-                    ind = 1;
-                    rpcId = RpcProtocol.NETWORK_OBJECT_DESTROY;
+                case RpcId.NETWORK_OBJECT_DESPAWN:
                     args = new object[]{NetworkId.FromBytesAt(message, ref ind)};
                     break;
                 default:

@@ -154,7 +154,7 @@ namespace OwlTree
             {
                 if (
                     role == Role.Client && 
-                    (message.rpcId == RpcProtocol.NETWORK_OBJECT_NEW || message.rpcId == RpcProtocol.NETWORK_OBJECT_DESTROY)
+                    (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN || message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
                 )
                 {
                     _spawner.ReceiveInstruction(message.rpcId, message.args);
@@ -166,17 +166,17 @@ namespace OwlTree
             }
         }
 
-        internal void AddRpc(ClientId callee, byte rpcId, NetworkId target, object[]? args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[]? args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, args));
         }
 
-        internal void AddRpc(ClientId callee, byte rpcId, object[]? args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, object[]? args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, args));
         }
 
-        internal void AddRpc(byte rpcId, object[]? args)
+        internal void AddRpc(RpcId rpcId, object[]? args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, args));
         }

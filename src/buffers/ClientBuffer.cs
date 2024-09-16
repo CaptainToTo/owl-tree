@@ -76,8 +76,8 @@ namespace OwlTree
 
                     foreach (var message in messages)
                     {
-                        int clientMessage = ClientMessageDecode(message, out var clientId);
-                        if (RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID)
+                        RpcId clientMessage = ClientMessageDecode(message, out var clientId);
+                        if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
                         {
                             HandleClientConnectionMessage(clientMessage, clientId);
                         }
@@ -97,21 +97,21 @@ namespace OwlTree
 
         // handle connections and disconnections immediately, 
         // they do not preserve the message execution order.
-        private void HandleClientConnectionMessage(int messageType, ClientId id)
+        private void HandleClientConnectionMessage(RpcId messageType, ClientId id)
         {
-            switch (messageType)
+            switch (messageType.Id)
             {
-                case RpcProtocol.CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcId.CLIENT_CONNECTED_MESSAGE_ID:
                     _clients.Add(id);
                     OnClientConnected?.Invoke(id);
                     break;
-                case RpcProtocol.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
                     _clients.Add(id);
                     LocalId = id;
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
-                case RpcProtocol.CLIENT_DISCONNECTED_MESSAGE_ID:
+                case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
                     _clients.Remove(id);
                     OnClientDisconnected?.Invoke(id);
                     break;
