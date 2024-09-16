@@ -31,4 +31,10 @@ public class Radio : NetworkObject
     {
         
     }
+
+    [Rpc(RpcCaller.Server)]
+    public void RPC_Test()
+    {
+        Console.WriteLine("Received test");
+    }
 }

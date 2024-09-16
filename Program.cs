@@ -9,10 +9,6 @@ class Program
 
     static void Main(string[] args)
     {
-        // RpcAttribute.GenerateRpcProtocols();
-        // var obj = new NetworkObject();
-        // obj.TestRpc(obj.Id, 5);
-        // return;
         if (args[0] == "s")
         {
             var server = new Connection(new Connection.Args
@@ -23,6 +19,7 @@ class Program
             server.OnClientConnected += (ClientId id) => {
                 radio = server.Spawn<Radio>();
                 radio.RPC_PingClients("Hello from server");
+                radio.RPC_Test();
                 server.Send();
             };
             Loop(server);
@@ -50,6 +47,7 @@ class Program
         while (true)
         {
             connection.Read();
+            connection.ExecuteQueue();
             if (radio != null && !sent)
             {
                 if (connection.role == Connection.Role.Server)

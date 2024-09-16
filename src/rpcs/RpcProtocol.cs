@@ -128,6 +128,14 @@ namespace OwlTree
 
         private static object DecodeObject(byte[] bytes, ref int ind, Type t)
         {
+            if (t == typeof(string))
+            {
+                var length = bytes[ind];
+                var str = Encoding.UTF8.GetString(bytes, ind + 1, length);
+                ind += length + 1;
+                return str;
+            }
+
             object result = Activator.CreateInstance(t)!;
             if (t == typeof(int))
             {
@@ -168,12 +176,6 @@ namespace OwlTree
             {
                 result = bytes[ind] == 1;
                 ind += 1;
-            }
-            else if (t == typeof(string))
-            {
-                var length = bytes[ind];
-                result = Encoding.UTF8.GetString(bytes, ind + 1, length);
-                ind += length + 1;
             }
             else
             {

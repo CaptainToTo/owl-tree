@@ -157,7 +157,7 @@ namespace OwlTree
                     (message.rpcId == RpcProtocol.NETWORK_OBJECT_NEW || message.rpcId == RpcProtocol.NETWORK_OBJECT_DESTROY)
                 )
                 {
-                    _spawner.Decode(message.rpcId, message.args);
+                    _spawner.ReceiveInstruction(message.rpcId, message.args);
                 }
                 else if (TryGetObject(message.target, out var target))
                 {
@@ -247,7 +247,6 @@ namespace OwlTree
             if (role == Role.Client)
                 throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
             var obj = _spawner.Spawn<T>();
-            obj.OnRpcCall = AddRpc;
             return obj;
         }
 

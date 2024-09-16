@@ -81,9 +81,13 @@ namespace OwlTree
                         {
                             HandleClientConnectionMessage(clientMessage, clientId);
                         }
+                        else if (NetworkSpawner.TryDecode(message, out var rpcId, out var args))
+                        {
+                            _incoming.Enqueue(new Message(ClientId.None, LocalId, rpcId, NetworkId.None, args));
+                        }
                         else
                         {
-                            var args = RpcAttribute.DecodeRpc(ClientId.None, message, out var protocol, out var target);
+                            args = RpcAttribute.DecodeRpc(ClientId.None, message, out var protocol, out var target);
                             _incoming.Enqueue(new Message(ClientId.None, LocalId, protocol.Id, target, args));
                         }
                     }
