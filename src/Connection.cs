@@ -20,6 +20,8 @@ namespace OwlTree
         /// </summary>
         public struct Args
         {
+            // socket args
+
             /// <summary>
             /// Whether this connection is a server or client.<b>Default = Server</b>
             /// </summary>
@@ -42,6 +44,11 @@ namespace OwlTree
             /// <b>Default = 2048</b>
             /// </summary>
             public int bufferSize = 2048;
+
+            // initial listeners
+
+
+            // threaded buffer
 
             /// <summary>
             /// If false <b>(Default)</b>, Reading and writing to sockets will need to called by your program with <c>Read()</c>
