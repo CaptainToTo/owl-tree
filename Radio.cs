@@ -7,17 +7,22 @@ public class Radio : NetworkObject
         return "Radio No. " + Id.ToString();
     }
 
-    [Rpc(RpcCaller.Client, InvokeOnCaller = true)]
+    int pingNo = 0;
+
+    [Rpc(RpcCaller.Client)]
     public void RPC_PingServer(string message, [RpcCaller] ClientId caller = default)
     {
         Console.WriteLine("Message from client " + caller.ToString() + ":\n" + message);
+        pingNo++;
+        RPC_PingClients("hello from server: " + pingNo);
     }
 
     [Rpc(RpcCaller.Server)]
     public void RPC_PingClients(string message)
     {
         Console.WriteLine("Message from server:\n" + message);
-        RPC_PingServer("hello from client");
+        pingNo++;
+        RPC_PingServer("hello from client: " + pingNo);
     }
 
     [Rpc(RpcCaller.Server, Key = "PingClient")]

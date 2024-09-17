@@ -55,9 +55,9 @@ namespace OwlTree
 
             /// <summary>
             /// If the connection is threaded, specify the number of milliseconds the read/write thread will spend sleeping
-            /// between updates. <b>Default = 17 (60 ticks/sec)</b>
+            /// between updates. <b>Default = 40 (25 ticks/sec)</b>
             /// </summary>
-            public int threadUpdateDelta = 17;
+            public int threadUpdateDelta = 40;
 
             public Args() { }
         }
@@ -94,6 +94,34 @@ namespace OwlTree
 
             _spawner.OnObjectSpawn = (obj) => OnObjectSpawn?.Invoke(obj);
             _spawner.OnObjectDespawn = (obj) => OnObjectDespawn?.Invoke(obj);
+
+            if (args.threaded)
+            {
+                Threaded = false;
+                _threadUpdateDelta = args.threadUpdateDelta;
+                _bufferThread = new Thread(new ThreadStart(NetworkLoop));
+                _bufferThread.Start();
+            }
+        }
+
+        private Thread? _bufferThread = null;
+
+        public bool Threaded { get; private set; } = false;
+        private int _threadUpdateDelta = 40;
+
+        private void NetworkLoop()
+        {
+            AwaitConnection();
+            while (true)
+            {
+                long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _buffer.Read();
+                if (_buffer.HasOutgoing)
+                    _buffer.Send();
+                long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
+
+                Thread.Sleep((int)(_threadUpdateDelta - diff));
+            }
         }
 
         /// <summary>
@@ -134,11 +162,15 @@ namespace OwlTree
         /// </summary>
         public void Read()
         {
+            if (Threaded)
+                throw new InvalidOperationException("Cannot perform read operation on a threaded connection. This is handled for you in a dedicated thread.");
             _buffer.Read();
         }
 
         public void AwaitConnection()
         {
+            if (Threaded)
+                throw new InvalidOperationException("Cannot perform await connection operation on a threaded connection. This is handled for you in a dedicated thread.");
             if (!_buffer.IsReady)
                 _buffer.Read();
         }
@@ -186,6 +218,8 @@ namespace OwlTree
         /// </summary>
         public void Send()
         {
+            if (Threaded)
+                throw new InvalidOperationException("Cannot perform send operation on a threaded connection. This is handled for you in a dedicated thread.");
             _buffer.Send();
         }
 

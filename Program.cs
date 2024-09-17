@@ -13,14 +13,13 @@ class Program
         {
             var server = new Connection(new Connection.Args
             {
-                role = Connection.Role.Server
+                role = Connection.Role.Server,
+                threaded = true,
             });
             server.OnClientConnected += (ClientId id) => Console.WriteLine("Client Joined: " + id.ToString());
             server.OnClientConnected += (ClientId id) => {
                 radio = server.Spawn<Radio>();
-                radio.RPC_PingClients("Hello from server");
-                radio.RPC_Test();
-                server.Send();
+                radio.RPC_PingClients("Hello from server: 0");
             };
             Loop(server);
         }
@@ -28,7 +27,8 @@ class Program
         {
             var client = new Connection(new Connection.Args
             {
-                role = Connection.Role.Client
+                role = Connection.Role.Client,
+                threaded = true,
             });
             client.OnReady += (ClientId id) => Console.WriteLine("Local Id: " + id.ToString());
             client.OnObjectSpawn += (obj) => {
@@ -36,33 +36,19 @@ class Program
                 radio = (Radio)obj;
             };
             client.OnObjectDespawn += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
-            client.AwaitConnection();
             Loop(client);
         }
     }
 
     public static void Loop(Connection connection)
     {
-        bool sent = false;
+        int tick = 0;
         while (true)
         {
-            connection.Read();
-            connection.ExecuteQueue();
-            if (radio != null && !sent)
-            {
-                if (connection.role == Connection.Role.Server)
-                {
-                    
-                }
-                else
-                {
-                    // radio.RPC_PingServer("Hello from client");
-                }
-                connection.Send();
-                sent = true;
-            }
-            if (!connection.IsActive)
-                break;
+            Console.WriteLine("Tick: " + tick);
+            if (connection.IsActive)
+                connection.ExecuteQueue();
+            Thread.Sleep(1000);
         }
     }
 }

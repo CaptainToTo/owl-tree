@@ -120,6 +120,8 @@ namespace OwlTree
 
         protected ConcurrentQueue<Message> _outgoing = new ConcurrentQueue<Message>();
 
+        public bool HasOutgoing { get { return _outgoing.Count > 0; } }
+        
         /// <summary>
         /// Get the next message in the read queue.
         /// </summary>
