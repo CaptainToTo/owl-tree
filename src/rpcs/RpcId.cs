@@ -104,11 +104,6 @@ namespace OwlTree
             return true;
         }
 
-        public byte[] ToBytes()
-        {
-            return BitConverter.GetBytes(_id);
-        }
-
         // Operators
 
         /// <summary>

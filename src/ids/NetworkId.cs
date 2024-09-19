@@ -81,14 +81,6 @@ namespace OwlTree
         public uint Id { get { return _id; } }
 
         /// <summary>
-        /// Returns the id as a byte array.
-        /// </summary>
-        public byte[] ToBytes()
-        {
-            return BitConverter.GetBytes(_id);
-        }
-
-        /// <summary>
         /// Inserts id as bytes into the given byte array, starting at ind.
         /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
         /// </summary>

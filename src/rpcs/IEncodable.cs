@@ -14,11 +14,6 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Creates a byte array representation of the object.
-        /// </summary>
-        public byte[] ToBytes();
-
-        /// <summary>
         /// Inserts a byte array representation of the object into bytes, starting at index ind.
         /// ind should be updated to be after the last byte inserted.<br />
         /// Return true if the bytes were successfully inserted, false otherwise.
