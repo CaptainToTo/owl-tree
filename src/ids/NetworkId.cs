@@ -115,16 +115,11 @@ namespace OwlTree
         /// Inserts id as bytes into the given byte array, starting at ind.
         /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
         /// </summary>
-        public bool InsertBytes(ref byte[] bytes, ref int ind)
+        public bool InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < ind + 4)
+            if (bytes.Length < 4)
                 return false;
-            byte mask = 0xff;
-            for (int i = 0; i < 4; i++)
-            {
-                bytes[i + ind] = (byte)((_id >> ((3 - i) * 8)) & mask);
-            }
-            ind += 4;
+            BitConverter.TryWriteBytes(bytes, _id);
             return true;
         }
 

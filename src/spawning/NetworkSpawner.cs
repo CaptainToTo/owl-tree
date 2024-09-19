@@ -132,17 +132,23 @@ namespace OwlTree
             OnObjectSpawn?.Invoke(newObj);
         }
 
+        public static int SpawnByteLength { get { return RpcId.MaxLength() + 1 + NetworkId.MaxLength(); } }
+
         // encodes spawn into byte array for send
-        public static byte[] SpawnEncode(Type objType, NetworkId id)
+        public static void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
         {
+            int ind = 0;
+
             var rpcId = new RpcId(RpcId.NETWORK_OBJECT_SPAWN);
-            var bytes = new byte[rpcId.ExpectedLength() + 1 + id.ExpectedLength()];
-            var ind = 0;
-            rpcId.InsertBytes(ref bytes, ref ind);
-            bytes[ind] = _typeToIds[objType];
-            ind++;
-            id.InsertBytes(ref bytes, ref ind);
-            return bytes;
+            var rpcSpan = bytes.Slice(ind, rpcId.ExpectedLength());
+            rpcId.InsertBytes(rpcSpan);
+            ind += rpcId.ExpectedLength();
+
+            bytes[rpcId.ExpectedLength()] = _typeToIds[objType];
+            ind += 1;
+
+            var idSpan = bytes.Slice(ind, id.ExpectedLength());
+            id.InsertBytes(idSpan);
         }
 
         /// <summary>
@@ -167,15 +173,20 @@ namespace OwlTree
             OnObjectDespawn?.Invoke(target);
         }
 
+        public static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
+
         // encodes destroy into byte array for send
-        public static byte[] DespawnEncode(NetworkId id)
+        public static void DespawnEncode(Span<byte> bytes, NetworkId id)
         {
-            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_DESPAWN);
-            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
             var ind = 0;
-            rpcId.InsertBytes(ref bytes, ref ind);
-            id.InsertBytes(ref bytes, ref ind);
-            return bytes;
+
+            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_DESPAWN);
+            var rpcSpan = bytes.Slice(0, rpcId.ExpectedLength());
+            rpcId.InsertBytes(rpcSpan);
+            ind += rpcId.ExpectedLength();
+
+            var idSpan = bytes.Slice(ind, id.ExpectedLength());
+            id.InsertBytes(idSpan);
         }
 
         /// <summary>

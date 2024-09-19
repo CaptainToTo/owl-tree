@@ -77,12 +77,7 @@ namespace OwlTree
             if (bytes.Length < 4)
                 throw new ArgumentException("Byte array must have 4 bytes to decode a ClientId from.");
 
-            UInt32 result = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                result |= ((UInt32)bytes[i]) << ((3 - i) * 8);
-            }
-            _id = result;
+            _id = BitConverter.ToUInt32(bytes.AsSpan());
             if (_id >= _curId)
                 _curId = _id + 1;
         }
@@ -95,12 +90,7 @@ namespace OwlTree
             if (bytes.Length < ind + 4)
                 throw new ArgumentException("Byte array must have 4 bytes from ind to decode a ClientId from.");
 
-            UInt32 result = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                result |= ((UInt32)bytes[ind + i]) << ((3 - i) * 8);
-            }
-            _id = result;
+            _id = BitConverter.ToUInt32(bytes.AsSpan(ind));
             if (_id >= _curId)
                 _curId = _id + 1;
         }
@@ -122,16 +112,11 @@ namespace OwlTree
         /// Inserts id as bytes into the given byte array, starting at ind.
         /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
         /// </summary>
-        public bool InsertBytes(ref byte[] bytes, ref int ind)
+        public bool InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < ind + 4)
+            if (bytes.Length < 4)
                 return false;
-            byte mask = 0xff;
-            for (int i = 0; i < 4; i++)
-            {
-                bytes[i + ind] = (byte)((_id >> ((3 - i) * 8)) & mask);
-            }
-            ind += 4;
+            BitConverter.TryWriteBytes(bytes, _id);
             return true;
         }
 

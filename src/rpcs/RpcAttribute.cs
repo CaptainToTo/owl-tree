@@ -152,9 +152,14 @@ namespace OwlTree
             }
         }
 
-        public static byte[] EncodeRpc(RpcId id, NetworkId source, object[]? args)
+        public static int RpcExpectedLength(RpcId id, object[]? args)
         {
-            return _protocolsById[id].Encode(source, args);
+            return _protocolsById[id].ExpectedLength(args);
+        }
+
+        public static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[]? args)
+        {
+            _protocolsById[id].Encode(bytes, source, args);
         }
 
         public static object[] DecodeRpc(ClientId source, byte[] bytes, out RpcProtocol protocol, out NetworkId target)

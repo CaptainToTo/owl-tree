@@ -84,14 +84,18 @@ namespace OwlTree
                     OnClientConnected?.Invoke(_clientsSockets[client].id);
 
                     // send new client their id
-                    clientInstance.buffer.Add(LocalClientConnectEncode(clientInstance.id));
+                    var span = clientInstance.buffer.GetSpan(ClientMessageLength);
+                    LocalClientConnectEncode(span, clientInstance.id);
 
-                    // notify clients of a new client in the next send
-                    var clientConnectedMessage = ClientConnectEncode(clientInstance.id);
                     foreach (var otherClient in _clientsIds)
                     {
-                        WriteTo(otherClient.Key, clientConnectedMessage);
-                        clientInstance.buffer.Add(ClientConnectEncode(otherClient.Key));
+                        // notify clients of a new client in the next send
+                        span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
+                        ClientConnectEncode(span, clientInstance.id);
+
+                        // add existing clients to new client
+                        span = clientInstance.buffer.GetSpan(ClientMessageLength);
+                        ClientConnectEncode(span, otherClient.Key);
                     }
                     
                     client.Send(clientInstance.buffer.GetBuffer());
@@ -115,7 +119,12 @@ namespace OwlTree
                         _clientsIds.Remove(client.id);
                         socket.Close();
                         OnClientDisconnected?.Invoke(client.id);
-                        Write(ClientDisconnectEncode(client.id));
+
+                        foreach (var otherClient in _clientsSockets)
+                        {
+                            var span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
+                            ClientDisconnectEncode(span, client.id);
+                        }
                         continue;
                     }
 
@@ -132,38 +141,6 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Add message to all clients' buffers.
-        /// Actually write buffers to sockets with <c>Write()</c>.
-        /// </summary>
-        protected override void Write(byte[] message)
-        {
-            foreach (var client in _clientsSockets)
-            {
-                try
-                {
-                    client.Value.buffer.Add(message);
-                }
-                catch { }
-            }
-        }
-
-        /// <summary>
-        /// Add message to a specific client's buffer.
-        /// Actually write buffers to sockets with <c>Write()</c>.
-        /// </summary>
-        protected override void WriteTo(ClientId id, byte[] message)
-        {
-            if (_clientsIds.TryGetValue(id, out var client))
-            {
-                try
-                {
-                    client.buffer.Add(message);
-                }
-                catch { }
-            }
-        }
-
-        /// <summary>
         /// Write current buffers to client sockets.
         /// Buffers are cleared after writing.
         /// </summary>
@@ -172,13 +149,37 @@ namespace OwlTree
             while (_outgoing.TryDequeue(out var message))
             {
                 if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
-                    Write(NetworkSpawner.SpawnEncode((Type)message.args![0], (NetworkId)message.args![1]));
+                {
+                    foreach (var client in _clientsSockets)
+                    {
+                        var span = client.Value.buffer.GetSpan(NetworkSpawner.SpawnByteLength);
+                        NetworkSpawner.SpawnEncode(span, (Type)message.args![0], (NetworkId)message.args![1]);
+                    }
+                }
                 else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
-                    Write(NetworkSpawner.DespawnEncode((NetworkId)message.args![0]));
+                {
+                    foreach (var client in _clientsSockets)
+                    {
+                        var span = client.Value.buffer.GetSpan(NetworkSpawner.DespawnByteLength);
+                        NetworkSpawner.DespawnEncode(span, (NetworkId)message.args![0]);
+                    }
+                }
                 else if (message.callee != ClientId.None)
-                    WriteTo(message.callee, RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+                {
+                    if (_clientsIds.TryGetValue(message.callee, out var client))
+                    {
+                        var span = client.buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
+                        RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+                    }
+                }
                 else
-                    Write(RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+                {
+                    foreach (var client in _clientsSockets)
+                    {
+                        var span = client.Value.buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
+                        RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+                    }
+                }
             }
             foreach (var client in _clientsSockets)
             {
@@ -212,7 +213,12 @@ namespace OwlTree
                 _clientsIds.Remove(id);
                 client.socket.Close();
                 OnClientDisconnected?.Invoke(id);
-                Write(ClientDisconnectEncode(client.id));
+
+                foreach (var otherClient in _clientsSockets)
+                {
+                    var span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
+                    ClientDisconnectEncode(span, client.id);
+                }
             }
         }
     }

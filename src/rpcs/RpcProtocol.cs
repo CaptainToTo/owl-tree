@@ -50,28 +50,31 @@ namespace OwlTree
             return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
         }
 
-        public byte[] Encode(NetworkId source, object[]? args)
+        public void Encode(Span<byte> bytes, NetworkId source, object[]? args)
         {
             if ((args == null && ParamTypes.Length > 0) || (args != null && args.Length != ParamTypes.Length))
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
 
-            byte[] bytes = new byte[Id.ExpectedLength() + source.ExpectedLength() + ExpectedLength(args)];
-
-            int ind = 0;
-            Id.InsertBytes(ref bytes, ref ind);
-            source.InsertBytes(ref bytes, ref ind);
+            int start = 0;
+            int end = Id.ExpectedLength();
+            Id.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += source.ExpectedLength();
+            source.InsertBytes(bytes.Slice(start, end - start));
 
             if (args == null)
-                return bytes;
+                return;
 
             for (int i = 0; i < ParamTypes.Length; i++)
             {
                 if (ParamTypes[i] != args[i].GetType())
                     throw new ArgumentException("args must have the same types as the expected method parameters, in the correct order.");
-                InsertBytes(bytes, args[i], ref ind);
+                start = end;
+                end += GetExpectedLength(args[i]);
+                InsertBytes(bytes.Slice(start, end - start), args[i]);
             }
 
-            return bytes;
+            return;
         }
 
         public void Invoke(NetworkObject target, object[]? args)
@@ -183,59 +186,49 @@ namespace OwlTree
             return result;
         }
 
-        private static void InsertBytes(byte[] bytes, object arg, ref int ind)
+        private static void InsertBytes(Span<byte> bytes, object arg)
         {
             var t = arg.GetType();
             if (t == typeof(int))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (int)arg);
-                ind += 4;
+                BitConverter.TryWriteBytes(bytes, (int)arg);
             }
             else if (t == typeof(uint))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (uint)arg);
-                ind += 4;
+                BitConverter.TryWriteBytes(bytes, (uint)arg);
             }
             else if (t == typeof(float))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (float)arg);
-                ind += 4;
+                BitConverter.TryWriteBytes(bytes, (float)arg);
             }
             else if (t == typeof(double))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (double)arg);
-                ind += 8;
+                BitConverter.TryWriteBytes(bytes, (double)arg);
             }
             else if (t == typeof(long))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (long)arg);
-                ind += 8;
+                BitConverter.TryWriteBytes(bytes, (long)arg);
             }
             else if (t == typeof(ushort))
             {
-                BitConverter.TryWriteBytes(bytes.AsSpan(ind), (ushort)arg);
-                ind += 2;
+                BitConverter.TryWriteBytes(bytes, (ushort)arg);
             }
             else if (t == typeof(byte))
             {
-                bytes[ind] = (byte)arg;
-                ind += 1;
+                bytes[0] = (byte)arg;
             }
             else if (t == typeof(bool))
             {
-                bytes[ind] = (byte)(((bool)arg) ? 1 : 0);
-                ind += 1;
+                bytes[0] = (byte)(((bool)arg) ? 1 : 0);
             }
             else if (t == typeof(string))
             {
                 var encoding = Encoding.UTF8.GetBytes((string)arg);
                 if (encoding.Length > 255)
                     throw new InvalidOperationException("strings cannot require more than 255 bytes to encode.");
-                bytes[ind] = (byte)encoding.Length;
-                ind += 1;
-                for (int i = 0; i < encoding.Length; i++)
-                    bytes[ind + i] = encoding[i];
-                ind += encoding.Length;
+                bytes[0] = (byte)encoding.Length;
+                for (int i = 1; i < encoding.Length; i++)
+                    bytes[i] = encoding[i];
             }
             else
             {
@@ -245,7 +238,7 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        ((IEncodable)arg).InsertBytes(ref bytes, ref ind);
+                        ((IEncodable)arg).InsertBytes(bytes);
                     }
                 }
             }
@@ -265,7 +258,7 @@ namespace OwlTree
                     throw new ArgumentException("args must have the same types as the expected method parameters, in the correct order.");
                 sum += GetExpectedLength(args[i]);
             }
-            return sum;
+            return sum + Id.ExpectedLength() + NetworkId.MaxLength();
         }
 
         private static int GetExpectedLength(object arg)

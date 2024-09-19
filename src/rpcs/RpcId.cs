@@ -103,12 +103,11 @@ namespace OwlTree
             return 2;
         }
 
-        public bool InsertBytes(ref byte[] bytes, ref int ind)
+        public bool InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < ind + 2)
+            if (bytes.Length < 2)
                 return false;
-            BitConverter.TryWriteBytes(bytes.AsSpan(ind), _id);
-            ind += 2;
+            BitConverter.TryWriteBytes(bytes, _id);
             return true;
         }
 

@@ -14,12 +14,9 @@ namespace OwlTree
         /// <summary>
         /// Produces a copy of the byte array buffer excluding trailing 0-bytes.
         /// </summary>
-        public byte[] GetBuffer()
+        public ReadOnlySpan<byte> GetBuffer()
         {
-            byte[] copy = new byte[_tail];
-            for (int i = 0; i < _tail; i++)
-                copy[i] = _buffer[i];
-            return copy;
+            return _buffer.AsSpan(0, _tail);
         }
         
         /// <summary>
@@ -49,28 +46,31 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Concatenates the given byte array to the buffer. This will fail if there isn't enough space in the buffer.
+        /// Gets space for a new message, which can be written into using to provided span. 
+        /// This will fail if there isn't enough space in the buffer.
         /// Messages are stacked in the format: <br />
         /// <c>[message byte length][message bytes][message byte length][message bytes]...</c>
         /// </summary>
-        public void Add(byte[] bytes)
+        public Span<byte> GetSpan(int byteCount)
         {
-            if (bytes.Length > 255)
+            if (byteCount > ushort.MaxValue)
                 throw new ArgumentOutOfRangeException("message length is too long. Cannot be represented in a byte (<255).");
 
-            byte len = (byte)bytes.Length;
+            ushort len = (ushort)byteCount;
 
-            if (!HasSpaceFor(len + 1))
+            if (!HasSpaceFor(len + 2))
                 throw new ArgumentOutOfRangeException("Buffer is too full to add " + len + " bytes.");
             
-            _buffer[_tail] = len;
-            _tail++;
+            BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), len);
+            _tail += 2;
 
-            for (int i = 0; i < len; i++)
-            {
-                _buffer[_tail] = bytes[i];
-                _tail++;
-            }
+            for (int i = _tail; i < _tail + len; i++)
+                _buffer[i] = 0;
+
+            var span = _buffer.AsSpan(_tail, len);
+            _tail += len;
+
+            return span;
         }
 
         /// <summary>
@@ -90,11 +90,13 @@ namespace OwlTree
             {
                 if (!reading)
                 {
-                    if (stream[i] == 0)
+                    int len = BitConverter.ToUInt16(stream.AsSpan(i));
+                    if (len == 0)
                         break;
-                    curBytes = new byte[stream[i]];
+                    curBytes = new byte[len];
                     curIndex = 0;
                     reading = true;
+                    i++;
                     continue;
                 }
 

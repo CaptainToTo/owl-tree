@@ -151,9 +151,9 @@ namespace OwlTree
             _outgoing.Enqueue(message);
         }
 
-        protected abstract void Write(byte[] bytes);
+        // protected abstract void Write(byte[] bytes);
 
-        protected abstract void WriteTo(ClientId callee, byte[] bytes);
+        // protected abstract void WriteTo(ClientId callee, byte[] bytes);
 
         /// <summary>
         /// Send current buffers to associated sockets.
@@ -175,34 +175,30 @@ namespace OwlTree
 
         // * Connection and Disconnection Message Protocols
 
-        protected static byte[] ClientConnectEncode(ClientId id)
+        protected static int ClientMessageLength { get { return RpcId.MaxLength() + ClientId.MaxLength(); } }
+
+        protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
-            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
-            var ind = 0;
-            rpcId.InsertBytes(ref bytes, ref ind);
-            id.InsertBytes(ref bytes, ref ind);
-            return bytes;
+            var ind = rpcId.ExpectedLength();
+            rpcId.InsertBytes(bytes.Slice(0, ind));
+            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
         }
 
-        protected static byte[] LocalClientConnectEncode(ClientId id)
+        protected static void LocalClientConnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
-            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
-            var ind = 0;
-            rpcId.InsertBytes(ref bytes, ref ind);
-            id.InsertBytes(ref bytes, ref ind);
-            return bytes;
+            var ind = rpcId.ExpectedLength();
+            rpcId.InsertBytes(bytes.Slice(0, ind));
+            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
         }
 
-        protected static byte[] ClientDisconnectEncode(ClientId id)
+        protected static void ClientDisconnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
-            var bytes = new byte[rpcId.ExpectedLength() + id.ExpectedLength()];
-            var ind = 0;
-            rpcId.InsertBytes(ref bytes, ref ind);
-            id.InsertBytes(ref bytes, ref ind);
-            return bytes;
+            var ind = rpcId.ExpectedLength();
+            rpcId.InsertBytes(bytes.Slice(0, ind));
+            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
         }
 
         protected static RpcId ClientMessageDecode(byte[] message, out ClientId id)

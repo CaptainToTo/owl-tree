@@ -118,29 +118,6 @@ namespace OwlTree
                 default: break;
             }
         }
-        
-        /// <summary>
-        /// Add message to the outgoing buffer.
-        /// Actually write the buffer to the socket with <c>Write()</c>.
-        /// </summary>
-        protected override void Write(byte[] message)
-        {
-            try
-            {
-                _outgoingBytes.Add(message);
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// INVALID ON CLIENTS. Clients cannot directly send messages to other clients.
-        /// To do this, send a message to the server with <c>Send()</c> that contains the intended
-        /// recipient. The server can then pass that message to the recipient.
-        /// </summary>
-        protected override void WriteTo(ClientId id, byte[] message)
-        {
-            throw new InvalidOperationException("Clients cannot directly send messages to other clients.");
-        }
 
         /// <summary>
         /// Write current outgoing buffer to the server socket.
@@ -150,7 +127,8 @@ namespace OwlTree
         {
             while (_outgoing.TryDequeue(out var message))
             {
-                Write(RpcAttribute.EncodeRpc(message.rpcId, message.target, message.args));
+                var span = _outgoingBytes.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
+                RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
             }
             _client.Send(_outgoingBytes.GetBuffer());
             _outgoingBytes.Reset();

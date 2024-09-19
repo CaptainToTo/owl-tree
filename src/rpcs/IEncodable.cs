@@ -16,7 +16,7 @@ namespace OwlTree
         /// ind should be updated to be after the last byte inserted.<br />
         /// Return true if the bytes were successfully inserted, false otherwise.
         /// </summary>
-        public bool InsertBytes(ref byte[] bytes, ref int ind);
+        public bool InsertBytes(Span<byte> bytes);
 
         /// <summary>
         /// Returns the expected number of bytes it will take to encode this object.
