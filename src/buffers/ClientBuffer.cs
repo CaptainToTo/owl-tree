@@ -49,7 +49,6 @@ namespace OwlTree
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
             byte[] data = new byte[BufferSize];
-            List<byte[]> messages = new List<byte[]>();
 
             foreach (var socket in _readList)
             {
@@ -69,12 +68,9 @@ namespace OwlTree
                         OnClientDisconnected?.Invoke(LocalId);
                         return;
                     }
-                    // Console.WriteLine(BitConverter.ToString(data));
 
-                    messages.Clear();
-                    MessageBuffer.SplitMessageBytes(data, ref messages);
-
-                    foreach (var message in messages)
+                    int start = 0;
+                    while (MessageBuffer.GetNextMessage(data, ref start, out var message))
                     {
                         RpcId clientMessage = ClientMessageDecode(message, out var clientId);
                         if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)

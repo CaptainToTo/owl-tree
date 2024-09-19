@@ -67,7 +67,6 @@ namespace OwlTree
             Socket.Select(_readList, null, null, 0);
 
             byte[] data = new byte[BufferSize];
-            List<byte[]> messages = new List<byte[]>();
 
             foreach (var socket in _readList)
             {
@@ -128,12 +127,10 @@ namespace OwlTree
                         continue;
                     }
 
-                    messages.Clear();
-                    MessageBuffer.SplitMessageBytes(data, ref messages);
-                    
-                    foreach (var message in messages)
+                    int start = 0;
+                    while (MessageBuffer.GetNextMessage(data, ref start, out var bytes))
                     {
-                        var args = RpcAttribute.DecodeRpc(client.id, message, out var protocol, out var target);
+                        var args = RpcAttribute.DecodeRpc(client.id, bytes, out var protocol, out var target);
                         _incoming.Enqueue(new Message(client.id, ClientId.None, protocol.Id, target, args));
                     }
                 }

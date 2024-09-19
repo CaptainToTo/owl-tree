@@ -162,12 +162,11 @@ namespace OwlTree
             _protocolsById[id].Encode(bytes, source, args);
         }
 
-        public static object[] DecodeRpc(ClientId source, byte[] bytes, out RpcProtocol protocol, out NetworkId target)
+        public static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out RpcProtocol protocol, out NetworkId target)
         {
-            int ind = 0;
-            var rpcId = new RpcId(bytes, 0);
+            var rpcId = new RpcId(bytes);
             protocol = _protocolsById[rpcId];
-            return _protocolsById[rpcId].Decode(source, bytes, ref ind, out target);
+            return _protocolsById[rpcId].Decode(source, bytes, out target);
         }
 
         public static void InvokeRpc(RpcId id, NetworkObject target, object[]? args)

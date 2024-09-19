@@ -201,7 +201,7 @@ namespace OwlTree
             id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
         }
 
-        protected static RpcId ClientMessageDecode(byte[] message, out ClientId id)
+        protected static RpcId ClientMessageDecode(ReadOnlySpan<byte> message, out ClientId id)
         {
             RpcId result = RpcId.None;
             UInt16 rpcId = BitConverter.ToUInt16(message);
@@ -220,7 +220,7 @@ namespace OwlTree
                     id = ClientId.None;
                     return RpcId.None;
             }
-            id = new ClientId(message, result.ExpectedLength());
+            id = new ClientId(message.Slice(result.ExpectedLength()));
             return result;
         }
     }

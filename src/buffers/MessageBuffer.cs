@@ -81,37 +81,20 @@ namespace OwlTree
         /// <summary>
         /// Splits the given stream into individual message byte arrays. These byte arrays are added to the messages list.
         /// </summary>
-        public static void SplitMessageBytes(byte[] stream, ref List<byte[]> messages)
+        public static bool GetNextMessage(byte[] stream, ref int start, out ReadOnlySpan<byte> message)
         {
-            bool reading = false;
-            int curIndex = 0;
-            byte[] curBytes = {};
-            for (int i = 0; i < stream.Length; i++)
-            {
-                if (!reading)
-                {
-                    int len = BitConverter.ToUInt16(stream.AsSpan(i));
-                    if (len == 0)
-                        break;
-                    curBytes = new byte[len];
-                    curIndex = 0;
-                    reading = true;
-                    i++;
-                    continue;
-                }
+            message = new Span<byte>();
+            if (start >= stream.Length)
+                return false;
+            
+            var len = BitConverter.ToUInt16(stream.AsSpan(start));
 
-                curBytes[curIndex] = stream[i];
-                curIndex++;
-                if (curIndex >= curBytes.Length)
-                {
-                    messages.Add(curBytes);
-                    reading = false;
-                }
-            }
-            if (reading)
-            {
-                messages.Add(curBytes);
-            }
+            if (len == 0 || start + len > stream.Length)
+                return false;
+            
+            message = stream.AsSpan(start + 2, len);
+            start += 2 + len;
+            return true;
         }
 
         /// <summary>

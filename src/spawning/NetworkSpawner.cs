@@ -209,19 +209,19 @@ namespace OwlTree
             }
         }
 
-        public static bool TryDecode(byte[] message, out RpcId rpcId, out object[]? args)
+        public static bool TryDecode(ReadOnlySpan<byte> message, out RpcId rpcId, out object[]? args)
         {
             args = null;
             int ind = 0;
-            rpcId = (RpcId)RpcId.FromBytesAt(message, ref ind);
+            rpcId = (RpcId)RpcId.FromBytes(message);
             switch(rpcId.Id)
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
                     ind += 1;
-                    args = new object[]{message[2], NetworkId.FromBytesAt(message, ref ind)};
+                    args = new object[]{message[2], NetworkId.FromBytes(message.Slice(rpcId.ExpectedLength() + 1))};
                     break;
                 case RpcId.NETWORK_OBJECT_DESPAWN:
-                    args = new object[]{NetworkId.FromBytesAt(message, ref ind)};
+                    args = new object[]{NetworkId.FromBytes(message.Slice(rpcId.ExpectedLength()))};
                     break;
                 default:
                     return false;

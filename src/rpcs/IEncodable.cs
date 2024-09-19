@@ -6,6 +6,13 @@ namespace OwlTree
     /// </summary>
     public interface IEncodable
     {
+        internal static IEnumerable<Type> GetEncodableTypes()
+        {
+            return AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsValueType && !t.IsAbstract && typeof(IEncodable).IsAssignableFrom(t));
+        }
+
         /// <summary>
         /// Creates a byte array representation of the object.
         /// </summary>
@@ -31,12 +38,6 @@ namespace OwlTree
         /// <summary>
         /// Constructs an instance of the object from a byte array representation.
         /// </summary>
-        public static abstract object FromBytes(byte[] bytes);
-
-        /// <summary>
-        /// Constructs an instance of the object from a byte array representation, starting from ind.
-        /// ind should be updated to be after the last byte read.
-        /// </summary>
-        public static abstract object FromBytesAt(byte[] bytes, ref int ind);
+        public static abstract object FromBytes(ReadOnlySpan<byte> bytes);
     }
 }

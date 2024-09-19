@@ -6,6 +6,18 @@ namespace OwlTree
 {
     public class RpcProtocol
     {
+        public delegate object Decoder(ReadOnlySpan<byte> bytes);
+
+        private static Dictionary<Type, Decoder> _decoders = new Dictionary<Type, Decoder>();
+
+        public static void GetDecoders()
+        {
+            var encodables = IEncodable.GetEncodableTypes();
+            foreach (var t in encodables)
+            {
+                _decoders.Add(t, (Decoder)t.GetMethod("FromBytes")!.CreateDelegate(typeof(Decoder)));
+            }
+        }
 
         public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes)
         {
@@ -88,14 +100,15 @@ namespace OwlTree
             Method.Invoke(target, args);
         }
 
-        public object[] Decode(ClientId source, byte[] bytes, ref int ind, out NetworkId target)
+        public object[] Decode(ClientId source, ReadOnlySpan<byte> bytes, out NetworkId target)
         {
-            if (new RpcId(bytes, ind) != Id)
+            if (new RpcId(bytes) != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
 
-            ind += Id.ExpectedLength();
+            int ind = Id.ExpectedLength();
 
-            target = (NetworkId)NetworkId.FromBytesAt(bytes, ref ind);
+            target = (NetworkId)NetworkId.FromBytes(bytes.Slice(ind, NetworkId.MaxLength()));
+            ind += target.ExpectedLength();
 
             object[] args = new object[ParamTypes.Length];
 
@@ -108,19 +121,19 @@ namespace OwlTree
                 }
                 else
                 {
-                    args[i] = DecodeObject(bytes, ref ind, ParamTypes[i]);
+                    args[i] = DecodeObject(bytes.Slice(ind), ref ind, ParamTypes[i]);
                 }
             }
 
             return args;
         }
 
-        private static object DecodeObject(byte[] bytes, ref int ind, Type t)
+        private static object DecodeObject(ReadOnlySpan<byte> bytes, ref int ind, Type t)
         {
             if (t == typeof(string))
             {
-                var length = bytes[ind];
-                var str = Encoding.UTF8.GetString(bytes, ind + 1, length);
+                var length = bytes[0];
+                var str = Encoding.UTF8.GetString(bytes.ToArray(), 1, length);
                 ind += length + 1;
                 return str;
             }
@@ -128,42 +141,42 @@ namespace OwlTree
             object result = Activator.CreateInstance(t)!;
             if (t == typeof(int))
             {
-                result = BitConverter.ToInt32(bytes.AsSpan(ind));
+                result = BitConverter.ToInt32(bytes);
                 ind += 4;
             }
             else if (t == typeof(uint))
             {
-                result = BitConverter.ToUInt32(bytes.AsSpan(ind));
+                result = BitConverter.ToUInt32(bytes);
                 ind += 4;
             }
             else if (t == typeof(float))
             {
-                result = BitConverter.ToSingle(bytes.AsSpan(ind));
+                result = BitConverter.ToSingle(bytes);
                 ind += 4;
             }
             else if (t == typeof(double))
             {
-                result = BitConverter.ToDouble(bytes.AsSpan(ind));
+                result = BitConverter.ToDouble(bytes);
                 ind += 8;
             }
             else if (t == typeof(long))
             {
-                result = BitConverter.ToInt64(bytes.AsSpan(ind));
+                result = BitConverter.ToInt64(bytes);
                 ind += 8;
             }
             else if (t == typeof(ushort))
             {
-                result = BitConverter.ToUInt16(bytes.AsSpan(ind));
+                result = BitConverter.ToUInt16(bytes);
                 ind += 2;
             }
             else if (t == typeof(byte))
             {
-                result = bytes[ind];
+                result = bytes[0];
                 ind += 1;
             }
             else if (t == typeof(bool))
             {
-                result = bytes[ind] == 1;
+                result = bytes[0] == 1;
                 ind += 1;
             }
             else
@@ -174,10 +187,10 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        int curInd = ind;
-                        object[] paramList = [bytes, curInd];
-                        result = t.GetMethod("FromBytesAt")!.Invoke(null, paramList)!;
-                        ind = (int)paramList[1];
+                        var method = t.GetMethod("MaxLength", BindingFlags.Static | BindingFlags.Public)!;
+                        var len = (int)method.Invoke(null, null)!;
+                        result = _decoders[t].Invoke(bytes.Slice(0, len));
+                        ind += ((IEncodable)result).ExpectedLength();
                         break;
                     }
                 }

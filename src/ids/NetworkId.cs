@@ -63,37 +63,14 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Get a NetworkId instance by decoding it from a byte array.
-        /// </summary>
-        public NetworkId(byte[] bytes)
-        {
-            if (bytes.Length < 4)
-                throw new ArgumentException("Byte array must have 4 bytes to decode a ClientId from.");
-
-            UInt32 result = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                result |= ((UInt32)bytes[i]) << ((3 - i) * 8);
-            }
-            _id = result;
-            if (_id >= _curId)
-                _curId = _id + 1;
-        }
-
-        /// <summary>
         /// Get a NetworkId instance by decoding it from a byte array, starting at ind.
         /// </summary>
-        public NetworkId(byte[] bytes, int ind)
+        public NetworkId(ReadOnlySpan<byte> bytes)
         {
-            if (bytes.Length < ind + 4)
+            if (bytes.Length < 4)
                 throw new ArgumentException("Byte array must have 4 bytes from ind to decode a ClientId from.");
 
-            UInt32 result = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                result |= ((UInt32)bytes[ind + i]) << ((3 - i) * 8);
-            }
-            _id = result;
+            _id = BitConverter.ToUInt32(bytes);
             if (_id >= _curId)
                 _curId = _id + 1;
         }
@@ -160,16 +137,9 @@ namespace OwlTree
             return _id.GetHashCode();
         }
 
-        public static object FromBytes(byte[] bytes)
+        public static object FromBytes(ReadOnlySpan<byte> bytes)
         {
             return new NetworkId(bytes);
-        }
-
-        public static object FromBytesAt(byte[] bytes, ref int ind)
-        {
-            var newId = new NetworkId(bytes, ind);
-            ind += 4;
-            return newId;
         }
 
         public static int MaxLength()

@@ -72,25 +72,12 @@ namespace OwlTree
         /// <summary>
         /// Get a ClientId instance by decoding it from a byte array.
         /// </summary>
-        public ClientId(byte[] bytes)
+        public ClientId(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length < 4)
                 throw new ArgumentException("Byte array must have 4 bytes to decode a ClientId from.");
 
-            _id = BitConverter.ToUInt32(bytes.AsSpan());
-            if (_id >= _curId)
-                _curId = _id + 1;
-        }
-
-        /// <summary>
-        /// Get a ClientId instance by decoding it from a byte array, starting at ind.
-        /// </summary>
-        public ClientId(byte[] bytes, int ind)
-        {
-            if (bytes.Length < ind + 4)
-                throw new ArgumentException("Byte array must have 4 bytes from ind to decode a ClientId from.");
-
-            _id = BitConverter.ToUInt32(bytes.AsSpan(ind));
+            _id = BitConverter.ToUInt32(bytes);
             if (_id >= _curId)
                 _curId = _id + 1;
         }
@@ -157,16 +144,9 @@ namespace OwlTree
             return _id.GetHashCode();
         }
 
-        public static object FromBytes(byte[] bytes)
+        public static object FromBytes(ReadOnlySpan<byte> bytes)
         {
             return new ClientId(bytes);
-        }
-
-        public static object FromBytesAt(byte[] bytes, ref int ind)
-        {
-            var newId = new ClientId(bytes, ind);
-            ind += 4;
-            return newId;
         }
 
         public static int MaxLength()
