@@ -1,4 +1,6 @@
 
+using System.Collections.Concurrent;
+
 namespace OwlTree
 {
     /// <summary>
@@ -86,16 +88,9 @@ namespace OwlTree
                 IsActive = true;
             }
             role = args.role;
-            _buffer.OnClientConnected = (id) => OnClientConnected?.Invoke(id);
-            _buffer.OnClientDisconnected = (id) => {
-                if (id == _buffer.LocalId)
-                    IsActive = false;
-                OnClientDisconnected?.Invoke(id);
-            };
-            _buffer.OnReady = (id) => {
-                IsActive = true;
-                OnReady?.Invoke(id);
-            };
+            _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
+            _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
+            _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
 
             _spawner = new NetworkSpawner(this);
 
@@ -137,6 +132,15 @@ namespace OwlTree
         public Role role { get; private set; }
 
         private NetworkBuffer _buffer;
+
+        private enum ConnectionEventType
+        {
+            OnConnect,
+            OnDisconnect,
+            OnReady
+        }
+
+        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new ConcurrentQueue<(ConnectionEventType, ClientId)>();
 
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
@@ -189,6 +193,28 @@ namespace OwlTree
 
         public void ExecuteQueue()
         {
+            while (_clientEvents.TryDequeue(out var result))
+            {
+                switch (result.t)
+                {
+                    case ConnectionEventType.OnConnect:
+                        OnClientConnected?.Invoke(result.id);
+                        break;
+                    case ConnectionEventType.OnDisconnect:
+                        if (result.id == LocalId)
+                            IsActive = false;
+                        OnClientDisconnected?.Invoke(result.id);
+                        break;
+                    case ConnectionEventType.OnReady:
+                        IsActive = true;
+                        OnReady?.Invoke(result.id);
+                        break;
+                }
+            }
+
+            if (!IsActive)
+                return;
+
             while (GetNextMessage(out var message))
             {
                 if (

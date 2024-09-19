@@ -47,8 +47,7 @@ class Program
         {
             Console.WriteLine("Tick: " + tick);
             tick++;
-            if (connection.IsActive)
-                connection.ExecuteQueue();
+            connection.ExecuteQueue();
             Thread.Sleep(1000);
         }
     }
