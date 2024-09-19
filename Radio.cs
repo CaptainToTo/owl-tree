@@ -15,6 +15,7 @@ public class Radio : NetworkObject
         Console.WriteLine("Message from client " + caller.ToString() + ":\n" + message);
         pingNo++;
         RPC_PingClients("hello from server: " + pingNo);
+        RPC_SendNums(10, 1.2f, 3.4, 2);
     }
 
     [Rpc(RpcCaller.Server)]
@@ -34,7 +35,7 @@ public class Radio : NetworkObject
     [Rpc(RpcCaller.Server)]
     public void RPC_SendNums(int i, float x, double z, byte j)
     {
-        
+        Console.WriteLine($"   {i}, {x}, {z}, {j}");
     }
 
     [Rpc(RpcCaller.Server)]

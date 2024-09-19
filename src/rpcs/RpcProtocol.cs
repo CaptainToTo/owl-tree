@@ -227,8 +227,8 @@ namespace OwlTree
                 if (encoding.Length > 255)
                     throw new InvalidOperationException("strings cannot require more than 255 bytes to encode.");
                 bytes[0] = (byte)encoding.Length;
-                for (int i = 1; i < encoding.Length; i++)
-                    bytes[i] = encoding[i];
+                for (int i = 0; i < encoding.Length; i++)
+                    bytes[i + 1] = encoding[i];
             }
             else
             {
