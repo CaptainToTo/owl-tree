@@ -13,14 +13,14 @@ struct rpc_id : encodable {
     public:
         typedef void (*action)(rpc_id);
 
-        const uint16_t RPC_NONE = 0;
-        const uint16_t CLIENT_CONNECTED_MESSAGE_ID = 1;
-        const uint16_t LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 2;
-        const uint16_t CLIENT_DISCONNECTED_MESSAGE_ID = 3;
-        const uint16_t NETWORK_OBJECT_SPAWN = 4;
-        const uint16_t NETWORK_OBJECT_DESPAWN = 5;
+        static const uint16_t RPC_NONE = 0;
+        static const uint16_t CLIENT_CONNECTED_MESSAGE_ID = 1;
+        static const uint16_t LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 2;
+        static const uint16_t CLIENT_DISCONNECTED_MESSAGE_ID = 3;
+        static const uint16_t NETWORK_OBJECT_SPAWN = 4;
+        static const uint16_t NETWORK_OBJECT_DESPAWN = 5;
 
-        const uint16_t FIRST_RPC_ID = 10;
+        static const uint16_t FIRST_RPC_ID = 10;
     
     private:
         static uint16_t _cur_id;
@@ -55,6 +55,8 @@ struct rpc_id : encodable {
 
         int expected_length() { return 2; }
 
+        static const int SIZE = 2;
+
         void fill_from_bytes(buffer_span bytes) {
             _id = bytes.decode_uint16();
         }
@@ -63,12 +65,16 @@ struct rpc_id : encodable {
             return "<rpcId: " + (_id == 0 ? "None" : std::to_string(_id)) + ">";
         }
 
-        bool operator==(rpc_id b) {
+        bool operator==(const rpc_id& b) {
             return _id == b._id;
         }
 
-        bool operator!=(rpc_id b) {
+        bool operator!=(const rpc_id& b) {
             return _id != b._id;
+        }
+
+        void operator=(const rpc_id& b) {
+            _id = b._id;
         }
 };
 

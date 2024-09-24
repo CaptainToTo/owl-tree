@@ -16,28 +16,36 @@ struct message {
         rpc_id rpc;
         network_id target;
         void* args;
+
+        void operator=(message b) {
+            caller = b.caller;
+            callee = b.callee;
+            rpc = b.rpc;
+            target = b.target;
+            args = b.args;
+        }
 };
 
 class message_queue {
     private:
         std::mutex _lock;
-        std::queue<message*> _queue;
+        std::queue<message> _queue;
     
     public:
         message_queue() {
-            _queue = std::queue<message*>();
+            _queue = std::queue<message>();
         }
 
         ~message_queue() {
             if (!is_empty()) {
-                message* cur = nullptr;
+                message cur;
                 while (try_dequeue(&cur)) {
-                    delete cur;
+                    // delete cur;
                 }
             }
         }
 
-        void enqueue(message* message) {
+        void enqueue(message message) {
             _lock.lock();
             _queue.push(message);
             _lock.unlock();
@@ -57,7 +65,7 @@ class message_queue {
             return size;
         }
 
-        bool try_dequeue(message** message) {
+        bool try_dequeue(message* message) {
             _lock.lock();
             if (_queue.size() == 0) {
                 _lock.unlock();

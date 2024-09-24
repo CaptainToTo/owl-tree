@@ -46,6 +46,14 @@ struct buffer_span {
             return _referenced_buffer[_start + index];
         }
 
+        buffer_span slice(int start, int length) {
+            return buffer_span(_referenced_buffer, _start + start, length);
+        }
+
+        buffer_span slice(int start) {
+            return buffer_span(_referenced_buffer, _start + start, _length - (start - _start));
+        }
+
         // byte
 
         bool try_encode(uint8_t x, int ind = 0) {

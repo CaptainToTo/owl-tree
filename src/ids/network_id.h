@@ -45,6 +45,8 @@ struct network_id : encodable {
 
         int expected_length() { return 4; }
 
+        static const int SIZE = 4;
+
         void fill_from_bytes(buffer_span bytes) {
             _id = bytes.decode_uint32();
         }
@@ -53,12 +55,16 @@ struct network_id : encodable {
             return "<NetworkId: " + (_id == 0 ? "None" : std::to_string(_id)) + ">";
         }
 
-        bool operator==(network_id b) {
+        bool operator==(const network_id& b) {
             return _id == b._id;
         }
 
-        bool operator!=(network_id b) {
+        bool operator!=(const network_id& b) {
             return _id != b._id;
+        }
+
+        void operator=(const network_id& b) {
+            _id = b._id;
         }
 };
 

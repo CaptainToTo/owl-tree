@@ -45,6 +45,8 @@ struct client_id : encodable {
 
         int expected_length() { return 4; }
 
+        static const int SIZE = 4;
+
         void fill_from_bytes(buffer_span bytes) {
             _id = bytes.decode_uint32();
         }
@@ -53,12 +55,16 @@ struct client_id : encodable {
             return "<ClientId: " + (_id == 0 ? "None" : std::to_string(_id)) + ">";
         }
 
-        bool operator==(client_id b) {
+        bool operator==(const client_id& b) {
             return _id == b._id;
         }
 
-        bool operator!=(client_id b) {
+        bool operator!=(const client_id& b) {
             return _id != b._id;
+        }
+
+        void operator=(const client_id& b) {
+            _id = b._id;
         }
 };
 
