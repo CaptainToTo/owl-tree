@@ -11,6 +11,8 @@ namespace owltree {
 
 struct rpc_id : encodable {
     public:
+        typedef void (*action)(rpc_id);
+
         const uint16_t RPC_NONE = 0;
         const uint16_t CLIENT_CONNECTED_MESSAGE_ID = 1;
         const uint16_t LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 2;

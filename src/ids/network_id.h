@@ -9,6 +9,9 @@
 namespace owltree {
 
 struct network_id : encodable {
+    public:
+        typedef void (*action)(network_id);
+
     private:
         static uint32_t _cur_id;
 
