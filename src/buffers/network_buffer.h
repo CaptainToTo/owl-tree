@@ -15,8 +15,8 @@ namespace owltree {
 class network_buffer {    
     private:
         int _buffer_size;
-        int _port;
-        std::string _address;
+        unsigned int _port;
+        unsigned int _address;
 
     protected:
         bool _is_ready;
@@ -30,7 +30,7 @@ class network_buffer {
         client_id::action on_client_disconnected;
         client_id::action on_ready;
 
-        network_buffer(std::string addr, int port, int buffer_size) {
+        network_buffer(unsigned int addr, unsigned int port, int buffer_size) {
             _address = addr;
             _port = port;
             _buffer_size = buffer_size;
@@ -39,9 +39,14 @@ class network_buffer {
             _outgoing = new message_queue();
         }
 
+        ~network_buffer() {
+            delete _incoming;
+            delete _outgoing;
+        }
+
         int buffer_size() { return _buffer_size; }
-        int port() { return _port; }
-        const std::string& address() { return _address; }
+        unsigned int port() { return _port; }
+        unsigned int address() { return _address; }
 
         bool is_ready() { return _is_ready; }
         client_id local_id() { return _local_id; }
