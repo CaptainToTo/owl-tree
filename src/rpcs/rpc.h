@@ -99,6 +99,11 @@ struct rpc_arg {
             _type = encodable;
             _value = value.make_copy();
         }
+        
+        ~rpc_arg() {
+            if (_value != nullptr)
+                delete _value;
+        }
 
         type type() { return _type; }
 
@@ -156,6 +161,10 @@ class rpc_args {
         rpc_args(int len) {
             _args = new rpc_arg[len];
             _len = len;
+        }
+
+        ~rpc_args() {
+            delete[] _args;
         }
 };
 
