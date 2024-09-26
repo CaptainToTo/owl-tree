@@ -20,6 +20,11 @@ struct buffer_span {
         int _length;
     
     public:
+
+        buffer_span() {
+            _referenced_buffer = nullptr;
+        }
+
         /**
          * Create a new span across the given byte array. Define the bounds of the span using 
          * start and length.

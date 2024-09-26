@@ -20,6 +20,10 @@ class message_buffer {
         int _tail = 0; // the current end of the buffer
     
     public:
+        message_buffer() {
+            _buffer = nullptr;
+        }
+
         /**
          * Create a new buffer with a max size of buffer_len.
          */
@@ -27,6 +31,11 @@ class message_buffer {
             _buffer = new uint8_t[buffer_len];
             _buffer_len = buffer_len;
             _tail = 0;
+        }
+
+        ~message_buffer() {
+            if (_buffer != nullptr)
+                delete[] _buffer;
         }
 
         /**
@@ -70,10 +79,10 @@ class message_buffer {
 
             return result;
         }
-
         
-        buffer_span get_buffer() {
-            return buffer_span(_buffer, 0, _tail);
+        uint8_t* get_buffer(size_t* len) {
+            *len = _tail;
+            return _buffer;
         }
 
         void reset() { _tail = 0; }

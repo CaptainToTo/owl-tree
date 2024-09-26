@@ -64,7 +64,7 @@ class network_buffer {
         }
 
         virtual void read();
-        virtual void send();
+        virtual void write();
         virtual void disconnect();
         virtual void disconnect(client_id id);
 
