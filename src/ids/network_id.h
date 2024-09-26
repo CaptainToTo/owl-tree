@@ -36,19 +36,23 @@ struct network_id : encodable {
 
         uint32_t id() { return _id; }
 
-        bool insert_bytes(buffer_span bytes) {
+        bool insert_bytes(buffer_span bytes) override {
             if (bytes.length() < 4)
                 return false;
             bytes.try_encode(_id);
             return true;
         }
 
-        int expected_length() { return 4; }
+        int expected_length() override { return 4; }
 
         static const int SIZE = 4;
 
-        void fill_from_bytes(buffer_span bytes) {
+        void fill_from_bytes(buffer_span bytes) override {
             _id = bytes.decode_uint32();
+        }
+
+        encodable* make_copy() override {
+            return new network_id(_id);
         }
 
         std::string to_string() {

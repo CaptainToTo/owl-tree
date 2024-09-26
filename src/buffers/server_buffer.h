@@ -18,13 +18,13 @@ namespace owltree {
 
 class server_buffer : public network_buffer {
     private:
-        struct client_instance {
+        struct client_info {
             public:
                 client_id id;
                 message_buffer buffer;
                 int socket;
 
-                client_instance() {
+                client_info() {
                     id = client_id::none();
                     buffer = message_buffer();
                     socket = -1;
@@ -60,7 +60,7 @@ class server_buffer : public network_buffer {
             _read_list_len--;
         }
 
-        void remove_from_read_list(client_instance* client) {
+        void remove_from_read_list(client_info* client) {
             for (int i = 0; i < _read_list_len; i++) {
                 if (_read_list[i].fd == client->socket) {
                     remove_from_read_list(i);
@@ -69,9 +69,9 @@ class server_buffer : public network_buffer {
             }
         }
 
-        std::unordered_map<int, client_instance*> _clients_by_sock;
+        std::unordered_map<int, client_info*> _clients_by_sock;
 
-        bool try_get_client(int socket, client_instance** out) {
+        bool try_get_client(int socket, client_info** out) {
             if (_clients_by_sock.find(socket) != _clients_by_sock.end()) {
                 *out = _clients_by_sock[socket];
                 return true;
@@ -79,9 +79,9 @@ class server_buffer : public network_buffer {
             return false;
         }
 
-        std::unordered_map<uint32_t, client_instance*> _clients_by_id;
+        std::unordered_map<uint32_t, client_info*> _clients_by_id;
 
-        bool try_get_client(client_id id, client_instance** out) {
+        bool try_get_client(client_id id, client_info** out) {
             if (_clients_by_id.find(id.id()) != _clients_by_id.end()) {
                 *out = _clients_by_id[id.id()];
                 return true;
@@ -94,8 +94,8 @@ class server_buffer : public network_buffer {
             _max_clients = max_clients;
             _read_list = new pollfd[max_clients + 1];
             _read_list_len = 0;
-            _clients_by_sock = std::unordered_map<int, client_instance*>();
-            _clients_by_id = std::unordered_map<uint32_t, client_instance*>();
+            _clients_by_sock = std::unordered_map<int, client_info*>();
+            _clients_by_id = std::unordered_map<uint32_t, client_info*>();
             
             _addr_info.sin_family = AF_INET;
             _addr_info.sin_addr.s_addr = INADDR_ANY;
@@ -128,7 +128,7 @@ class server_buffer : public network_buffer {
                     socklen_t len = sizeof(client);
                     int client_socket = accept(_server_socket, (struct sockaddr*)&client, &len);
 
-                    client_instance* new_client = new client_instance();
+                    client_info* new_client = new client_info();
                     new_client->id = client_id();
                     new_client->buffer = message_buffer(buffer_size());
                     new_client->socket = client_socket;
@@ -158,7 +158,7 @@ class server_buffer : public network_buffer {
                 } else if (socket.revents & POLLIN) {
                     int read_len = recv(socket.fd, data, buffer_size(), 0);
 
-                    client_instance* client = _clients_by_sock[socket.fd];
+                    client_info* client = _clients_by_sock[socket.fd];
 
                     if (read_len <= 0) {
                         _clients_by_sock.erase(client->socket);
@@ -197,7 +197,7 @@ class server_buffer : public network_buffer {
                     // despawn encode
 
                 } else if (m.callee != client_id::none()) {
-                    client_instance* client = nullptr;
+                    client_info* client = nullptr;
                     if (try_get_client(m.callee, &client)) {
                         // encode message
                     }
@@ -232,7 +232,7 @@ class server_buffer : public network_buffer {
         }
 
         void disconnect(client_id id) {
-            client_instance* client = nullptr;
+            client_info* client = nullptr;
             if (try_get_client(id, &client)) {
                 _clients_by_sock.erase(client->socket);
                 _clients_by_id.erase(client->id.id());

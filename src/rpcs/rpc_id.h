@@ -46,19 +46,23 @@ struct rpc_id : encodable {
 
         uint16_t id() { return _id; }
 
-        bool insert_bytes(buffer_span bytes) {
+        bool insert_bytes(buffer_span bytes) override {
             if (bytes.length() < 2)
                 return false;
             bytes.try_encode(_id);
             return true;
         }
 
-        int expected_length() { return 2; }
+        int expected_length() override { return 2; }
 
         static const int SIZE = 2;
 
-        void fill_from_bytes(buffer_span bytes) {
+        void fill_from_bytes(buffer_span bytes) override {
             _id = bytes.decode_uint16();
+        }
+
+        encodable* make_copy() override {
+            return new rpc_id(_id);
         }
 
         std::string to_string() {
