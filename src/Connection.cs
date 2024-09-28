@@ -68,6 +68,19 @@ namespace OwlTree
             /// </summary>
             public int threadUpdateDelta = 40;
 
+            // logging
+
+            /// <summary>
+            /// Inject a function for outputting logs from the connection. <b>Default = Console.WriteLine</b>
+            /// </summary>
+            public Logger.Printer printer = Console.WriteLine;
+
+            /// <summary>
+            /// Select a verbosity for logs from the connection. This will determine how many logs will be output.
+            /// <b>Default = LogRule.Events</b>
+            /// </summary>
+            public Logger.LogRule verbosity = Logger.LogRule.Events;
+
             public Args() { }
         }
 
@@ -78,6 +91,9 @@ namespace OwlTree
         public Connection(Args args)
         {
             RpcAttribute.GenerateRpcProtocols();
+
+            _logger = new Logger(args.printer, args.verbosity);
+
             if (args.role == Role.Client)
             {
                 _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
@@ -94,8 +110,14 @@ namespace OwlTree
 
             _spawner = new NetworkSpawner(this);
 
-            _spawner.OnObjectSpawn = (obj) => OnObjectSpawn?.Invoke(obj);
-            _spawner.OnObjectDespawn = (obj) => OnObjectDespawn?.Invoke(obj);
+            _spawner.OnObjectSpawn = (obj) => {
+                _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
+                OnObjectSpawn?.Invoke(obj);
+            };
+            _spawner.OnObjectDespawn = (obj) => {
+                _logger.Write(Logger.LogRule.Events, "Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
+                OnObjectDespawn?.Invoke(obj);
+            };
 
             if (args.threaded)
             {
@@ -105,6 +127,8 @@ namespace OwlTree
                 _bufferThread.Start();
             }
         }
+
+        private Logger _logger;
 
         private Thread? _bufferThread = null;
 
@@ -198,15 +222,24 @@ namespace OwlTree
                 switch (result.t)
                 {
                     case ConnectionEventType.OnConnect:
+                        _logger.Write(Logger.LogRule.Events, "New client connected: " + result.id.ToString());
                         OnClientConnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnDisconnect:
                         if (result.id == LocalId)
+                        {
+                            _logger.Write(Logger.LogRule.Events, "Local client disconnected.");
                             IsActive = false;
+                        }
+                        else
+                        {
+                            _logger.Write(Logger.LogRule.Events, "Remote client disconnected: " + result.id.ToString());
+                        }
                         OnClientDisconnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnReady:
                         IsActive = true;
+                        _logger.Write(Logger.LogRule.Events, "Connection is ready. Local client id is: " + result.id.ToString());
                         OnReady?.Invoke(result.id);
                         break;
                 }
