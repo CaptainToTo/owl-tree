@@ -15,7 +15,8 @@ public class Radio : NetworkObject
         Console.WriteLine("Message from client " + caller.ToString() + ":\n" + message);
         pingNo++;
         RPC_PingClients("hello from server: " + pingNo);
-        RPC_SendNums(10, 1.2f, 3.4, 2);
+        if (pingNo > 5)
+            Connection?.Disconnect(caller);
     }
 
     [Rpc(RpcCaller.Server)]
