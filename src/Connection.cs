@@ -227,6 +227,11 @@ namespace OwlTree
                     case ConnectionEventType.OnConnect:
                         _logger.Write(Logger.LogRule.Events, "New client connected: " + result.id.ToString());
                         OnClientConnected?.Invoke(result.id);
+
+                        if (role == Role.Server)
+                        {
+                            _spawner.SendNetworkObjects(result.id);
+                        }
                         break;
                     case ConnectionEventType.OnDisconnect:
                         if (result.id == LocalId)

@@ -112,11 +112,22 @@ namespace OwlTree
             return newObj;
         }
 
+        public void SendNetworkObjects(ClientId callee)
+        {
+            foreach (var pair in _netObjects)
+            {
+                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [pair.Value.GetType(), pair.Key]);
+            }
+        }
+
         // run spawn on client
         private void ReceiveSpawn(Type t, NetworkId id)
         {
             if (!_typeToIds.ContainsKey(t))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
+
+            if (_netObjects.ContainsKey(id))
+                return;
             
             var newObj = (NetworkObject?)Activator.CreateInstance(t);
 

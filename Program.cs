@@ -14,8 +14,8 @@ class Program
                 threaded = true,
             });
             server.OnClientConnected += (ClientId id) => {
-                radio = server.Spawn<Radio>();
-                radio.RPC_PingClients("Hello from server: 0");
+                if (radio == null)
+                    radio = server.Spawn<Radio>();
             };
             Loop(server);
         }
@@ -28,6 +28,7 @@ class Program
             });
             client.OnObjectSpawn += (obj) => {
                 radio = (Radio)obj;
+                radio.RPC_PingServer("Hello from client: 0");
             };
             Loop(client);
         }

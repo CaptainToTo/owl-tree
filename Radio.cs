@@ -14,15 +14,18 @@ public class Radio : NetworkObject
     {
         Console.WriteLine("Message from client " + caller.ToString() + ":\n" + message);
         pingNo++;
-        RPC_PingClients("hello from server: " + pingNo);
-        if (pingNo > 5)
+        RPC_PingClient(caller, "hello from server: " + pingNo);
+        if (pingNo > 50)
+        {
             Connection?.Disconnect(caller);
+            pingNo = 0;
+        }
     }
 
     [Rpc(RpcCaller.Server)]
     public void RPC_PingClients(string message)
     {
-        Console.WriteLine("Message from server:\n" + message);
+        Console.WriteLine("Message from server:\n   " + message);
         pingNo++;
         RPC_PingServer("hello from client: " + pingNo);
     }
@@ -30,7 +33,9 @@ public class Radio : NetworkObject
     [Rpc(RpcCaller.Server, Key = "PingClient")]
     public void RPC_PingClient([RpcCallee] ClientId callee, string message)
     {
-        Console.WriteLine("Private message from server: " + message);
+        Console.WriteLine("Private message from server:\n   " + message);
+        pingNo++;
+        RPC_PingServer("hello from client: " + pingNo);
     }
 
     [Rpc(RpcCaller.Server)]
