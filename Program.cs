@@ -13,7 +13,6 @@ class Program
                 role = Connection.Role.Server,
                 threaded = true,
             });
-            server.OnClientConnected += (ClientId id) => Console.WriteLine("Client Joined: " + id.ToString());
             server.OnClientConnected += (ClientId id) => {
                 radio = server.Spawn<Radio>();
                 radio.RPC_PingClients("Hello from server: 0");
@@ -27,12 +26,9 @@ class Program
                 role = Connection.Role.Client,
                 threaded = true,
             });
-            client.OnReady += (ClientId id) => Console.WriteLine("Local Id: " + id.ToString());
             client.OnObjectSpawn += (obj) => {
-                Console.WriteLine("Spawned: " + obj.ToString());
                 radio = (Radio)obj;
             };
-            client.OnObjectDespawn += (obj) => Console.WriteLine("Destroyed: " + obj.ToString());
             Loop(client);
         }
     }

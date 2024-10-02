@@ -41,8 +41,6 @@ namespace OwlTree
         {
             if (!_client.Connected)
             {
-                _client.Close();
-                OnClientDisconnected?.Invoke(LocalId);
                 return;
             }
             _readList[0] = _client;

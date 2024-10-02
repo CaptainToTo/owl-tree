@@ -74,6 +74,16 @@ namespace OwlTree
         /// </summary>
         public ClientId(ReadOnlySpan<byte> bytes)
         {
+            FromBytes(bytes);
+        }
+
+        /// <summary>
+        /// The id value.
+        /// </summary>
+        public uint Id { get { return _id; } }
+
+        public void FromBytes(ReadOnlySpan<byte> bytes)
+        {
             if (bytes.Length < 4)
                 throw new ArgumentException("Byte array must have 4 bytes to decode a ClientId from.");
 
@@ -81,11 +91,6 @@ namespace OwlTree
             if (_id >= _curId)
                 _curId = _id + 1;
         }
-
-        /// <summary>
-        /// The id value.
-        /// </summary>
-        public uint Id { get { return _id; } }
 
         /// <summary>
         /// Inserts id as bytes into the given byte array, starting at ind.
@@ -134,11 +139,6 @@ namespace OwlTree
         public override int GetHashCode()
         {
             return _id.GetHashCode();
-        }
-
-        public static object FromBytes(ReadOnlySpan<byte> bytes)
-        {
-            return new ClientId(bytes);
         }
 
         public static int MaxLength()

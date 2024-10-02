@@ -53,14 +53,14 @@ namespace OwlTree
             // threaded buffer
 
             /// <summary>
-            /// If false <b>(Default)</b>, Reading and writing to sockets will need to called by your program with <c>Read()</c>
+            /// If false, Reading and writing to sockets will need to called by your program with <c>Read()</c>
             /// and <c>Send()</c>. These operations will be done synchronously.
             /// <br /><br />
-            /// If true, reading and writing will be handled autonomously in a separate, dedicated thread. 
+            /// If true <b>(Default)</b>, reading and writing will be handled autonomously in a separate, dedicated thread. 
             /// Reading will fill a queue of RPCs to be executed in the main program thread by calling <c>ExecuteQueue()</c>.
             /// Reading and writing will be done at a regular frequency, as defined by the <c>threadUpdateDelta</c> arg.
             /// </summary>
-            public bool threaded = false;
+            public bool threaded = true;
 
             /// <summary>
             /// If the connection is threaded, specify the number of milliseconds the read/write thread will spend sleeping
@@ -166,6 +166,8 @@ namespace OwlTree
 
         private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new ConcurrentQueue<(ConnectionEventType, ClientId)>();
 
+        private ConcurrentQueue<ClientId> _disconnectRequests = new ConcurrentQueue<ClientId>();
+
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
         /// </summary>
@@ -199,7 +201,8 @@ namespace OwlTree
         {
             if (Threaded)
                 throw new InvalidOperationException("Cannot perform read operation on a threaded connection. This is handled for you in a dedicated thread.");
-            _buffer.Read();
+            if (IsActive)
+                _buffer.Read();
         }
 
         public void AwaitConnection()
@@ -245,6 +248,14 @@ namespace OwlTree
                 }
             }
 
+            if (role == Role.Server)
+            {
+                while (_disconnectRequests.TryDequeue(out var clientId))
+                {
+                    _buffer.Disconnect(clientId);
+                }
+            }
+
             if (!IsActive)
                 return;
 
@@ -286,7 +297,8 @@ namespace OwlTree
         {
             if (Threaded)
                 throw new InvalidOperationException("Cannot perform send operation on a threaded connection. This is handled for you in a dedicated thread.");
-            _buffer.Send();
+            if (IsActive)
+                _buffer.Send();
         }
 
         /// <summary>
@@ -306,7 +318,10 @@ namespace OwlTree
         {
             if (role == Role.Client)
                 throw new InvalidOperationException("Clients cannot disconnect other clients");
-            _buffer.Disconnect(id);
+            if (Threaded)
+                _disconnectRequests.Enqueue(id);
+            else
+                _buffer.Disconnect(id);
         }
 
         private NetworkSpawner _spawner;

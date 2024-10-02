@@ -107,7 +107,7 @@ namespace OwlTree
 
             int ind = Id.ExpectedLength();
 
-            target = (NetworkId)NetworkId.FromBytes(bytes.Slice(ind, NetworkId.MaxLength()));
+            target = new NetworkId(bytes.Slice(ind, NetworkId.MaxLength()));
             ind += target.ExpectedLength();
 
             object[] args = new object[ParamTypes.Length];
@@ -187,10 +187,10 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        var method = t.GetMethod("MaxLength", BindingFlags.Static | BindingFlags.Public)!;
-                        var len = (int)method.Invoke(null, null)!;
-                        result = _decoders[t].Invoke(bytes.Slice(0, len));
-                        ind += ((IEncodable)result).ExpectedLength();
+                        var len = bytes[0];
+
+                        ((IEncodable)result).FromBytes(bytes.Slice(0, len));
+                        ind += len + 1;
                         break;
                     }
                 }
@@ -251,7 +251,8 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        ((IEncodable)arg).InsertBytes(bytes);
+                        bytes[0] = (byte)((IEncodable)arg).ExpectedLength();
+                        ((IEncodable)arg).InsertBytes(bytes.Slice(1));
                     }
                 }
             }
@@ -314,7 +315,7 @@ namespace OwlTree
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
-                        return ((IEncodable)arg).ExpectedLength();
+                        return ((IEncodable)arg).ExpectedLength() + 1;
                 }
             }
             return -1;
@@ -361,7 +362,7 @@ namespace OwlTree
                     if (a == encodable)
                     {
                         var method = t.GetMethod("MaxLength", BindingFlags.Static | BindingFlags.Public)!;
-                        return (int)method.Invoke(null, null)!;
+                        return (int)method.Invoke(null, null)! + 1;
                     }
                 }
             }

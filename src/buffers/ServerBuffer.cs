@@ -88,6 +88,8 @@ namespace OwlTree
 
                     foreach (var otherClient in _clientsIds)
                     {
+                        if (otherClient.Key == clientInstance.id) continue;
+
                         // notify clients of a new client in the next send
                         span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
                         ClientConnectEncode(span, clientInstance.id);

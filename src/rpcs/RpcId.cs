@@ -54,20 +54,20 @@ namespace OwlTree
         /// </summary>
         public RpcId(byte[] bytes)
         {
-            if (bytes.Length < 2)
-                throw new ArgumentException("Byte array must have 2 bytes to decode a RpcId from.");
-
-            var result = BitConverter.ToUInt16(bytes);
-
-            _id = result;
-            if (_id >= _curId)
-                _curId = (ushort)(_id + 1);
+            FromBytes(bytes);
         }
 
         /// <summary>
         /// Get a RpcId instance by decoding it from a byte array, starting at ind.
         /// </summary>
         public RpcId(ReadOnlySpan<byte> bytes)
+        {
+            FromBytes(bytes);
+        }
+
+        public ushort Id { get { return _id; } } 
+
+        public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length < 2)
                 throw new ArgumentException("Byte array must have 2 bytes from ind to decode a RpcId from.");
@@ -77,13 +77,6 @@ namespace OwlTree
             _id = result;
             if (_id >= _curId)
                 _curId = (ushort)(_id + 1);
-        }
-
-        public ushort Id { get { return _id; } } 
-
-        public static object FromBytes(ReadOnlySpan<byte> bytes)
-        {
-            return new RpcId(bytes);
         }
 
         public static int MaxLength()

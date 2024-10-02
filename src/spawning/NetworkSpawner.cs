@@ -213,15 +213,15 @@ namespace OwlTree
         {
             args = null;
             int ind = 0;
-            rpcId = (RpcId)RpcId.FromBytes(message);
+            rpcId = new RpcId(message);
             switch(rpcId.Id)
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
                     ind += 1;
-                    args = new object[]{message[2], NetworkId.FromBytes(message.Slice(rpcId.ExpectedLength() + 1))};
+                    args = new object[]{message[2], new NetworkId(message.Slice(rpcId.ExpectedLength() + 1))};
                     break;
                 case RpcId.NETWORK_OBJECT_DESPAWN:
-                    args = new object[]{NetworkId.FromBytes(message.Slice(rpcId.ExpectedLength()))};
+                    args = new object[]{new NetworkId(message.Slice(rpcId.ExpectedLength()))};
                     break;
                 default:
                     return false;

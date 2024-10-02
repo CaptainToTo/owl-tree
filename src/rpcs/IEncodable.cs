@@ -21,6 +21,11 @@ namespace OwlTree
         public bool InsertBytes(Span<byte> bytes);
 
         /// <summary>
+        /// Fill an empty version of this object from the provided bytes encoding.
+        /// </summary>
+        public void FromBytes(ReadOnlySpan<byte> bytes);
+
+        /// <summary>
         /// Returns the expected number of bytes it will take to encode this object.
         /// </summary>
         public int ExpectedLength();
@@ -29,10 +34,5 @@ namespace OwlTree
         /// Returns the max length this type of IEncodable can be.
         /// </summary>
         public static abstract int MaxLength();
-
-        /// <summary>
-        /// Constructs an instance of the object from a byte array representation.
-        /// </summary>
-        public static abstract object FromBytes(ReadOnlySpan<byte> bytes);
     }
 }
