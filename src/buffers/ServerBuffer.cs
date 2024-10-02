@@ -17,7 +17,7 @@ namespace OwlTree
         /// <param name="port">The port to bind to.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
         /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
-        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize) : base (addr, port, bufferSize)
+        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize, Decoder decoder) : base (addr, port, bufferSize, decoder)
         {
 
             _server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -132,8 +132,10 @@ namespace OwlTree
                     int start = 0;
                     while (MessageBuffer.GetNextMessage(data, ref start, out var bytes))
                     {
-                        var args = RpcAttribute.DecodeRpc(client.id, bytes, out var protocol, out var target);
-                        _incoming.Enqueue(new Message(client.id, ClientId.None, protocol.Id, target, args));
+                        if (TryDecode(client.id, bytes, out var rpcId, out var target, out var args))
+                        {
+                            _incoming.Enqueue(new Message(client.id, ClientId.None, rpcId, target, args));
+                        }
                     }
                 }
             }

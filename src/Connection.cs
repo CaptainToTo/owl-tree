@@ -96,11 +96,11 @@ namespace OwlTree
 
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize);
+                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize, TryDecodeRpc);
             }
             else
             {
-                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize);
+                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize, TryDecodeRpc);
                 IsActive = true;
             }
             role = args.role;
@@ -273,6 +273,20 @@ namespace OwlTree
                     RpcAttribute.InvokeRpc(message.rpcId, target!, message.args);
                 }
             }
+        }
+
+        private bool TryDecodeRpc(ClientId caller, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[]? args)
+        {
+            if (NetworkSpawner.TryDecode(bytes, out rpcId, out args))
+            {
+                target = NetworkId.None;
+                return true;
+            }
+            else if (RpcAttribute.TryDecodeRpc(caller, bytes, out rpcId, out target, out args))
+            {
+                return true;
+            }
+            return false;
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[]? args)

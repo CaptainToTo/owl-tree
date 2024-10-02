@@ -14,7 +14,7 @@ namespace OwlTree
         /// <param name="addr">The server's IP address.</param>
         /// <param name="port">The port the server is listening to.</param>
         /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
-        public ClientBuffer(string addr, int port, int bufferSize) : base(addr, port, bufferSize)
+        public ClientBuffer(string addr, int port, int bufferSize, Decoder decoder) : base(addr, port, bufferSize, decoder)
         {
             _client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint endPoint = new IPEndPoint(Address, port);
@@ -75,14 +75,9 @@ namespace OwlTree
                         {
                             HandleClientConnectionMessage(clientMessage, clientId);
                         }
-                        else if (NetworkSpawner.TryDecode(message, out var rpcId, out var args))
+                        else if (TryDecode(ClientId.None, message, out var rpcId, out var target, out var args))
                         {
-                            _incoming.Enqueue(new Message(ClientId.None, LocalId, rpcId, NetworkId.None, args));
-                        }
-                        else
-                        {
-                            args = RpcAttribute.DecodeRpc(ClientId.None, message, out var protocol, out var target);
-                            _incoming.Enqueue(new Message(ClientId.None, LocalId, protocol.Id, target, args));
+                            _incoming.Enqueue(new Message(ClientId.None, LocalId, rpcId, target, args));
                         }
                     }
                 }

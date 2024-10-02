@@ -9,6 +9,8 @@ namespace OwlTree
     public abstract class NetworkBuffer
     {
 
+        public delegate bool Decoder(ClientId caller, ReadOnlySpan<byte> message, out RpcId rpcId, out NetworkId target, out object[]? args);
+
         /// <summary>
         /// Describes an RPC call, and its relevant meta data.
         /// </summary>
@@ -81,11 +83,12 @@ namespace OwlTree
         public int Port { get; private set; } 
         public IPAddress Address { get; private set; }
 
-        public NetworkBuffer(string addr, int port, int bufferSize)
+        public NetworkBuffer(string addr, int port, int bufferSize, Decoder decoder)
         {
             Address = IPAddress.Parse(addr);
             Port = port;
             BufferSize = bufferSize;
+            TryDecode = decoder;
         }
 
         /// <summary>
@@ -103,6 +106,8 @@ namespace OwlTree
         /// If this is a server instance, then the ClientId will be <c>ClientId.None</c>.
         /// </summary>
         public ClientId.Delegate? OnReady;
+
+        public Decoder TryDecode;
 
         /// <summary>
         /// Whether or not the connection is ready. 
