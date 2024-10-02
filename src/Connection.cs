@@ -277,7 +277,7 @@ namespace OwlTree
 
         private bool TryDecodeRpc(ClientId caller, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[]? args)
         {
-            if (NetworkSpawner.TryDecode(bytes, out rpcId, out args))
+            if (NetworkSpawner.TryDecode(bytes, out rpcId, out args) && role == Role.Client)
             {
                 target = NetworkId.None;
                 return true;
