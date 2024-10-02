@@ -14,7 +14,7 @@ namespace OwlTree
         /// <summary>
         /// Produces a copy of the byte array buffer excluding trailing 0-bytes.
         /// </summary>
-        public ReadOnlySpan<byte> GetBuffer()
+        public Span<byte> GetBuffer()
         {
             return _buffer.AsSpan(0, _tail);
         }

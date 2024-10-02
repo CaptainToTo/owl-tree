@@ -59,6 +59,8 @@ namespace OwlTree
                     }
                     catch { }
 
+                    ApplyReadSteps(data);
+
                     // disconnect if receive fails
                     if (dataLen <= 0)
                     {
@@ -119,7 +121,9 @@ namespace OwlTree
                 var span = _outgoingBytes.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
                 RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
             }
-            _client.Send(_outgoingBytes.GetBuffer());
+            var bytes = _outgoingBytes.GetBuffer();
+            ApplySendSteps(bytes);
+            _client.Send(bytes);
             _outgoingBytes.Reset();
         }
 

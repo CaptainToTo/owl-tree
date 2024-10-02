@@ -99,7 +99,9 @@ namespace OwlTree
                         ClientConnectEncode(span, otherClient.Key);
                     }
                     
-                    client.Send(clientInstance.buffer.GetBuffer());
+                    var bytes = clientInstance.buffer.GetBuffer();
+                    ApplySendSteps(bytes);
+                    client.Send(bytes);
                     clientInstance.buffer.Reset();
                 }
                 else // receive client messages
@@ -110,6 +112,8 @@ namespace OwlTree
                         dataLen = socket.Receive(data);
                     }
                     catch { }
+
+                    ApplyReadSteps(data);
 
                     var client = _clientsSockets[socket];
 
@@ -184,7 +188,9 @@ namespace OwlTree
             }
             foreach (var client in _clientsSockets)
             {
-                client.Key.Send(client.Value.buffer.GetBuffer());
+                var bytes = client.Value.buffer.GetBuffer();
+                ApplySendSteps(bytes);
+                client.Key.Send(bytes);
                 client.Value.buffer.Reset();
             }
         }

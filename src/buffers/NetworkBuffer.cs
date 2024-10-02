@@ -156,15 +156,64 @@ namespace OwlTree
             _outgoing.Enqueue(message);
         }
 
-        // protected abstract void Write(byte[] bytes);
-
-        // protected abstract void WriteTo(ClientId callee, byte[] bytes);
-
         /// <summary>
         /// Send current buffers to associated sockets.
         /// Buffers are cleared after writing.
         /// </summary>
         public abstract void Send();
+
+        public delegate void BufferAction(Span<byte> bytes);
+
+        public struct BufferTransformStep
+        {
+            public int priority;
+            public BufferAction step;
+        }
+
+        private List<BufferTransformStep> _sendProcess = new List<BufferTransformStep>();
+        private List<BufferTransformStep> _readProcess = new List<BufferTransformStep>();
+
+        public void AddSendStep(BufferTransformStep step)
+        {
+            for (int i = 0; i < _sendProcess.Count; i++)
+            {
+                if (_sendProcess[i].priority > step.priority)
+                {
+                    _sendProcess.Insert(i, step);
+                    return;
+                }
+            }
+            _sendProcess.Add(step);
+        }
+
+        protected void ApplySendSteps(Span<byte> bytes)
+        {
+            foreach (var step in _sendProcess)
+            {
+                step.step(bytes);
+            }
+        }
+
+        public void AddReadStep(BufferTransformStep step)
+        {
+            for (int i = 0; i < _readProcess.Count; i++)
+            {
+                if (_readProcess[i].priority > step.priority)
+                {
+                    _readProcess.Insert(i, step);
+                    return;
+                }
+            }
+            _readProcess.Add(step);
+        }
+
+        protected void ApplyReadSteps(Span<byte> bytes)
+        {
+            foreach (var step in _readProcess)
+            {
+                step.step(bytes);
+            }
+        }
 
         /// <summary>
         /// Close the local connection.
