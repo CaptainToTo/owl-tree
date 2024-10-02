@@ -238,6 +238,7 @@ namespace OwlTree
                         {
                             _logger.Write(Logger.LogRule.Events, "Local client disconnected.");
                             IsActive = false;
+                            _spawner.DespawnAll();
                         }
                         else
                         {
@@ -328,6 +329,7 @@ namespace OwlTree
         {
             _buffer.Disconnect();
             IsActive = false;
+            _spawner.DespawnAll();
         }
 
         /// <summary>

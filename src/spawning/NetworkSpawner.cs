@@ -184,6 +184,18 @@ namespace OwlTree
             OnObjectDespawn?.Invoke(target);
         }
 
+        public void DespawnAll()
+        {
+            var netObjs = _netObjects.Values;
+            foreach (var obj in netObjs)
+            {
+                obj.SetActiveInternal(false);
+                _netObjects.Remove(obj.Id);
+                obj.OnDespawn();
+            }
+            _netObjects.Clear();
+        }
+
         public static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
 
         // encodes destroy into byte array for send
