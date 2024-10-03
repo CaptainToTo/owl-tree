@@ -179,5 +179,10 @@ namespace OwlTree
         {
             _protocolsById[id].Invoke(target, args);
         }
+
+        public static string GetEncodingSummary(RpcId id, NetworkId target, object[]? args)
+        {
+            return _protocolsById[id].GetEncodingSummary(target, args);
+        }
     }
 }

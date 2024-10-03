@@ -62,6 +62,45 @@ namespace OwlTree
             return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
         }
 
+        public string GetEncodingSummary(NetworkId target, object[]? args)
+        {
+            int len = ExpectedLength(args);
+            string title = Method.Name + " " + Id.ToString() + ", Called on Object " + target.ToString() + ":\n";
+            byte[] bytes = new byte[len];
+            Encode(bytes, target, args);
+            string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string encoding = "  Encoding: RpcId |__NetId__|";
+
+            string parameters = "";
+
+            if (args != null && args.Length > 0)
+            {
+                var paramList = Method.GetParameters();
+                for (int i = 0; i < paramList.Length; i++)
+                {
+                    var param = paramList[i];
+                    int size = GetExpectedLength(args[i]);
+                    int strLen = (size * 2) + (size - 1);
+                    string iStr = (i + 1).ToString();
+                    int front = (strLen / 2) - 1;
+                    int back = (strLen / 2) - (1 + iStr.Length);
+                    encoding += " |" + new string('_', front) + iStr + new String('_', back) + "|";
+                    parameters += "    (" + iStr + ") " + param.ParameterType.ToString() + " " + param.Name;
+                    if (param.CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
+                    {
+                        parameters += " [Callee]";
+                    }
+                    else if (param.CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+                    {
+                        parameters += " [Caller]";
+                    }
+                    parameters += ": " + args[i].ToString() + "\n";
+                }
+            }
+
+            return title + bytesStr + encoding + "\n" + parameters;
+        }
+
         public void Encode(Span<byte> bytes, NetworkId source, object[]? args)
         {
             if ((args == null && ParamTypes.Length > 0) || (args != null && args.Length != ParamTypes.Length))

@@ -59,6 +59,10 @@ namespace OwlTree
         /// </summary>
         public LogRule Rule { get; private set; }
 
+        public bool IncludesEvents { get { return (int)Rule <= (int)LogRule.Events; } }
+
+        public bool IncludesVerbose { get { return (int)Rule <= (int)LogRule.Verbose; } }
+
         private Mutex _lock = new Mutex();
 
         /// <summary>
