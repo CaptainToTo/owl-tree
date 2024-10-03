@@ -5,7 +5,7 @@ namespace OwlTree
 
 public static class Huffman
 {
-    private class Node
+    internal class Node
     {
         public byte value;
         public Node? left;
@@ -24,7 +24,7 @@ public static class Huffman
         var tree = BuildEncodingTree(histogram);
     }
 
-    private static int[] BuildHistogram(Span<byte> bytes)
+    internal static int[] BuildHistogram(Span<byte> bytes)
     {
         int[] histogram = new int[byte.MaxValue + 1];
 
@@ -36,7 +36,7 @@ public static class Huffman
         return histogram;
     }
 
-    private static Node BuildEncodingTree(int[] histogram)
+    internal static Node BuildEncodingTree(int[] histogram)
     {
         Node root = new Node(0);
 

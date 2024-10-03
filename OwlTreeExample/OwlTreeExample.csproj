@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OwlTree\OwlTree.csproj" />
+    <PackageReference Include="PostSharp" Version="2024.1.5" />
   </ItemGroup>
 
   <PropertyGroup>
