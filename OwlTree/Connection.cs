@@ -53,13 +53,13 @@ namespace OwlTree
             /// Add custom transformers that will be apply to data read from sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.BufferTransformStep[] readSteps = [];
+            public NetworkBuffer.Transformer[] readSteps = [];
 
             /// <summary>
             /// Add custom transformers that will be apply to data sent to sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.BufferTransformStep[] sendSteps = [];
+            public NetworkBuffer.Transformer[] sendSteps = [];
 
             /// <summary>
             /// Adds Huffman encoding and decoding to the connection's read and send steps, with a priority of 100. <b>Default = true</b>
@@ -137,6 +137,19 @@ namespace OwlTree
                 _logger.Write(Logger.LogRule.Events, "Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
                 OnObjectDespawn?.Invoke(obj);
             };
+
+            if (args.useCompression)
+            {
+                _buffer.AddReadStep(new NetworkBuffer.Transformer{
+                    priority = 100,
+                    step = Huffman.Decode
+                });
+
+                _buffer.AddSendStep(new NetworkBuffer.Transformer{
+                    priority = 100,
+                    step = Huffman.Encode
+                });
+            }
 
             foreach (var step in args.readSteps)
             {

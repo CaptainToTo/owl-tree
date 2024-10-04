@@ -43,12 +43,29 @@ public static class Huffman
         public int prob;
         public Node? left;
         public Node? right;
+        public Node? parent;
 
         public Node(byte x, int prob, bool leaf=true)
         {
             value = x;
             this.prob = prob;
             isLeaf = leaf;
+        }
+
+        public Node AddChild(byte x, int prob, bool leaf=true)
+        {
+            if (left == null)
+            {
+                left = new Node(x, prob, leaf);
+                left.parent = this;
+                return left;
+            }
+            else
+            {
+                right = new Node(x, prob, leaf);
+                right.parent = this;
+                return right;
+            }
         }
 
         public int Size()
@@ -82,7 +99,7 @@ public static class Huffman
 
         public override string ToString()
         {
-            return (isLeaf ? value.ToString() : '$') + (left != null ? " " + left.ToString() : "") + (right != null ? " " + right.ToString() : "");
+            return (isLeaf ? Convert.ToString(value, 16) : '$') + (left != null ? " " + left.ToString() : "") + (right != null ? " " + right.ToString() : "");
         }
 
         public void Encode(Span<byte> bytes, ref int ind)
@@ -108,7 +125,17 @@ public static class Huffman
 
     const uint HEADER = 0xaabbccee;
 
-    public static void Encode(Span<byte> bytes)
+    // * Encode ============================================
+
+    /// <summary>
+    /// Tries to compress the given bytes using Huffman Coding. If the number of bytes is too small
+    /// to reasonably compress, then the same Span provided as an argument is returned. If the bytes were 
+    /// compressed, then a new span will be returned that has a smaller length than the original.
+    /// <br /> <br />
+    /// Since Encoding takes a Span, compression is done in-place, and will override the contents of the 
+    /// original.
+    /// </summary>
+    public static Span<byte> Encode(Span<byte> bytes)
     {
         var histogram = BuildHistogram(bytes, out var unique);
         var tree = BuildEncodingTree(histogram);
@@ -116,13 +143,15 @@ public static class Huffman
         BuildEncodingTable(table, tree);
         var compression = Compress(bytes, table, out var bitLen);
 
-        if (bytes.Length < 12 + (tree.Size() * 2) + (bitLen / 8) + 1)
-            return;
+        var size = tree.Size();
+        if (bytes.Length < 13 + (size * 2) + (bitLen / 8) + 1)
+            return bytes;
 
         BitConverter.TryWriteBytes(bytes, HEADER);
         BitConverter.TryWriteBytes(bytes.Slice(4), bytes.Length);
         BitConverter.TryWriteBytes(bytes.Slice(8), bitLen);
-        int treeInd = 12;
+        bytes[12] = (byte) unique;
+        int treeInd = 13;
         tree.Encode(bytes, ref treeInd);
         for (int i = 0; i < (bitLen / 8) + 1; i++)
         {
@@ -130,10 +159,7 @@ public static class Huffman
             bytes[treeInd] = b;
             treeInd++;
         }
-        for (; treeInd < bytes.Length; treeInd++)
-        {
-            bytes[treeInd] = 0;
-        }
+        return bytes.Slice(0, treeInd);
     }
 
     internal static int[] BuildHistogram(Span<byte> bytes, out int unique)
@@ -190,8 +216,8 @@ public static class Huffman
         }
         else
         {
-            var rightEncoding = (byte)((encoding << 1) | 0x1);
-            BuildEncodingTable(table, tree.left, (byte)(encoding << 1), bitLen + 1);
+            var rightEncoding = (byte)(encoding | (0x1 << bitLen));
+            BuildEncodingTable(table, tree.left, encoding, bitLen + 1);
             BuildEncodingTable(table, tree.right, rightEncoding, bitLen + 1);
         }
     }
@@ -210,10 +236,109 @@ public static class Huffman
         return compression;
     }
 
-    public static void Decode(Span<byte> bytes)
-    {
+    // * =================================================
 
+    // * Decode ==========================================
+
+    /// <summary>
+    /// Tries to decompress a span of bytes that were compressed using <c>Huffman.Encode()</c>.
+    /// <br /> <br />
+    /// Since Encoding takes a Span, compression is done in-place, and will override the contents of the 
+    /// original.
+    /// </summary>
+    public static Span<byte> Decode(Span<byte> bytes)
+    {
+        var header = BitConverter.ToUInt32(bytes);
+        if (header != HEADER)
+        {
+            return bytes;
+        }
+
+        var originalLen = BitConverter.ToInt32(bytes.Slice(4));
+        var bitLen = BitConverter.ToInt32(bytes.Slice(8));
+        var size = bytes[12];
+
+        if (originalLen > bytes.Length)
+        {
+            return bytes;
+        }
+        
+        Node tree = RebuildTree(bytes.Slice(13), size, out var start);
+        var decompressed = Decompress(bytes.Slice(13 + start), tree, originalLen, bitLen);
+
+        for (int i = 0; i < decompressed.Length; i++)
+        {
+            bytes[i] = decompressed[i];
+        }
+
+        return decompressed;
     }
+
+    internal static Node RebuildTree(Span<byte> bytes, int size, out int last)
+    {
+        Node root = new Node(0, 0, false);
+
+        Node cur = root;
+        int curByte = 1;
+        int curNode = 1;
+        do {
+
+            if (bytes[curByte] == 0)
+            {
+                cur = cur.AddChild(0, 0, false);
+                curByte += 1;
+            }
+            else
+            {
+                cur.AddChild(bytes[curByte + 1], 0);
+                while (cur.right != null && cur.parent != null)
+                {
+                    cur = cur.parent;
+                }
+                curByte += 2;
+                curNode++;
+            }
+
+        } while (curNode <= size);
+        last = curByte;
+
+        return root;
+    }
+
+    internal static byte[] Decompress(Span<byte> bytes, Node tree, int originalLen, int bitLen)
+    {
+        byte[] decompressed = new byte[originalLen];
+
+        int byteInd = 0;
+        Node cur = tree;
+
+        for (int i = 0; i < bitLen; i++)
+        {
+            bool bit = (bytes[i / 8] & (0x1 << (i % 8))) != 0;
+
+            if (bit)
+            {
+                cur = cur.right!;
+            }
+            else
+            {
+                cur = cur.left!;
+            }
+
+            if (cur.isLeaf)
+            {
+                if (byteInd >= decompressed.Length)
+                    break;
+                decompressed[byteInd] = cur.value;
+                cur = tree;
+                byteInd++;
+            }
+        }
+
+        return decompressed;
+    }
+
+    // * ==================================================
 }
 
 }

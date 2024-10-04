@@ -59,7 +59,7 @@ namespace OwlTree
                     }
                     catch { }
 
-                    ApplyReadSteps(data);
+                    var transformed = ApplyReadSteps(data);
 
                     // disconnect if receive fails
                     if (dataLen <= 0)
@@ -70,7 +70,7 @@ namespace OwlTree
                     }
 
                     int start = 0;
-                    while (MessageBuffer.GetNextMessage(data, ref start, out var message))
+                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var message))
                     {
                         RpcId clientMessage = ClientMessageDecode(message, out var clientId);
                         if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
@@ -122,7 +122,7 @@ namespace OwlTree
                 RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
             }
             var bytes = _outgoingBytes.GetBuffer();
-            ApplySendSteps(bytes);
+            bytes = ApplySendSteps(bytes);
             _client.Send(bytes);
             _outgoingBytes.Reset();
         }

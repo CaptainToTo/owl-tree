@@ -86,7 +86,29 @@ public class HuffmanTests
     {
         string test = @"aaaaabbbbbbbbbbbcccccceeeeeeeeeeeddddddddddddddddddssss";
         byte[] bytes = Encoding.ASCII.GetBytes(test);
-        Huffman.Encode(bytes);
-        Assert.Fail(BitConverter.ToString(bytes));
+        var compressed = Huffman.Encode(bytes);
+        Assert.Fail(BitConverter.ToString(compressed.ToArray()));
+    }
+
+    [Fact]
+    public void RebuildTreeTest()
+    {
+        byte[] test = [0x00, 0x00, 0x01, 0x62, 0x01, 0x65, 0x00, 0x00, 0x01, 0x63, 0x00, 0x01, 0x73, 0x01, 0x61, 0x01, 0x64];
+        var tree = Huffman.RebuildTree(test, 6, out var start);
+        Assert.Fail(tree.ToString());
+    }
+
+    [Fact]
+    public void HuffmanTest()
+    {
+        var test = "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee";
+        var input = Encoding.ASCII.GetBytes(test);
+        var compressed = Huffman.Encode(input);
+        byte[] output = new byte[100];
+        for (int i = 0; i < compressed.Length; i++)
+            output[i] = compressed[i];
+
+        var decompressed = Huffman.Decode(output);
+        Assert.Fail(Encoding.ASCII.GetString(decompressed));
     }
 }

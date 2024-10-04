@@ -162,18 +162,18 @@ namespace OwlTree
         /// </summary>
         public abstract void Send();
 
-        public delegate void BufferAction(Span<byte> bytes);
+        public delegate Span<byte> BufferAction(Span<byte> bytes);
 
-        public struct BufferTransformStep
+        public struct Transformer
         {
             public int priority;
             public BufferAction step;
         }
 
-        private List<BufferTransformStep> _sendProcess = new List<BufferTransformStep>();
-        private List<BufferTransformStep> _readProcess = new List<BufferTransformStep>();
+        private List<Transformer> _sendProcess = new List<Transformer>();
+        private List<Transformer> _readProcess = new List<Transformer>();
 
-        public void AddSendStep(BufferTransformStep step)
+        public void AddSendStep(Transformer step)
         {
             for (int i = 0; i < _sendProcess.Count; i++)
             {
@@ -186,15 +186,16 @@ namespace OwlTree
             _sendProcess.Add(step);
         }
 
-        protected void ApplySendSteps(Span<byte> bytes)
+        protected Span<byte> ApplySendSteps(Span<byte> bytes)
         {
             foreach (var step in _sendProcess)
             {
-                step.step(bytes);
+                bytes = step.step(bytes);
             }
+            return bytes;
         }
 
-        public void AddReadStep(BufferTransformStep step)
+        public void AddReadStep(Transformer step)
         {
             for (int i = 0; i < _readProcess.Count; i++)
             {
@@ -207,12 +208,13 @@ namespace OwlTree
             _readProcess.Add(step);
         }
 
-        protected void ApplyReadSteps(Span<byte> bytes)
+        protected Span<byte> ApplyReadSteps(Span<byte> bytes)
         {
             foreach (var step in _readProcess)
             {
-                step.step(bytes);
+                bytes = step.step(bytes);
             }
+            return bytes;
         }
 
         /// <summary>

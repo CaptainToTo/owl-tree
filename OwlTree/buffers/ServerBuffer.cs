@@ -100,7 +100,7 @@ namespace OwlTree
                     }
                     
                     var bytes = clientInstance.buffer.GetBuffer();
-                    ApplySendSteps(bytes);
+                    bytes = ApplySendSteps(bytes);
                     client.Send(bytes);
                     clientInstance.buffer.Reset();
                 }
@@ -113,7 +113,7 @@ namespace OwlTree
                     }
                     catch { }
 
-                    ApplyReadSteps(data);
+                    var transformed = ApplyReadSteps(data);
 
                     var client = _clientsSockets[socket];
 
@@ -134,7 +134,7 @@ namespace OwlTree
                     }
 
                     int start = 0;
-                    while (MessageBuffer.GetNextMessage(data, ref start, out var bytes))
+                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
                     {
                         if (TryDecode(client.id, bytes, out var rpcId, out var target, out var args))
                         {
@@ -189,7 +189,7 @@ namespace OwlTree
             foreach (var client in _clientsSockets)
             {
                 var bytes = client.Value.buffer.GetBuffer();
-                ApplySendSteps(bytes);
+                bytes = ApplySendSteps(bytes);
                 client.Key.Send(bytes);
                 client.Value.buffer.Reset();
             }
