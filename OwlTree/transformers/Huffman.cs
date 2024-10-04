@@ -51,6 +51,11 @@ public static class Huffman
             isLeaf = leaf;
         }
 
+        public int Size()
+        {
+            return 1 + (left?.Size() ?? 0) + (right?.Size() ?? 0);
+        }
+
         public bool IsEqual(Node other)
         {
             return RecurseEquals(this, other);
@@ -79,24 +84,67 @@ public static class Huffman
         {
             return (isLeaf ? value.ToString() : '$') + (left != null ? " " + left.ToString() : "") + (right != null ? " " + right.ToString() : "");
         }
+
+        public void Encode(Span<byte> bytes, ref int ind)
+        {
+            if (isLeaf)
+            {
+                bytes[ind] = 1;
+                bytes[ind + 1] = value;
+                ind += 2;
+            }
+            else
+            {
+                bytes[ind] = 0;
+                ind++;
+                if (left != null)
+                    left.Encode(bytes, ref ind);
+                
+                if (right != null)
+                    right.Encode(bytes, ref ind);
+            }
+        }
     }
 
+    const uint HEADER = 0xaabbccee;
 
     public static void Encode(Span<byte> bytes)
     {
-        var histogram = BuildHistogram(bytes);
+        var histogram = BuildHistogram(bytes, out var unique);
         var tree = BuildEncodingTree(histogram);
         var table = new ByteEncoding[byte.MaxValue];
         BuildEncodingTable(table, tree);
-        var compression = EncodeBytes(bytes, table, out var bitLen);
+        var compression = Compress(bytes, table, out var bitLen);
+
+        if (bytes.Length < 12 + (tree.Size() * 2) + (bitLen / 8) + 1)
+            return;
+
+        BitConverter.TryWriteBytes(bytes, HEADER);
+        BitConverter.TryWriteBytes(bytes.Slice(4), bytes.Length);
+        BitConverter.TryWriteBytes(bytes.Slice(8), bitLen);
+        int treeInd = 12;
+        tree.Encode(bytes, ref treeInd);
+        for (int i = 0; i < (bitLen / 8) + 1; i++)
+        {
+            var b = compression[i];
+            bytes[treeInd] = b;
+            treeInd++;
+        }
+        for (; treeInd < bytes.Length; treeInd++)
+        {
+            bytes[treeInd] = 0;
+        }
     }
 
-    internal static int[] BuildHistogram(Span<byte> bytes)
+    internal static int[] BuildHistogram(Span<byte> bytes, out int unique)
     {
         int[] histogram = new int[byte.MaxValue + 1];
+        unique = 0;
 
         for (int i = 0; i < bytes.Length; i++)
         {
+            if (histogram[bytes[i]] == 0)
+                unique++;
             histogram[bytes[i]]++;
         }
 
@@ -148,7 +196,7 @@ public static class Huffman
         }
     }
 
-    internal static byte[] EncodeBytes(Span<byte> bytes, ByteEncoding[] table, out int bitLength)
+    internal static byte[] Compress(Span<byte> bytes, ByteEncoding[] table, out int bitLength)
     {
         byte[] compression = new byte[bytes.Length];
         bitLength = 0;

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace OwlTree.Tests;
 
 public class HuffmanTests
@@ -6,7 +8,7 @@ public class HuffmanTests
     public void HistogramTest()
     {
         byte[] start = [0, 0, 1, 1, 1, 5, 120, 120, 3, 2, 1, 0, 1];
-        int[] counts = Huffman.BuildHistogram(start);
+        int[] counts = Huffman.BuildHistogram(start, out var unique);
         Assert.True(counts[1] == 5, "There are 5 1s");
         Assert.True(counts[0] == 3, "There are 3 0s");
     }
@@ -59,7 +61,7 @@ public class HuffmanTests
     }
 
     [Fact]
-    public void EncodeTest()
+    public void EncodeBytesTest()
     {
         int[] histogram = [1, 0, 0, 5, 3, 8, 9];
         Huffman.Node result = Huffman.BuildEncodingTree(histogram);
@@ -73,9 +75,18 @@ public class HuffmanTests
         Assert.True(table[test].encoding == 0b1101, "encoding is: " + Convert.ToString(table[test].encoding, 2));
 
         byte[] bytes = [4, 4, 4, 6, 3, 0, 5, 6, 6, 6, 0, 3, 6, 5, 5, 6, 0];
-        var compression = Huffman.EncodeBytes(bytes, table, out var bitLen);
+        var compression = Huffman.Compress(bytes, table, out var bitLen);
         Assert.True(bitLen == 42, "bitLen: " + bitLen.ToString());
         int test2 = 1;
         Assert.True(compression[test2] == 0b11101101, "encoding is: " + Convert.ToString(compression[test2], 2));
+    }
+
+    [Fact]
+    public void EncodeTest()
+    {
+        string test = @"aaaaabbbbbbbbbbbcccccceeeeeeeeeeeddddddddddddddddddssss";
+        byte[] bytes = Encoding.ASCII.GetBytes(test);
+        Huffman.Encode(bytes);
+        Assert.Fail(BitConverter.ToString(bytes));
     }
 }
