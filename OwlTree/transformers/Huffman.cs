@@ -102,6 +102,7 @@ public static class Huffman
             return (isLeaf ? Convert.ToString(value, 16) : '$') + (left != null ? " " + left.ToString() : "") + (right != null ? " " + right.ToString() : "");
         }
 
+        // TODO: improve space needed for tree encoding
         public void Encode(Span<byte> bytes, ref int ind)
         {
             if (isLeaf)
