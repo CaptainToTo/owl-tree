@@ -49,17 +49,17 @@ namespace OwlTree
         /// Gets space for a new message, which can be written into using to provided span. 
         /// This will fail if there isn't enough space in the buffer.
         /// Messages are stacked in the format: <br />
-        /// <c>[message byte length][message bytes][message byte length][message bytes]...</c>
+        /// <c>[message byte length][message bytes][message byte length][message bytes]...</c> 
         /// </summary>
         public Span<byte> GetSpan(int byteCount)
         {
             if (byteCount > ushort.MaxValue)
-                throw new ArgumentOutOfRangeException("message length is too long. Cannot be represented in a byte (<255).");
+                throw new ArgumentOutOfRangeException("message length is too long. Cannot be represented in a ushort (<65535).");
 
             ushort len = (ushort)byteCount;
 
             if (!HasSpaceFor(len + 2))
-                throw new ArgumentOutOfRangeException("Buffer is too full to add " + len + " bytes.");
+                Array.Resize(ref _buffer, _buffer.Length * 2);
             
             BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), len);
             _tail += 2;
