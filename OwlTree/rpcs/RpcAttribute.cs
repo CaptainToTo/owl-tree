@@ -32,6 +32,16 @@ namespace OwlTree
     [AttributeUsage(AttributeTargets.Parameter)]
     public class RpcCalleeAttribute : Attribute { }
 
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+    public class AssignRpcIdAttribute : Attribute {
+        public ushort Id = 0;
+
+        public AssignRpcIdAttribute(ushort id)
+        {
+            Id = id;
+        }
+    }
+
     /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
     /// </summary>
@@ -39,12 +49,6 @@ namespace OwlTree
     public class RpcAttribute : MethodInterceptionAspect
     {
         public RpcCaller caller = RpcCaller.Server;
-
-        /// <summary>
-        /// Hashed to generate the RPC id for protocol generation. If this is left unspecified,
-        /// the method name will be used instead.
-        /// </summary>
-        public string Key = "";
 
         /// <summary>
         /// Whether the method should also be run on the caller. <b>Default = false</b>
@@ -93,10 +97,23 @@ namespace OwlTree
                         paramTypes[i] = arg.ParameterType;
                     }
 
-                    var protocol = new RpcProtocol(t, rpc, paramTypes);
-                    _protocolsByMethod.Add(rpc, protocol);
-                    _protocolsById.Add(protocol.Id, protocol);
-                    Console.WriteLine(protocol.ToString());
+                    var assignedId = rpc.GetCustomAttribute<AssignRpcIdAttribute>();
+
+                    if (assignedId != null)
+                    {
+                        var protocol = new RpcProtocol(t, rpc, paramTypes, assignedId.Id);
+                        _protocolsByMethod.Add(rpc, protocol);
+                        _protocolsById.Add(protocol.Id, protocol);
+                        Console.WriteLine(protocol.ToString());
+                    }
+                    else
+                    {
+                        var protocol = new RpcProtocol(t, rpc, paramTypes);
+                        _protocolsByMethod.Add(rpc, protocol);
+                        _protocolsById.Add(protocol.Id, protocol);
+                        Console.WriteLine(protocol.ToString());
+                    }
+
                 }
             }
 

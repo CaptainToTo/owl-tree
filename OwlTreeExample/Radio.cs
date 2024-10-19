@@ -30,7 +30,7 @@ public class Radio : NetworkObject
         RPC_PingServer("hello from client: " + pingNo);
     }
 
-    [Rpc(RpcCaller.Server, Key = "PingClient")]
+    [Rpc(RpcCaller.Server), AssignRpcId(15)]
     public void RPC_PingClient([RpcCallee] ClientId callee, string message)
     {
         Console.WriteLine("Private message from server:\n   " + message);
