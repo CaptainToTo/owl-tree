@@ -102,24 +102,34 @@ public static class Huffman
             return (isLeaf ? Convert.ToString(value, 16) : '$') + (left != null ? " " + left.ToString() : "") + (right != null ? " " + right.ToString() : "");
         }
 
-        // TODO: improve space needed for tree encoding
-        public void Encode(Span<byte> bytes, ref int ind)
+        public void Encode(Span<byte> bytes, ref int bitInd)
         {
+            var ind = (int)(bitInd / 8);
             if (isLeaf)
             {
-                bytes[ind] = 1;
-                bytes[ind + 1] = value;
-                ind += 2;
+                bytes[ind] |= (byte)(0x1 << (bitInd % 8));
+                bitInd++;
+
+                for (int i = 0; i < 8; i++)
+                {
+                    if (bitInd % 8 == 0) ind++;
+                    bool bit = (byte)((value >> i) & 0x1) == 1;
+                    if (bit)
+                        bytes[ind] |= (byte)((0x1) << (bitInd % 8));
+                    else
+                        bytes[ind] &= (byte)(~(0x1 << (bitInd % 8)));
+                    bitInd++;
+                }
             }
             else
             {
-                bytes[ind] = 0;
-                ind++;
+                bytes[ind] &= (byte)(~(0x1 << (bitInd % 8)));
+                bitInd++;
                 if (left != null)
-                    left.Encode(bytes, ref ind);
+                    left.Encode(bytes, ref bitInd);
                 
                 if (right != null)
-                    right.Encode(bytes, ref ind);
+                    right.Encode(bytes, ref bitInd);
             }
         }
     }
@@ -153,7 +163,9 @@ public static class Huffman
         BitConverter.TryWriteBytes(bytes.Slice(8), bitLen);
         bytes[12] = (byte) unique;
         int treeInd = 13;
-        tree.Encode(bytes, ref treeInd);
+        int treeBitInd = treeInd * 8;
+        tree.Encode(bytes, ref treeBitInd);
+        treeInd = (treeBitInd / 8) + 1;
         for (int i = 0; i < (bitLen / 8) + 1; i++)
         {
             var b = compression[i];
@@ -280,28 +292,36 @@ public static class Huffman
         Node root = new Node(0, 0, false);
 
         Node cur = root;
-        int curByte = 1;
+        int curBit = 1;
         int curNode = 1;
         do {
-
-            if (bytes[curByte] == 0)
+            int curByte = (int)(curBit / 8);
+            int bit = curBit % 8;
+            if ((bytes[curByte] & (byte)(0x1 << bit)) == 0)
             {
                 cur = cur.AddChild(0, 0, false);
-                curByte += 1;
+                curBit += 1;
             }
             else
             {
-                cur.AddChild(bytes[curByte + 1], 0);
+                curBit += 1;
+                byte value = 0;
+                for (int i = 0; i < 8; i++)
+                {
+                    if (curBit % 8 == 0) curByte++;
+                    value |= (byte)((bytes[curByte] >> (curBit % 8)) << i);
+                    curBit++;
+                }
+                cur.AddChild(value, 0);
                 while (cur.right != null && cur.parent != null)
                 {
                     cur = cur.parent;
                 }
-                curByte += 2;
                 curNode++;
             }
 
         } while (curNode <= size);
-        last = curByte;
+        last = (curBit / 8) + 1;
 
         return root;
     }
