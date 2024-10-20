@@ -66,10 +66,15 @@ namespace OwlTree
         private static Dictionary<MethodInfo, RpcProtocol> _protocolsByMethod = new Dictionary<MethodInfo, RpcProtocol>();
         private static Dictionary<RpcId, RpcProtocol> _protocolsById = new Dictionary<RpcId, RpcProtocol>();
 
+        private static bool _initialized = false;
+
         Type netObjType = typeof(NetworkObject);
 
         public static void GenerateRpcProtocols()
         {
+            if (_initialized) return;
+            _initialized = true;
+
             Console.WriteLine("Generating RPC Protocols =====\n");
 
             IEnumerable<Type> types = NetworkObject.GetNetworkObjectTypes();
@@ -113,7 +118,6 @@ namespace OwlTree
                         _protocolsById.Add(protocol.Id, protocol);
                         Console.WriteLine(protocol.ToString());
                     }
-
                 }
             }
 
