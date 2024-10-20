@@ -12,12 +12,10 @@ namespace OwlTree
 
         public static RpcId None = new RpcId(RPC_NONE);
 
-        public static void InsertBytes(byte[] bytes, int ind, ushort rpcId)
-        {
-            BitConverter.TryWriteBytes(bytes.AsSpan(ind), rpcId);
-        }
-
-        internal const ushort FIRST_RPC_ID = 10;
+        /// <summary>
+        /// The first valid RpcId value that isn't reserved for specific operations handled by OwlTree.
+        /// </summary>
+        public const ushort FIRST_RPC_ID = 10;
 
         /// <summary>
         /// Basic function signature for passing RpcIds.
@@ -58,19 +56,25 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Get a RpcId instance by decoding it from a byte array, starting at ind.
+        /// Get a RpcId instance by decoding it from a span.
         /// </summary>
         public RpcId(ReadOnlySpan<byte> bytes)
         {
             FromBytes(bytes);
         }
 
+        /// <summary>
+        /// The id value.
+        /// </summary>
         public ushort Id { get { return _id; } } 
 
+        /// <summary>
+        /// Gets the rpc id from the given bytes.
+        /// </summary>
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length < 2)
-                throw new ArgumentException("Byte array must have 2 bytes from ind to decode a RpcId from.");
+                throw new ArgumentException("Span must have 2 bytes from ind to decode a RpcId from.");
 
             var result = BitConverter.ToUInt16(bytes);
 
@@ -89,6 +93,10 @@ namespace OwlTree
             return 2;
         }
 
+        /// <summary>
+        /// Inserts id as bytes into the given span.
+        /// Returns true if insertion was successful, false if there wasn't enough space in the span.
+        /// </summary>
         public bool InsertBytes(Span<byte> bytes)
         {
             if (bytes.Length < 2)

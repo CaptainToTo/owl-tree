@@ -63,7 +63,7 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Get a NetworkId instance by decoding it from a byte array, starting at ind.
+        /// Get a NetworkId instance by decoding it from a span.
         /// </summary>
         public NetworkId(ReadOnlySpan<byte> bytes)
         {
@@ -75,10 +75,13 @@ namespace OwlTree
         /// </summary>
         public uint Id { get { return _id; } }
 
+        /// <summary>
+        /// Gets the network id from the given bytes.
+        /// </summary>
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length < 4)
-                throw new ArgumentException("Byte array must have 4 bytes from ind to decode a ClientId from.");
+                throw new ArgumentException("Span must have 4 bytes from ind to decode a ClientId from.");
 
             _id = BitConverter.ToUInt32(bytes);
             if (_id >= _curId)
@@ -86,8 +89,8 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Inserts id as bytes into the given byte array, starting at ind.
-        /// Returns true if insertion was successful, false if there wasn't enough space in the byte array.
+        /// Inserts id as bytes into the given span.
+        /// Returns true if insertion was successful, false if there wasn't enough space in the span.
         /// </summary>
         public bool InsertBytes(Span<byte> bytes)
         {
