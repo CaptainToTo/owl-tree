@@ -4,7 +4,7 @@ namespace OwlTree
     /// <summary>
     /// Handles concatenating messages into a single buffer so that they can be sent in a single package.
     /// messages are stacked in the format: <br />
-    /// <c>[RPC byte length][RPC bytes][RPC byte length][RPC bytes]...</c>
+    /// <c>[message byte length][message bytes][message byte length][message bytes]...</c>
     /// </summary>
     public class MessageBuffer
     {
@@ -12,7 +12,7 @@ namespace OwlTree
         private int _tail = 0;  // the current end of the buffer
         
         /// <summary>
-        /// Produces a copy of the byte array buffer excluding trailing 0-bytes.
+        /// Gets a span of all added messages. This will exclude empty bytes at the end of the buffer.
         /// </summary>
         public Span<byte> GetBuffer()
         {
@@ -25,12 +25,12 @@ namespace OwlTree
         public bool IsEmpty { get { return _tail == 0; } }
 
         /// <summary>
-        /// Returns true if the buffer is full, and cannot have anymore RPCs added to it.
+        /// Returns true if the buffer is full.
         /// </summary>
         public bool IsFull { get { return _tail == _buffer.Length; } }
 
         /// <summary>
-        /// Create a new buffer with a max size of bufferLen.
+        /// Create a new buffer with an initial size of bufferLen.
         /// </summary>
         public MessageBuffer(int bufferLen)
         {
@@ -38,7 +38,7 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Returns true if the buffer has space to add the specified number of bytes.
+        /// Returns true if the buffer has space to add the specified number of bytes without needing to resize.
         /// </summary>
         public bool HasSpaceFor(int bytes)
         {
@@ -47,7 +47,7 @@ namespace OwlTree
 
         /// <summary>
         /// Gets space for a new message, which can be written into using to provided span. 
-        /// This will fail if there isn't enough space in the buffer.
+        /// If there isn't enough space for the given number of bytes, the buffer will double in size.
         /// Messages are stacked in the format: <br />
         /// <c>[message byte length][message bytes][message byte length][message bytes]...</c> 
         /// </summary>
@@ -79,7 +79,9 @@ namespace OwlTree
         public void Reset() { _tail = 0; }
 
         /// <summary>
-        /// Splits the given stream into individual message byte arrays. These byte arrays are added to the messages list.
+        /// Splits the given stream into individual message byte arrays.
+        /// Uses the start argument to track where the next message should be read from. Returns false if the end of the stream
+        /// has been reached, and there are no more messages to be read.
         /// </summary>
         public static bool GetNextMessage(ReadOnlySpan<byte> stream, ref int start, out ReadOnlySpan<byte> message)
         {

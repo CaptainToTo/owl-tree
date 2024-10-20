@@ -17,7 +17,7 @@ namespace OwlTree
         /// <param name="port">The port to bind to.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
         /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
-        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize, Decoder decoder) : base (addr, port, bufferSize, decoder)
+        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (addr, port, bufferSize, decoder, encoder)
         {
 
             _server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -31,16 +31,19 @@ namespace OwlTree
             OnReady?.Invoke(LocalId);
         }
 
+        /// <summary>
+        /// The maximum number of clients allowed to be connected at once on this connection.
+        /// </summary>
         public int MaxClients { get; private set; }
 
         // used to map a client's socket to its id and buffer
-        private class ClientInstance
+        private class ClientData
         {
             public ClientId id;
             public MessageBuffer buffer;
             public Socket socket;
 
-            public ClientInstance(ClientId id, MessageBuffer buffer, Socket socket)
+            public ClientData(ClientId id, MessageBuffer buffer, Socket socket)
             {
                 this.id = id;
                 this.buffer = buffer;
@@ -51,8 +54,8 @@ namespace OwlTree
         // server state
         private Socket _server;
         private List<Socket> _readList = new List<Socket>();
-        private Dictionary<Socket, ClientInstance> _clientsSockets = new Dictionary<Socket, ClientInstance>();
-        private Dictionary<ClientId, ClientInstance> _clientsIds = new Dictionary<ClientId, ClientInstance>();
+        private Dictionary<Socket, ClientData> _clientsSockets = new Dictionary<Socket, ClientData>();
+        private Dictionary<ClientId, ClientData> _clientsIds = new Dictionary<ClientId, ClientData>();
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
@@ -66,8 +69,6 @@ namespace OwlTree
             
             Socket.Select(_readList, null, null, 0);
 
-            byte[] data = new byte[BufferSize];
-
             foreach (var socket in _readList)
             {
                 // new client connects
@@ -75,7 +76,7 @@ namespace OwlTree
                 {
                     var client = socket.Accept();
 
-                    var clientInstance = new ClientInstance(new ClientId(), new MessageBuffer(BufferSize), client);
+                    var clientInstance = new ClientData(new ClientId(), new MessageBuffer(BufferSize), client);
 
                     _clientsSockets.Add(client, clientInstance);
                     _clientsIds.Add(clientInstance.id, clientInstance);
@@ -106,14 +107,16 @@ namespace OwlTree
                 }
                 else // receive client messages
                 {
+                    Array.Clear(ReadBuffer);
+
                     int dataLen = -1;
                     try
                     {
-                        dataLen = socket.Receive(data);
+                        dataLen = socket.Receive(ReadBuffer);
                     }
                     catch { }
 
-                    var transformed = ApplyReadSteps(data);
+                    var transformed = ApplyReadSteps(ReadBuffer);
 
                     var client = _clientsSockets[socket];
 
@@ -136,9 +139,9 @@ namespace OwlTree
                     int start = 0;
                     while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
                     {
-                        if (TryDecode(client.id, bytes, out var rpcId, out var target, out var args))
+                        if (TryDecode(client.id, bytes, out var message))
                         {
-                            _incoming.Enqueue(new Message(client.id, ClientId.None, rpcId, target, args));
+                            _incoming.Enqueue(message);
                         }
                     }
                 }
@@ -153,36 +156,19 @@ namespace OwlTree
         {
             while (_outgoing.TryDequeue(out var message))
             {
-                if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
-                {
-                    foreach (var client in _clientsSockets)
-                    {
-                        var span = client.Value.buffer.GetSpan(NetworkSpawner.SpawnByteLength);
-                        NetworkSpawner.SpawnEncode(span, (Type)message.args![0], (NetworkId)message.args![1]);
-                    }
-                }
-                else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
-                {
-                    foreach (var client in _clientsSockets)
-                    {
-                        var span = client.Value.buffer.GetSpan(NetworkSpawner.DespawnByteLength);
-                        NetworkSpawner.DespawnEncode(span, (NetworkId)message.args![0]);
-                    }
-                }
-                else if (message.callee != ClientId.None)
+
+                if (message.callee != ClientId.None)
                 {
                     if (_clientsIds.TryGetValue(message.callee, out var client))
                     {
-                        var span = client.buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
-                        RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+                        Encode(message, client.buffer);
                     }
                 }
                 else
                 {
                     foreach (var client in _clientsSockets)
                     {
-                        var span = client.Value.buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
-                        RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+                        Encode(message, client.Value.buffer);
                     }
                 }
             }

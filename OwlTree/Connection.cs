@@ -115,14 +115,14 @@ namespace OwlTree
 
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize, TryDecodeRpc);
+                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize, TryDecodeRpc, EncodeRpc);
             }
             else
             {
-                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize, TryDecodeRpc);
+                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
                 IsActive = true;
             }
-            role = args.role;
+            NetRole = args.role;
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
@@ -194,7 +194,7 @@ namespace OwlTree
         /// <summary>
         /// Whether this connection represents a server or client.
         /// </summary>
-        public Role role { get; private set; }
+        public Role NetRole { get; private set; }
 
         private NetworkBuffer _buffer;
 
@@ -269,7 +269,7 @@ namespace OwlTree
                         _logger.Write(Logger.LogRule.Events, "New client connected: " + result.id.ToString());
                         OnClientConnected?.Invoke(result.id);
 
-                        if (role == Role.Server)
+                        if (NetRole == Role.Server)
                         {
                             _spawner.SendNetworkObjects(result.id);
                         }
@@ -295,7 +295,7 @@ namespace OwlTree
                 }
             }
 
-            if (role == Role.Server)
+            if (NetRole == Role.Server)
             {
                 while (_disconnectRequests.TryDequeue(out var clientId))
                 {
@@ -309,7 +309,7 @@ namespace OwlTree
             while (GetNextMessage(out var message))
             {
                 if (
-                    role == Role.Client && 
+                    NetRole == Role.Client && 
                     (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN || message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
                 )
                 {
@@ -322,18 +322,39 @@ namespace OwlTree
             }
         }
 
-        private bool TryDecodeRpc(ClientId caller, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[]? args)
+        private bool TryDecodeRpc(ClientId caller, ReadOnlySpan<byte> bytes, out NetworkBuffer.Message message)
         {
-            if (NetworkSpawner.TryDecode(bytes, out rpcId, out args) && role == Role.Client)
+            message = NetworkBuffer.Message.Empty;
+            if (NetworkSpawner.TryDecode(bytes, out var rpcId, out var args) && NetRole == Role.Client)
             {
-                target = NetworkId.None;
+                message = new NetworkBuffer.Message(LocalId, rpcId, args);
                 return true;
             }
-            else if (RpcAttribute.TryDecodeRpc(caller, bytes, out rpcId, out target, out args))
+            else if (RpcAttribute.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
             {
+                message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, args);
                 return true;
             }
             return false;
+        }
+
+        private void EncodeRpc(NetworkBuffer.Message message, MessageBuffer buffer)
+        {
+            if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
+            {
+                var span = buffer.GetSpan(NetworkSpawner.SpawnByteLength);
+                NetworkSpawner.SpawnEncode(span, (Type)message.args![0], (NetworkId)message.args![1]);
+            }
+            else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
+            {
+                var span = buffer.GetSpan(NetworkSpawner.DespawnByteLength);
+                NetworkSpawner.DespawnEncode(span, (NetworkId)message.args![0]);
+            }
+            else
+            {
+                var span = buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
+                RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+            }
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[]? args)
@@ -380,7 +401,7 @@ namespace OwlTree
         /// </summary>
         public void Disconnect(ClientId id)
         {
-            if (role == Role.Client)
+            if (NetRole == Role.Client)
                 throw new InvalidOperationException("Clients cannot disconnect other clients");
             if (Threaded)
                 _disconnectRequests.Enqueue(id);
@@ -423,7 +444,7 @@ namespace OwlTree
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
-            if (role == Role.Client)
+            if (NetRole == Role.Client)
                 throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
             var obj = _spawner.Spawn<T>();
             return obj;
@@ -434,7 +455,7 @@ namespace OwlTree
         /// </summary>
         public object Spawn(Type t)
         {
-            if (role == Role.Client)
+            if (NetRole == Role.Client)
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
             return _spawner.Spawn(t);
         }
@@ -444,7 +465,7 @@ namespace OwlTree
         /// </summary>
         public void Despawn(NetworkObject target)
         {
-            if (role == Role.Client)
+            if (NetRole == Role.Client)
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
             _spawner.Despawn(target);
         }

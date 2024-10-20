@@ -8,8 +8,17 @@ namespace OwlTree
     /// </summary>
     public abstract class NetworkBuffer
     {
+        /// <summary>
+        /// Function signature used to decode raw byte arrays into Message structs.
+        /// </summary>
+        public delegate bool Decoder(ClientId caller, ReadOnlySpan<byte> bytes, out Message message);
 
-        public delegate bool Decoder(ClientId caller, ReadOnlySpan<byte> message, out RpcId rpcId, out NetworkId target, out object[]? args);
+        /// <summary>
+        /// Function signature used to encode a Message struct into raw bytes.
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="buffer"></param>
+        public delegate void Encoder(Message message, MessageBuffer buffer);
 
         /// <summary>
         /// Describes an RPC call, and its relevant meta data.
@@ -79,16 +88,20 @@ namespace OwlTree
         /// </summary>
         public int BufferSize { get; private set; }
 
+        protected byte[] ReadBuffer;
+
         // ip and port number this client is bound to
         public int Port { get; private set; } 
         public IPAddress Address { get; private set; }
 
-        public NetworkBuffer(string addr, int port, int bufferSize, Decoder decoder)
+        public NetworkBuffer(string addr, int port, int bufferSize, Decoder decoder, Encoder encoder)
         {
             Address = IPAddress.Parse(addr);
             Port = port;
             BufferSize = bufferSize;
+            ReadBuffer = new byte[bufferSize];
             TryDecode = decoder;
+            Encode = encoder;
         }
 
         /// <summary>
@@ -107,7 +120,15 @@ namespace OwlTree
         /// </summary>
         public ClientId.Delegate? OnReady;
 
-        public Decoder TryDecode;
+        /// <summary>
+        /// Injected decoding scheme for messages.
+        /// </summary>
+        protected Decoder TryDecode;
+
+        /// <summary>
+        /// Injected encoding scheme for messages.
+        /// </summary>
+        protected Encoder Encode;
 
         /// <summary>
         /// Whether or not the connection is ready. 
@@ -125,6 +146,9 @@ namespace OwlTree
 
         protected ConcurrentQueue<Message> _outgoing = new ConcurrentQueue<Message>();
 
+        /// <summary>
+        /// True if there are messages that are waiting to be sent.
+        /// </summary>
         public bool HasOutgoing { get { return _outgoing.Count > 0; } }
         
         /// <summary>
@@ -161,18 +185,34 @@ namespace OwlTree
         /// Buffers are cleared after writing.
         /// </summary>
         public abstract void Send();
-
+        
+        /// <summary>
+        /// Function signature for transformer steps. Should return the same span of bytes
+        /// provided as an argument.
+        /// </summary>
+        /// <param name="bytes"></param>
+        /// <returns></returns>
         public delegate Span<byte> BufferAction(Span<byte> bytes);
 
+        /// <summary>
+        /// Use to add transformer steps to sending and reading.
+        /// Specify the priority to sort the order of transformers.
+        /// Sorted in ascending order.
+        /// </summary>
         public struct Transformer
         {
             public int priority;
             public BufferAction step;
         }
 
+        // buffer transformer steps
         private List<Transformer> _sendProcess = new List<Transformer>();
         private List<Transformer> _readProcess = new List<Transformer>();
 
+        /// <summary>
+        /// Adds the given transformer step to the send process.
+        /// The provided BufferAction will be applied to all buffers sent.
+        /// </summary>
         public void AddSendStep(Transformer step)
         {
             for (int i = 0; i < _sendProcess.Count; i++)
@@ -186,6 +226,10 @@ namespace OwlTree
             _sendProcess.Add(step);
         }
 
+        /// <summary>
+        /// Apply all of the currently added send transformer steps. Returns the 
+        /// same span, with transformations applied to the underlying bytes.
+        /// </summary>
         protected Span<byte> ApplySendSteps(Span<byte> bytes)
         {
             foreach (var step in _sendProcess)
@@ -195,6 +239,10 @@ namespace OwlTree
             return bytes;
         }
 
+        /// <summary>
+        /// Adds the given transformer step to the read process.
+        /// The provided BufferAction will be applied to all buffers that are received.
+        /// </summary>
         public void AddReadStep(Transformer step)
         {
             for (int i = 0; i < _readProcess.Count; i++)
@@ -207,7 +255,11 @@ namespace OwlTree
             }
             _readProcess.Add(step);
         }
-
+        
+        /// <summary>
+        /// Apply all of the currently added read transformer steps. Returns the 
+        /// same span, with transformations applied to the underlying bytes.
+        /// </summary>
         protected Span<byte> ApplyReadSteps(Span<byte> bytes)
         {
             foreach (var step in _readProcess)
@@ -231,6 +283,9 @@ namespace OwlTree
 
         // * Connection and Disconnection Message Protocols
 
+        /// <summary>
+        /// The number of bytes required to encode client events.
+        /// </summary>
         protected static int ClientMessageLength { get { return RpcId.MaxLength() + ClientId.MaxLength(); } }
 
         protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
