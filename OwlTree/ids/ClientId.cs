@@ -1,4 +1,6 @@
 
+using System;
+
 namespace OwlTree
 {
     /// <summary>
@@ -53,10 +55,9 @@ namespace OwlTree
         /// <summary>
         /// Generate a new client id.
         /// </summary>
-        public ClientId()
+        public static ClientId New()
         {
-            _id = _curId;
-            _curId++;
+            return new ClientId(_curId);
         }
 
         /// <summary>
@@ -74,6 +75,7 @@ namespace OwlTree
         /// </summary>
         public ClientId(ReadOnlySpan<byte> bytes)
         {
+            _id = 0;
             FromBytes(bytes);
         }
 
@@ -134,7 +136,7 @@ namespace OwlTree
             return a._id != b._id;
         }
 
-        public override bool Equals(object? obj)
+        public override bool Equals(object obj)
         {
             return obj != null && obj.GetType() == typeof(ClientId) && ((ClientId)obj)._id == _id;
         }

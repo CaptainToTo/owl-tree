@@ -1,4 +1,8 @@
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace OwlTree
 {
     /// <summary>
@@ -19,7 +23,7 @@ namespace OwlTree
         /// </summary>
         public delegate void Delegate(NetworkObject obj);
 
-        internal Action<ClientId, RpcId, NetworkId, object[]?>? OnRpcCall;
+        internal Action<ClientId, RpcId, NetworkId, object[]> OnRpcCall;
 
         /// <summary>
         /// The object's network id. This is synchronized across clients.
@@ -35,7 +39,7 @@ namespace OwlTree
         /// <summary>
         /// The connection this object associated with, and managed by.
         /// </summary>
-        public Connection? Connection { get; private set; }
+        public Connection Connection { get; private set; }
 
         /// <summary>
         /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.

@@ -1,5 +1,7 @@
 
+using System;
 using System.Collections.Generic;
+using Priority_Queue;
 
 namespace OwlTree
 {
@@ -10,9 +12,13 @@ public static class Huffman
     {
         public byte value;
         public byte encoding;
-        public int bitLen = -1;
+        public int bitLen;
 
-        public ByteEncoding() {}
+        public ByteEncoding(int _bitLen = -1) {
+            value = 0;
+            encoding = 0;
+            bitLen = _bitLen;
+        }
 
         public bool HasValue { get { return bitLen != -1; } }
 
@@ -41,9 +47,9 @@ public static class Huffman
         public bool isLeaf;
         public byte value;
         public int prob;
-        public Node? left;
-        public Node? right;
-        public Node? parent;
+        public Node left;
+        public Node right;
+        public Node parent;
 
         public Node(byte x, int prob, bool leaf=true)
         {
@@ -78,7 +84,7 @@ public static class Huffman
             return RecurseEquals(this, other);
         }
 
-        private static bool RecurseEquals(Node? a, Node? b)
+        private static bool RecurseEquals(Node a, Node b)
         {
             if (a == null && b == null)
                 return true;
@@ -194,7 +200,7 @@ public static class Huffman
     {
         Node root = new Node(0, 0);
 
-        PriorityQueue<Node, int> q = new PriorityQueue<Node, int>(histogram.Length / 2);
+        SimplePriorityQueue<Node, int> q = new SimplePriorityQueue<Node, int>();
         for (int i = 0; i < histogram.Length; i++)
         {
             if (histogram[i] > 0)
@@ -216,7 +222,7 @@ public static class Huffman
         return root;
     }
 
-    internal static void BuildEncodingTable(ByteEncoding[] table, Node? tree, byte encoding=0, int bitLen=0)
+    internal static void BuildEncodingTable(ByteEncoding[] table, Node tree, byte encoding=0, int bitLen=0)
     {
         if (tree == null)
             return;
@@ -361,5 +367,4 @@ public static class Huffman
 
     // * ==================================================
 }
-
 }

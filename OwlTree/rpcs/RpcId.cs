@@ -1,3 +1,5 @@
+using System;
+
 namespace OwlTree
 {
     public struct RpcId : IEncodable
@@ -31,10 +33,9 @@ namespace OwlTree
         /// <summary>
         /// Generate a new rpc id.
         /// </summary>
-        public RpcId()
+        public static RpcId New()
         {
-            _id = _curId;
-            _curId++;
+            return new RpcId(_curId);
         }
 
         /// <summary>
@@ -52,6 +53,7 @@ namespace OwlTree
         /// </summary>
         public RpcId(byte[] bytes)
         {
+            _id = 0;
             FromBytes(bytes);
         }
 
@@ -60,6 +62,7 @@ namespace OwlTree
         /// </summary>
         public RpcId(ReadOnlySpan<byte> bytes)
         {
+            _id = 0;
             FromBytes(bytes);
         }
 
@@ -130,7 +133,7 @@ namespace OwlTree
             return id._id;
         } 
 
-        public override bool Equals(object? obj)
+        public override bool Equals(object obj)
         {
             return obj != null && obj.GetType() == typeof(RpcId) && ((RpcId)obj)._id == _id;
         }

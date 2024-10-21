@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+using System;
 
 namespace OwlTree
 {
@@ -29,10 +32,5 @@ namespace OwlTree
         /// Returns the expected number of bytes it will take to encode this object.
         /// </summary>
         public int ExpectedLength();
-
-        /// <summary>
-        /// Returns the max length this type of IEncodable can be.
-        /// </summary>
-        public static abstract int MaxLength();
     }
 }

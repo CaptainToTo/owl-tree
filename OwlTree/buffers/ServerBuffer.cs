@@ -1,5 +1,7 @@
 
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
@@ -76,7 +78,7 @@ namespace OwlTree
                 {
                     var client = socket.Accept();
 
-                    var clientInstance = new ClientData(new ClientId(), new MessageBuffer(BufferSize), client);
+                    var clientInstance = new ClientData(ClientId.New(), new MessageBuffer(BufferSize), client);
 
                     _clientsSockets.Add(client, clientInstance);
                     _clientsIds.Add(clientInstance.id, clientInstance);
@@ -107,7 +109,7 @@ namespace OwlTree
                 }
                 else // receive client messages
                 {
-                    Array.Clear(ReadBuffer);
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
 
                     int dataLen = -1;
                     try
@@ -116,7 +118,7 @@ namespace OwlTree
                     }
                     catch { }
 
-                    var transformed = ApplyReadSteps(ReadBuffer);
+                    var transformed = ApplyReadSteps(ReadBuffer.AsSpan());
 
                     var client = _clientsSockets[socket];
 

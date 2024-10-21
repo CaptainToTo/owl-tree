@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace OwlTree
 {
     /// <summary>
@@ -39,7 +42,7 @@ namespace OwlTree
         /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.
         /// </summary>
-        public bool TryGetObject(NetworkId id, out NetworkObject? obj)
+        public bool TryGetObject(NetworkId id, out NetworkObject obj)
         {
             return _netObjects.TryGetValue(id, out obj);
         }
@@ -47,7 +50,7 @@ namespace OwlTree
         /// <summary>
         /// Get an object with the given id. Returns null if none exist.
         /// </summary>
-        public NetworkObject? GetNetworkObject(NetworkId id)
+        public NetworkObject GetNetworkObject(NetworkId id)
         {
             if (!_netObjects.ContainsKey(id))
                 return null;
@@ -60,13 +63,13 @@ namespace OwlTree
         /// Invoked when a new object is spawned. Provides the spawned object. 
         /// Invoked after the object's OnSpawn() method has been called.
         /// </summary>
-        public NetworkObject.Delegate? OnObjectSpawn;
+        public NetworkObject.Delegate OnObjectSpawn;
 
         /// <summary>
         /// Invoked when an object is despawned. Provides the "despawned" object, marked as not active.
         /// Invoked after the object's OnDespawn() method has been called.
         /// </summary>
-        public NetworkObject.Delegate? OnObjectDespawn;
+        public NetworkObject.Delegate OnObjectDespawn;
 
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
@@ -74,12 +77,12 @@ namespace OwlTree
         public T Spawn<T>() where T : NetworkObject, new()
         {
             var newObj = new T();
-            newObj.SetIdInternal(new NetworkId());
+            newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
             newObj.OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [typeof(T), newObj.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{typeof(T), newObj.Id});
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
             return newObj;
@@ -93,18 +96,18 @@ namespace OwlTree
             if (!_typeToIds.ContainsKey(t))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
             
-            var newObj = (NetworkObject?)Activator.CreateInstance(t);
+            var newObj = (NetworkObject)Activator.CreateInstance(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
             
-            newObj.SetIdInternal(new NetworkId());
+            newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
             newObj.OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
 
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [t, newObj.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{t, newObj.Id});
 
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
@@ -116,7 +119,7 @@ namespace OwlTree
         {
             foreach (var pair in _netObjects)
             {
-                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), [pair.Value.GetType(), pair.Key]);
+                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{pair.Value.GetType(), pair.Key});
             }
         }
 
@@ -129,7 +132,7 @@ namespace OwlTree
             if (_netObjects.ContainsKey(id))
                 return;
             
-            var newObj = (NetworkObject?)Activator.CreateInstance(t);
+            var newObj = (NetworkObject)Activator.CreateInstance(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -169,7 +172,7 @@ namespace OwlTree
         {
             _netObjects.Remove(target.Id);
             target.SetActiveInternal(false);
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_DESPAWN), [target.Id]);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_DESPAWN), new object[]{target.Id});
             target.OnDespawn();
             OnObjectDespawn?.Invoke(target);
         }
@@ -216,7 +219,7 @@ namespace OwlTree
         /// Decodes the given message, assuming it is either a spawn or destroy instruction from the server.
         /// If decoded, the spawn or destroy instruction will be executed.
         /// </summary>
-        public void ReceiveInstruction(RpcId rpcId, object[]? args)
+        public void ReceiveInstruction(RpcId rpcId, object[] args)
         {
             if (args == null) return;
             switch(rpcId.Id)
@@ -232,7 +235,7 @@ namespace OwlTree
             }
         }
 
-        public static bool TryDecode(ReadOnlySpan<byte> message, out RpcId rpcId, out object[]? args)
+        public static bool TryDecode(ReadOnlySpan<byte> message, out RpcId rpcId, out object[] args)
         {
             args = null;
             int ind = 0;

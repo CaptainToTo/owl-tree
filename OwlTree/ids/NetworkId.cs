@@ -1,3 +1,5 @@
+using System;
+
 namespace OwlTree
 {
     /// <summary>
@@ -46,10 +48,9 @@ namespace OwlTree
         /// <summary>
         /// Generate a new network object id.
         /// </summary>
-        public NetworkId()
+        public static NetworkId New()
         {
-            _id = _curId;
-            _curId++;
+            return new NetworkId(_curId);
         }
 
         /// <summary>
@@ -67,6 +68,7 @@ namespace OwlTree
         /// </summary>
         public NetworkId(ReadOnlySpan<byte> bytes)
         {
+            _id = 0;
             FromBytes(bytes);
         }
 
@@ -127,7 +129,7 @@ namespace OwlTree
             return a._id != b._id;
         }
 
-        public override bool Equals(object? obj)
+        public override bool Equals(object obj)
         {
             return obj != null && obj.GetType() == typeof(NetworkId) && ((NetworkId)obj)._id == _id;
         }

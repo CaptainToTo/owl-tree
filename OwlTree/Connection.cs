@@ -1,5 +1,7 @@
 
+using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace OwlTree
 {
@@ -20,7 +22,7 @@ namespace OwlTree
         /// <summary>
         /// Initialization arguments for building a new connection.
         /// </summary>
-        public struct Args
+        public class Args
         {
             // socket args
 
@@ -53,13 +55,13 @@ namespace OwlTree
             /// Add custom transformers that will be apply to data read from sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.Transformer[] readSteps = [];
+            public NetworkBuffer.Transformer[] readSteps = new NetworkBuffer.Transformer[0];
 
             /// <summary>
             /// Add custom transformers that will be apply to data sent to sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.Transformer[] sendSteps = [];
+            public NetworkBuffer.Transformer[] sendSteps = new NetworkBuffer.Transformer[0];
 
             /// <summary>
             /// Adds Huffman encoding and decoding to the connection's read and send steps, with a priority of 100. <b>Default = true</b>
@@ -171,7 +173,7 @@ namespace OwlTree
 
         private Logger _logger;
 
-        private Thread? _bufferThread = null;
+        private Thread _bufferThread = null;
 
         public bool Threaded { get; private set; } = false;
         private int _threadUpdateDelta = 40;
@@ -212,18 +214,18 @@ namespace OwlTree
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
         /// </summary>
-        public event ClientId.Delegate? OnClientConnected;
+        public event ClientId.Delegate OnClientConnected;
 
         /// <summary>
         /// Invoked when a client disconnects. Provides the id of the disconnected client.
         /// </summary>
-        public event ClientId.Delegate? OnClientDisconnected;
+        public event ClientId.Delegate OnClientDisconnected;
 
         /// <summary>
         /// Invoked when the local connection is ready. On a server, provides <c>ClientId.None</c>.
         /// On a client, provides the local client id, as assigned by the server.
         /// </summary>
-        public event ClientId.Delegate? OnReady;
+        public event ClientId.Delegate OnReady;
 
         /// <summary>
         /// Whether this connection is active. Will be false for clients if they have been disconnected from the server.
@@ -357,19 +359,19 @@ namespace OwlTree
             }
         }
 
-        internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[]? args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[] args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, args));
             if (_logger.IncludesVerbose)
                 _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args));
         }
 
-        internal void AddRpc(ClientId callee, RpcId rpcId, object[]? args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, object[] args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, args));
         }
 
-        internal void AddRpc(RpcId rpcId, object[]? args)
+        internal void AddRpc(RpcId rpcId, object[] args)
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, args));
         }
@@ -415,18 +417,18 @@ namespace OwlTree
         /// Invoked when a new object is spawned. Provides the spawned object. 
         /// Invoked after the object's OnSpawn() method has been called.
         /// </summary>
-        public event NetworkObject.Delegate? OnObjectSpawn;
+        public event NetworkObject.Delegate OnObjectSpawn;
 
         /// <summary>
         /// Invoked when an object is despawned. Provides the "despawned" object, marked as not active.
         /// Invoked after the object's OnDespawn() method has been called.
         /// </summary>
-        public event NetworkObject.Delegate? OnObjectDespawn;
+        public event NetworkObject.Delegate OnObjectDespawn;
 
         /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.
         /// </summary>
-        public bool TryGetObject(NetworkId id, out NetworkObject? obj)
+        public bool TryGetObject(NetworkId id, out NetworkObject obj)
         {
             return _spawner.TryGetObject(id, out obj);
         }
@@ -434,7 +436,7 @@ namespace OwlTree
         /// <summary>
         /// Get an object with the given id. Returns null if none exist.
         /// </summary>
-        public NetworkObject? GetNetworkObject(NetworkId id)
+        public NetworkObject GetNetworkObject(NetworkId id)
         {
             return _spawner.GetNetworkObject(id);
         }

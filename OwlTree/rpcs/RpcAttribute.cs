@@ -1,4 +1,7 @@
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using PostSharp.Aspects;
 using PostSharp.Serialization;
@@ -173,12 +176,12 @@ namespace OwlTree
             }
         }
 
-        public static int RpcExpectedLength(RpcId id, object[]? args)
+        public static int RpcExpectedLength(RpcId id, object[] args)
         {
             return _protocolsById[id].ExpectedLength(args);
         }
 
-        public static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[]? args)
+        public static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[] args)
         {
             _protocolsById[id].Encode(bytes, source, args);
         }
@@ -192,16 +195,16 @@ namespace OwlTree
                 return true;
             }
             target = NetworkId.None;
-            args = [];
+            args = new object[0];
             return false;
         }
 
-        public static void InvokeRpc(RpcId id, NetworkObject target, object[]? args)
+        public static void InvokeRpc(RpcId id, NetworkObject target, object[] args)
         {
             _protocolsById[id].Invoke(target, args);
         }
 
-        public static string GetEncodingSummary(RpcId id, NetworkId target, object[]? args)
+        public static string GetEncodingSummary(RpcId id, NetworkId target, object[] args)
         {
             return _protocolsById[id].GetEncodingSummary(target, args);
         }

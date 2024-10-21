@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
@@ -50,7 +52,7 @@ namespace OwlTree
             {
                 if (socket == _client)
                 {
-                    Array.Clear(ReadBuffer);
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
 
                     int dataLen = -1;
                     try

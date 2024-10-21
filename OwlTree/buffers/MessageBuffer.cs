@@ -1,4 +1,6 @@
 
+using System;
+
 namespace OwlTree
 {
     /// <summary>
@@ -83,7 +85,7 @@ namespace OwlTree
         /// Uses the start argument to track where the next message should be read from. Returns false if the end of the stream
         /// has been reached, and there are no more messages to be read.
         /// </summary>
-        public static bool GetNextMessage(ReadOnlySpan<byte> stream, ref int start, out ReadOnlySpan<byte> message)
+        public static bool GetNextMessage(Span<byte> stream, ref int start, out ReadOnlySpan<byte> message)
         {
             message = new Span<byte>();
             if (start >= stream.Length)

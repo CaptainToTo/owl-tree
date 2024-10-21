@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -21,7 +24,7 @@ namespace OwlTree
 
         public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes)
         {
-            Id = new RpcId();
+            Id = RpcId.New();
             ParamTypes = paramTypes;
             Method = method;
             NetworkObjectType = networkObjectType;
@@ -70,7 +73,7 @@ namespace OwlTree
             return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
         }
 
-        public string GetEncodingSummary(NetworkId target, object[]? args)
+        public string GetEncodingSummary(NetworkId target, object[] args)
         {
             int len = ExpectedLength(args);
             string title = Method.Name + " " + Id.ToString() + ", Called on Object " + target.ToString() + ":\n";
@@ -109,7 +112,7 @@ namespace OwlTree
             return title + bytesStr + encoding + "\n" + parameters;
         }
 
-        public void Encode(Span<byte> bytes, NetworkId source, object[]? args)
+        public void Encode(Span<byte> bytes, NetworkId source, object[] args)
         {
             if ((args == null && ParamTypes.Length > 0) || (args != null && args.Length != ParamTypes.Length))
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
@@ -136,7 +139,7 @@ namespace OwlTree
             return;
         }
 
-        public void Invoke(NetworkObject target, object[]? args)
+        public void Invoke(NetworkObject target, object[] args)
         {
             if (target == null && !Method.IsStatic)
                 throw new ArgumentException("Target can only be null if the RPC is a static method.");
@@ -305,7 +308,7 @@ namespace OwlTree
             }
         }
 
-        public int ExpectedLength(object[]? args)
+        public int ExpectedLength(object[] args)
         {
             if (args == null)
                 return 0;

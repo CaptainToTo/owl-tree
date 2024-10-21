@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 
 namespace OwlTree
@@ -48,12 +50,12 @@ namespace OwlTree
             /// <summary>
             /// The arguments of the RPC call this message represents.
             /// </summary>
-            public object[]? args;
+            public object[] args;
 
             /// <summary>
             /// Describes an RPC call, and its relevant meta data.
             /// </summary>
-            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, object[]? args)
+            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, object[] args)
             {
                 this.caller = caller;
                 this.callee = callee;
@@ -62,7 +64,7 @@ namespace OwlTree
                 this.args = args;
             }
 
-            public Message(ClientId callee, RpcId rpcId, object[]? args)
+            public Message(ClientId callee, RpcId rpcId, object[] args)
             {
                 this.caller = ClientId.None;
                 this.callee = callee;
@@ -107,18 +109,18 @@ namespace OwlTree
         /// <summary>
         /// Invoked when a new client connects.
         /// </summary>
-        public ClientId.Delegate? OnClientConnected;
+        public ClientId.Delegate OnClientConnected;
 
         /// <summary>
         /// Invoked when a client disconnects.
         /// </summary>
-        public ClientId.Delegate? OnClientDisconnected;
+        public ClientId.Delegate OnClientDisconnected;
 
         /// <summary>
         /// Invoked when the local connection is ready. Provides the local ClientId.
         /// If this is a server instance, then the ClientId will be <c>ClientId.None</c>.
         /// </summary>
-        public ClientId.Delegate? OnReady;
+        public ClientId.Delegate OnReady;
 
         /// <summary>
         /// Injected decoding scheme for messages.
