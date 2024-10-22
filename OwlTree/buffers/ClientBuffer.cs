@@ -14,26 +14,39 @@ namespace OwlTree
         /// Manages sending and receiving messages for a client instance.
         /// </summary>
         /// <param name="addr">The server's IP address.</param>
-        /// <param name="port">The port the server is listening to.</param>
-        /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
-        public ClientBuffer(string addr, int port, int bufferSize, Decoder decoder, Encoder encoder) : base(addr, port, bufferSize, decoder, encoder)
+        /// <param name="tpcPort">The port to bind the TCP socket to.</param>
+        /// <param name="serverUdpPort">The port to bind the UDP socket to.</param>
+        /// <param name="bufferSize">The size of read and write buffers in bytes.</param>
+        public ClientBuffer(string addr, int tcpPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder) : base(addr, tcpPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
         {
-            _client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint endPoint = new IPEndPoint(Address, port);
-            _client.Connect(endPoint);
+            _tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IPEndPoint endPoint = new IPEndPoint(Address, TcpPort);
+            _tcpClient.Connect(endPoint);
 
-            _readList = new Socket[1]{_client};
+            _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _udpClient.Bind(new IPEndPoint(Address, ClientUdpPort));
 
-            _outgoingBytes = new MessageBuffer(bufferSize);
+            _udpEndPoint = new IPEndPoint(Address, ServerUdpPort);
+
+            _readList.Add(_tcpClient);
+            _readList.Add(_udpClient);
+
+            _tcpBuffer = new MessageBuffer(bufferSize);
+            _udpBuffer = null;
         }
 
         // client state
-        private Socket _client;
-        private Socket[] _readList;
+        private Socket _tcpClient;
+        private Socket _udpClient;
+        private IPEndPoint _udpEndPoint;
+        private List<Socket> _readList = new List<Socket>();
         private List<ClientId> _clients = new List<ClientId>();
 
+        private UInt32 _hash;
+
         // messages to be sent ot the sever
-        private MessageBuffer _outgoingBytes;
+        private MessageBuffer _tcpBuffer;
+        private MessageBuffer _udpBuffer;
 
         /// <summary>
         /// Reads any data currently on the socket. Putting new messages in the queue.
@@ -41,16 +54,18 @@ namespace OwlTree
         /// </summary>
         public override void Read()
         {
-            if (!_client.Connected)
+            if (!_tcpClient.Connected)
             {
                 return;
             }
-            _readList[0] = _client;
+            _readList.Clear();
+            _readList.Add(_tcpClient);
+            _readList.Add(_udpClient);
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
             foreach (var socket in _readList)
             {
-                if (socket == _client)
+                if (socket == _tcpClient)
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
 
@@ -74,12 +89,40 @@ namespace OwlTree
                     int start = 0;
                     while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
                     {
-                        RpcId clientMessage = ClientMessageDecode(bytes, out var clientId);
+                        RpcId clientMessage = ClientMessageDecode(bytes, out var clientId, out var hash);
                         if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
                         {
-                            HandleClientConnectionMessage(clientMessage, clientId);
+                            HandleClientConnectionMessage(clientMessage, clientId, hash);
                         }
                         else if (TryDecode(ClientId.None, bytes, out var message))
+                        {
+                            _incoming.Enqueue(message);
+                        }
+                    }
+                }
+                else if (socket == _udpClient)
+                {
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+
+                    EndPoint source = new IPEndPoint(IPAddress.Any, 0);
+                    int dataLen = -1;
+                    try
+                    {
+                        dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
+                    }
+                    catch { }
+
+                    var transformed = ApplyReadSteps(ReadBuffer);
+
+                    if (dataLen <= 0)
+                    {
+                        continue;
+                    }
+
+                    int start = 0;
+                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
+                    {
+                        if (TryDecode(ClientId.None, bytes, out var message))
                         {
                             _incoming.Enqueue(message);
                         }
@@ -90,7 +133,7 @@ namespace OwlTree
 
         // handle connections and disconnections immediately, 
         // they do not preserve the message execution order.
-        private void HandleClientConnectionMessage(RpcId messageType, ClientId id)
+        private void HandleClientConnectionMessage(RpcId messageType, ClientId id, UInt32 hash)
         {
             switch (messageType.Id)
             {
@@ -101,6 +144,8 @@ namespace OwlTree
                 case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
                     _clients.Add(id);
                     LocalId = id;
+                    _hash = hash;
+                    _udpBuffer = new MessageBuffer(BufferSize, hash);
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
@@ -120,12 +165,28 @@ namespace OwlTree
         {
             while (_outgoing.TryDequeue(out var message))
             {
-                Encode(message, _outgoingBytes);
+                if (message.protocol == Protocol.Tcp)
+                    Encode(message, _tcpBuffer);
+                else
+                    Encode(message, _udpBuffer);
             }
-            var bytes = _outgoingBytes.GetBuffer();
-            bytes = ApplySendSteps(bytes);
-            _client.Send(bytes);
-            _outgoingBytes.Reset();
+
+            if (!_tcpBuffer.IsEmpty)
+            {
+                var bytes = _tcpBuffer.GetBuffer();
+                bytes = ApplySendSteps(bytes);
+                _tcpClient.Send(bytes);
+                _tcpBuffer.Reset();
+            }
+
+            if (!_udpBuffer.IsEmpty)
+            {
+                var bytes = _udpBuffer.GetBuffer();
+                var transform = ApplySendSteps(bytes.Slice(4));
+                bytes = bytes.Slice(0, 4 + transform.Length);
+                _udpClient.SendTo(bytes.ToArray(), _udpEndPoint);
+                _udpBuffer.Reset();
+            }
         }
 
         /// <summary>
@@ -134,7 +195,8 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            _client.Close();
+            _tcpClient.Close();
+            _udpClient.Close();
             OnClientDisconnected?.Invoke(LocalId);
         }
 

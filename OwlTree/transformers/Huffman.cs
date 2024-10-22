@@ -209,9 +209,9 @@ public static class Huffman
 
         while (q.Count > 1)
         {
-            var a = q.Dequeue();
-            var b = q.Dequeue();
-            var parent = new Node(0, a.prob + b.prob, false);
+            Node a = q.Dequeue();
+            Node b = q.Count > 0 ? q.Dequeue() : null;
+            var parent = new Node(0, a.prob + (b?.prob ?? 0), false);
             parent.left = a;
             parent.right = b;
             q.Enqueue(parent, parent.prob);

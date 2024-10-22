@@ -29,8 +29,9 @@ namespace OwlTree
         public void FromBytes(ReadOnlySpan<byte> bytes);
 
         /// <summary>
-        /// Returns the expected number of bytes it will take to encode this object.
+        /// Returns the number of bytes it will take to encode this object. The value returned
+        /// will be used to allocate the span provided to <c>InsertBytes()</c>.
         /// </summary>
-        public int ExpectedLength();
+        public int ByteLength();
     }
 }

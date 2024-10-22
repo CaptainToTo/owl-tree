@@ -109,7 +109,7 @@ namespace OwlTree
             return true;
         }
 
-        public int ExpectedLength() { return 4; }
+        public int ByteLength() { return 4; }
 
         /// <summary>
         /// The client id used to signal that there is no client. Id value is 0.

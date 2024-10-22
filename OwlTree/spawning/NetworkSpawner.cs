@@ -119,7 +119,7 @@ namespace OwlTree
         {
             foreach (var pair in _netObjects)
             {
-                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{pair.Value.GetType(), pair.Key});
+                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), Protocol.Tcp, new object[]{pair.Value.GetType(), pair.Key});
             }
         }
 
@@ -154,14 +154,14 @@ namespace OwlTree
             int ind = 0;
 
             var rpcId = new RpcId(RpcId.NETWORK_OBJECT_SPAWN);
-            var rpcSpan = bytes.Slice(ind, rpcId.ExpectedLength());
+            var rpcSpan = bytes.Slice(ind, rpcId.ByteLength());
             rpcId.InsertBytes(rpcSpan);
-            ind += rpcId.ExpectedLength();
+            ind += rpcId.ByteLength();
 
-            bytes[rpcId.ExpectedLength()] = _typeToIds[objType];
+            bytes[rpcId.ByteLength()] = _typeToIds[objType];
             ind += 1;
 
-            var idSpan = bytes.Slice(ind, id.ExpectedLength());
+            var idSpan = bytes.Slice(ind, id.ByteLength());
             id.InsertBytes(idSpan);
         }
 
@@ -207,11 +207,11 @@ namespace OwlTree
             var ind = 0;
 
             var rpcId = new RpcId(RpcId.NETWORK_OBJECT_DESPAWN);
-            var rpcSpan = bytes.Slice(0, rpcId.ExpectedLength());
+            var rpcSpan = bytes.Slice(0, rpcId.ByteLength());
             rpcId.InsertBytes(rpcSpan);
-            ind += rpcId.ExpectedLength();
+            ind += rpcId.ByteLength();
 
-            var idSpan = bytes.Slice(ind, id.ExpectedLength());
+            var idSpan = bytes.Slice(ind, id.ByteLength());
             id.InsertBytes(idSpan);
         }
 
@@ -244,10 +244,10 @@ namespace OwlTree
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
                     ind += 1;
-                    args = new object[]{message[2], new NetworkId(message.Slice(rpcId.ExpectedLength() + 1))};
+                    args = new object[]{message[2], new NetworkId(message.Slice(rpcId.ByteLength() + 1))};
                     break;
                 case RpcId.NETWORK_OBJECT_DESPAWN:
-                    args = new object[]{new NetworkId(message.Slice(rpcId.ExpectedLength()))};
+                    args = new object[]{new NetworkId(message.Slice(rpcId.ByteLength()))};
                     break;
                 default:
                     return false;

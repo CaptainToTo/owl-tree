@@ -26,7 +26,7 @@ class Program
             });
             client.OnObjectSpawn += (obj) => {
                 radio = (Radio)obj;
-                radio.RPC_PingServer("Hello from client: 0");
+                // radio.RPC_PingServer("Hello from client: 0");
             };
             Loop(client);
         }
@@ -40,7 +40,15 @@ class Program
             Console.WriteLine("Tick: " + tick);
             tick++;
             connection.ExecuteQueue();
-            Thread.Sleep(1000);
+            if (connection.NetRole == Connection.Role.Server && radio != null)
+            {
+                radio.RPC_ServerPosition(0.5f, 0.5f, 0.5f);
+            }
+            else if (connection.NetRole == Connection.Role.Client && radio != null)
+            {
+                radio.RPC_ClientPosition(0.25f, 0.25f, 0.25f);
+            }
+            Thread.Sleep(10);
         }
     }
 }

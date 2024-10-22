@@ -54,6 +54,11 @@ namespace OwlTree
         public RpcCaller caller = RpcCaller.Server;
 
         /// <summary>
+        /// Whether this RPC is delivered through TCP or UDP.
+        /// </summary>
+        public Protocol RpcProtocol = Protocol.Tcp;
+
+        /// <summary>
         /// Whether the method should also be run on the caller. <b>Default = false</b>
         /// </summary>
         public bool InvokeOnCaller = false;
@@ -73,12 +78,12 @@ namespace OwlTree
 
         Type netObjType = typeof(NetworkObject);
 
-        public static void GenerateRpcProtocols()
+        public static void GenerateRpcProtocols(Logger logger)
         {
             if (_initialized) return;
             _initialized = true;
 
-            Console.WriteLine("Generating RPC Protocols =====\n");
+            logger.Write(Logger.LogRule.Verbose, "Generating RPC Protocols =====\n");
 
             IEnumerable<Type> types = NetworkObject.GetNetworkObjectTypes();
 
@@ -99,7 +104,7 @@ namespace OwlTree
                     {
                         var arg = args[i];
 
-                        if (!RpcProtocol.IsEncodableParam(arg))
+                        if (!OwlTree.RpcProtocol.IsEncodableParam(arg))
                             throw new ArgumentException("All arguments must be convertible to a byte array.");
                         
                         paramTypes[i] = arg.ParameterType;
@@ -112,19 +117,21 @@ namespace OwlTree
                         var protocol = new RpcProtocol(t, rpc, paramTypes, assignedId.Id);
                         _protocolsByMethod.Add(rpc, protocol);
                         _protocolsById.Add(protocol.Id, protocol);
-                        Console.WriteLine(protocol.ToString());
+                        if (logger.IncludesVerbose)
+                            logger.Write(Logger.LogRule.Verbose, protocol.ToString());
                     }
                     else
                     {
                         var protocol = new RpcProtocol(t, rpc, paramTypes);
                         _protocolsByMethod.Add(rpc, protocol);
                         _protocolsById.Add(protocol.Id, protocol);
-                        Console.WriteLine(protocol.ToString());
+                        if (logger.IncludesVerbose)
+                            logger.Write(Logger.LogRule.Verbose, protocol.ToString());
                     }
                 }
             }
 
-            Console.WriteLine("Completed RPC Protocols ======");
+            logger.Write(Logger.LogRule.Verbose, "Completed RPC Protocols ======");
         }
 
         public override void OnInvoke(MethodInterceptionArgs args)
@@ -165,7 +172,7 @@ namespace OwlTree
                         callee = (ClientId)argsList[i];
                 }
                 
-                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, argsList);
+                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, this.RpcProtocol, argsList);
 
                 if (InvokeOnCaller)
                     args.Proceed();

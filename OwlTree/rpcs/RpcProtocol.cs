@@ -118,10 +118,10 @@ namespace OwlTree
                 throw new ArgumentException("args array must have the same number of elements as the expected method parameters.");
 
             int start = 0;
-            int end = Id.ExpectedLength();
+            int end = Id.ByteLength();
             Id.InsertBytes(bytes.Slice(start, end - start));
             start = end;
-            end += source.ExpectedLength();
+            end += source.ByteLength();
             source.InsertBytes(bytes.Slice(start, end - start));
 
             if (args == null)
@@ -155,10 +155,10 @@ namespace OwlTree
             if (new RpcId(bytes) != Id)
                 throw new ArgumentException("Given bytes must match this protocol. RPC id did not match.");
 
-            int ind = Id.ExpectedLength();
+            int ind = Id.ByteLength();
 
             target = new NetworkId(bytes.Slice(ind, NetworkId.MaxLength()));
-            ind += target.ExpectedLength();
+            ind += target.ByteLength();
 
             object[] args = new object[ParamTypes.Length];
 
@@ -301,7 +301,7 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        bytes[0] = (byte)((IEncodable)arg).ExpectedLength();
+                        bytes[0] = (byte)((IEncodable)arg).ByteLength();
                         ((IEncodable)arg).InsertBytes(bytes.Slice(1));
                     }
                 }
@@ -322,7 +322,7 @@ namespace OwlTree
                     throw new ArgumentException("args must have the same types as the expected method parameters, in the correct order.");
                 sum += GetExpectedLength(args[i]);
             }
-            return sum + Id.ExpectedLength() + NetworkId.MaxLength();
+            return sum + Id.ByteLength() + NetworkId.MaxLength();
         }
 
         private static int GetExpectedLength(object arg)
@@ -365,7 +365,7 @@ namespace OwlTree
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
-                        return ((IEncodable)arg).ExpectedLength() + 1;
+                        return ((IEncodable)arg).ByteLength() + 1;
                 }
             }
             return -1;

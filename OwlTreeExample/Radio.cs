@@ -22,6 +22,18 @@ public class Radio : NetworkObject
         }
     }
 
+    [Rpc(RpcCaller.Server, RpcProtocol = Protocol.Udp)]
+    public void RPC_ServerPosition(float x, float y, float z)
+    {
+        Console.WriteLine($"server position: ({x}, {y}, {z})");
+    }
+
+    [Rpc(RpcCaller.Client, RpcProtocol = Protocol.Udp)]
+    public void RPC_ClientPosition(float x, float y, float z, [RpcCaller] ClientId caller = default)
+    {
+        Console.WriteLine($"{caller.ToString()} position: ({x}, {y}, {z})");
+    }
+
     [Rpc(RpcCaller.Server)]
     public void RPC_PingClients(string message)
     {

@@ -16,17 +16,24 @@ namespace OwlTree
         /// Manages sending and receiving messages for a server instance.
         /// </summary>
         /// <param name="addr">The server's IP address.</param>
-        /// <param name="port">The port to bind to.</param>
+        /// <param name="tpcPort">The port to bind the TCP socket to.</param>
+        /// /// <param name="serverUdpPort">The port to bind the UDP socket to.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        /// <param name="bufferSize">The size of read and write buffers in bytes. Exceeding the size of these buffers will result in lost data.</param>
-        public ServerBuffer(string addr, int port, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (addr, port, bufferSize, decoder, encoder)
+        /// <param name="bufferSize">The size of read and write buffers in bytes.</param>
+        public ServerBuffer(string addr, int tpcPort, int serverUdpPort, int clientUdpPort, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (addr, tpcPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
         {
 
-            _server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint endPoint = new IPEndPoint(Address, Port);
-            _server.Bind(endPoint);
-            _server.Listen(maxClients);
-            _readList.Add(_server);
+            IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
+            _tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _tcpServer.Bind(tpcEndPoint);
+            _tcpServer.Listen(maxClients);
+            _readList.Add(_tcpServer);
+
+            IPEndPoint udpEndPoint = new IPEndPoint(IPAddress.Any, ServerUdpPort);
+            _udpServer = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _udpServer.Bind(udpEndPoint);
+            _readList.Add(_udpServer);
+
             MaxClients = maxClients;
             LocalId = ClientId.None;
             IsReady = true;
@@ -38,26 +45,68 @@ namespace OwlTree
         /// </summary>
         public int MaxClients { get; private set; }
 
+        private Random _rand = new Random();
+
         // used to map a client's socket to its id and buffer
-        private class ClientData
+        private struct ClientData
         {
             public ClientId id;
-            public MessageBuffer buffer;
-            public Socket socket;
+            public UInt32 hash;
+            public MessageBuffer tcpBuffer;
+            public Socket tpcSocket;
+            public MessageBuffer udpBuffer;
+            public IPEndPoint udpEndPoint;
 
-            public ClientData(ClientId id, MessageBuffer buffer, Socket socket)
+            public static ClientData None = new ClientData() { id = ClientId.None };
+
+            public static bool operator ==(ClientData a, ClientData b) => a.id == b.id;
+            public static bool operator !=(ClientData a, ClientData b) => a.id != b.id;
+
+            public override bool Equals(object obj)
             {
-                this.id = id;
-                this.buffer = buffer;
-                this.socket = socket;
+                return obj != null && obj.GetType() == typeof(ClientData) && ((ClientData)obj == this);
+            }
+
+            public override int GetHashCode()
+            {
+                return base.GetHashCode();
             }
         }
 
         // server state
-        private Socket _server;
+        private Socket _tcpServer;
+        private Socket _udpServer;
         private List<Socket> _readList = new List<Socket>();
-        private Dictionary<Socket, ClientData> _clientsSockets = new Dictionary<Socket, ClientData>();
-        private Dictionary<ClientId, ClientData> _clientsIds = new Dictionary<ClientId, ClientData>();
+        private List<ClientData> _clientData = new List<ClientData>();
+
+        private ClientData FindClientData(Socket s)
+        {
+            foreach (var data in _clientData)
+                if (data.tpcSocket == s) return data;
+            return ClientData.None;
+        }
+
+        private ClientData FindClientData(ClientId id)
+        {
+            foreach (var data in _clientData)
+                if (data.id == id) return data;
+            return ClientData.None;
+        }
+
+        private ClientData FindClientData(UInt32 hash)
+        {
+            foreach (var data in _clientData)
+                if (data.hash == hash) return data;
+            return ClientData.None;
+        }
+
+        private ClientId[] GetClientIds()
+        {
+            ClientId[] ids = new ClientId[_clientData.Count];
+            for (int i = 0; i < _clientData.Count; i++)
+                ids[i] = _clientData[i].id;
+            return ids;
+        }
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
@@ -65,49 +114,86 @@ namespace OwlTree
         public override void Read()
         {
             _readList.Clear();
-            _readList.Add(_server);
-            foreach (var client in _clientsSockets)
-                _readList.Add(client.Key);
+            _readList.Add(_tcpServer);
+            _readList.Add(_udpServer);
+            foreach (var data in _clientData)
+                _readList.Add(data.tpcSocket);
             
             Socket.Select(_readList, null, null, 0);
 
             foreach (var socket in _readList)
             {
                 // new client connects
-                if (socket == _server)
+                if (socket == _tcpServer)
                 {
-                    var client = socket.Accept();
+                    var tcpClient = socket.Accept();
 
-                    var clientInstance = new ClientData(ClientId.New(), new MessageBuffer(BufferSize), client);
+                    IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, ClientUdpPort);
+                    var hash = (UInt32)_rand.Next();
 
-                    _clientsSockets.Add(client, clientInstance);
-                    _clientsIds.Add(clientInstance.id, clientInstance);
+                    var clientData = new ClientData() {
+                        id = ClientId.New(), 
+                        hash = hash, 
+                        tcpBuffer = new MessageBuffer(BufferSize), 
+                        tpcSocket = tcpClient,
+                        udpBuffer = new MessageBuffer(BufferSize),
+                        udpEndPoint = udpEndPoint
+                    };
 
-                    OnClientConnected?.Invoke(_clientsSockets[client].id);
+                    _clientData.Add(clientData);
+
+                    OnClientConnected?.Invoke(clientData.id);
 
                     // send new client their id
-                    var span = clientInstance.buffer.GetSpan(ClientMessageLength);
-                    LocalClientConnectEncode(span, clientInstance.id);
+                    var span = clientData.tcpBuffer.GetSpan(LocalClientConnectLength);
+                    LocalClientConnectEncode(span, clientData.id, clientData.hash);
 
-                    foreach (var otherClient in _clientsIds)
+                    foreach (var otherClient in _clientData)
                     {
-                        if (otherClient.Key == clientInstance.id) continue;
+                        if (otherClient.id == clientData.id) continue;
 
                         // notify clients of a new client in the next send
-                        span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
-                        ClientConnectEncode(span, clientInstance.id);
+                        span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
+                        ClientConnectEncode(span, clientData.id);
 
                         // add existing clients to new client
-                        span = clientInstance.buffer.GetSpan(ClientMessageLength);
-                        ClientConnectEncode(span, otherClient.Key);
+                        span = clientData.tcpBuffer.GetSpan(ClientMessageLength);
+                        ClientConnectEncode(span, otherClient.id);
                     }
                     
-                    var bytes = clientInstance.buffer.GetBuffer();
+                    var bytes = clientData.tcpBuffer.GetBuffer();
                     bytes = ApplySendSteps(bytes);
-                    client.Send(bytes);
-                    clientInstance.buffer.Reset();
+                    tcpClient.Send(bytes);
+                    clientData.tcpBuffer.Reset();
                 }
-                else // receive client messages
+                else if (socket == _udpServer) // receive client udp messages
+                {
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+
+                    EndPoint source = new IPEndPoint(IPAddress.Any, 0);
+                    int dataLen = -1;
+                    try
+                    {
+                        dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
+                    }
+                    catch { }
+
+                    UInt32 hash = BitConverter.ToUInt32(ReadBuffer);
+
+                    var transformed = ApplyReadSteps(ReadBuffer.AsSpan(4));
+
+                    var client = FindClientData(hash);
+
+                    int start = 0;
+                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
+                    {
+                        if (TryDecode(client.id, bytes, out var message))
+                        {
+                            _incoming.Enqueue(message);
+                        }
+                    }
+                }
+                else // receive client tcp messages
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
 
@@ -120,19 +206,18 @@ namespace OwlTree
 
                     var transformed = ApplyReadSteps(ReadBuffer.AsSpan());
 
-                    var client = _clientsSockets[socket];
+                    var client = FindClientData(socket);
 
                     // disconnect if receive fails
                     if (dataLen <= 0)
                     {
-                        _clientsSockets.Remove(socket);
-                        _clientsIds.Remove(client.id);
+                        _clientData.Remove(client);
                         socket.Close();
                         OnClientDisconnected?.Invoke(client.id);
 
-                        foreach (var otherClient in _clientsSockets)
+                        foreach (var otherClient in _clientData)
                         {
-                            var span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
+                            var span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
                             ClientDisconnectEncode(span, client.id);
                         }
                         continue;
@@ -161,25 +246,50 @@ namespace OwlTree
 
                 if (message.callee != ClientId.None)
                 {
-                    if (_clientsIds.TryGetValue(message.callee, out var client))
+                    var client = FindClientData(message.callee);
+                    if (client != ClientData.None)
                     {
-                        Encode(message, client.buffer);
+                        if (message.protocol == Protocol.Tcp)
+                            Encode(message, client.tcpBuffer);
+                        else
+                            Encode(message, client.udpBuffer);
                     }
                 }
                 else
                 {
-                    foreach (var client in _clientsSockets)
+                    if (message.protocol == Protocol.Tcp)
                     {
-                        Encode(message, client.Value.buffer);
+                        foreach (var client in _clientData)
+                        {
+                            Encode(message, client.tcpBuffer);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var client in _clientData)
+                        {
+                            Encode(message, client.udpBuffer);
+                        }
                     }
                 }
             }
-            foreach (var client in _clientsSockets)
+            foreach (var client in _clientData)
             {
-                var bytes = client.Value.buffer.GetBuffer();
-                bytes = ApplySendSteps(bytes);
-                client.Key.Send(bytes);
-                client.Value.buffer.Reset();
+                if (!client.tcpBuffer.IsEmpty)
+                {
+                    var bytes = client.tcpBuffer.GetBuffer();
+                    bytes = ApplySendSteps(bytes);
+                    client.tpcSocket.Send(bytes);
+                    client.tcpBuffer.Reset();
+                }
+
+                if (!client.udpBuffer.IsEmpty)
+                {
+                    var bytes = client.udpBuffer.GetBuffer();
+                    bytes = ApplySendSteps(bytes);
+                    _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    client.udpBuffer.Reset();
+                }
             }
         }
 
@@ -188,12 +298,13 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            var ids = _clientsIds.Keys;
+            var ids = GetClientIds();
             foreach (var id in ids)
             {
                 Disconnect(id);
             }
-            _server.Close();
+            _tcpServer.Close();
+            _udpServer.Close();
         }
 
         /// <summary>
@@ -202,16 +313,16 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect(ClientId id)
         {
-            if (_clientsIds.TryGetValue(id, out var client))
+            var client = FindClientData(id);
+            if (client != ClientData.None)
             {
-                _clientsSockets.Remove(client.socket);
-                _clientsIds.Remove(id);
-                client.socket.Close();
+                _clientData.Remove(client);
+                client.tpcSocket.Close();
                 OnClientDisconnected?.Invoke(id);
 
-                foreach (var otherClient in _clientsSockets)
+                foreach (var otherClient in _clientData)
                 {
-                    var span = otherClient.Value.buffer.GetSpan(ClientMessageLength);
+                    var span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
                     ClientDisconnectEncode(span, client.id);
                 }
             }

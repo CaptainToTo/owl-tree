@@ -6,6 +6,15 @@ using System.Net;
 namespace OwlTree
 {
     /// <summary>
+    /// Use to label which protocol that will be used to send the message.
+    /// </summary>
+    public enum Protocol
+    {
+        Tcp,
+        Udp
+    }
+
+    /// <summary>
     /// Super class that declares the interface for client and server buffers.
     /// </summary>
     public abstract class NetworkBuffer
@@ -48,6 +57,11 @@ namespace OwlTree
             public NetworkId target;
 
             /// <summary>
+            /// Which protocol that will be used to send the message.
+            /// </summary>
+            public Protocol protocol;
+
+            /// <summary>
             /// The arguments of the RPC call this message represents.
             /// </summary>
             public object[] args;
@@ -55,12 +69,13 @@ namespace OwlTree
             /// <summary>
             /// Describes an RPC call, and its relevant meta data.
             /// </summary>
-            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, object[] args)
+            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, object[] args)
             {
                 this.caller = caller;
                 this.callee = callee;
                 this.rpcId = rpcId;
                 this.target = target;
+                this.protocol = protocol;
                 this.args = args;
             }
 
@@ -70,13 +85,14 @@ namespace OwlTree
                 this.callee = callee;
                 this.rpcId = rpcId;
                 this.target = NetworkId.None;
+                this.protocol = Protocol.Tcp;
                 this.args = args;
             }
 
             /// <summary>
             /// Represents an empty message.
             /// </summary>
-            public static Message Empty = new Message(ClientId.None, ClientId.None, RpcId.None, NetworkId.None, null);
+            public static Message Empty = new Message(ClientId.None, ClientId.None, RpcId.None, NetworkId.None, Protocol.Tcp, null);
 
             /// <summary>
             /// Returns true if this message doesn't contain anything.
@@ -93,13 +109,17 @@ namespace OwlTree
         protected byte[] ReadBuffer;
 
         // ip and port number this client is bound to
-        public int Port { get; private set; } 
+        public int TcpPort { get; private set; } 
+        public int ServerUdpPort { get; private set; }
+        public int ClientUdpPort { get; private set; }
         public IPAddress Address { get; private set; }
 
-        public NetworkBuffer(string addr, int port, int bufferSize, Decoder decoder, Encoder encoder)
+        public NetworkBuffer(string addr, int tpcPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder)
         {
             Address = IPAddress.Parse(addr);
-            Port = port;
+            TcpPort = tpcPort;
+            ServerUdpPort = serverUdpPort;
+            ClientUdpPort = clientUdpPort;
             BufferSize = bufferSize;
             ReadBuffer = new byte[bufferSize];
             TryDecode = decoder;
@@ -290,33 +310,41 @@ namespace OwlTree
         /// </summary>
         protected static int ClientMessageLength { get { return RpcId.MaxLength() + ClientId.MaxLength(); } }
 
+        /// <summary>
+        /// The number of bytes required to encode the local client connected event.
+        /// </summary>
+        protected static int LocalClientConnectLength { get { return RpcId.MaxLength() + ClientId.MaxLength() + 4; } }
+
         protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
-            var ind = rpcId.ExpectedLength();
+            var ind = rpcId.ByteLength();
             rpcId.InsertBytes(bytes.Slice(0, ind));
-            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
+            id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
         }
 
-        protected static void LocalClientConnectEncode(Span<byte> bytes, ClientId id)
+        protected static void LocalClientConnectEncode(Span<byte> bytes, ClientId id, UInt32 hash)
         {
             var rpcId = new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
-            var ind = rpcId.ExpectedLength();
+            var ind = rpcId.ByteLength();
             rpcId.InsertBytes(bytes.Slice(0, ind));
-            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
+            id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
+            ind += id.ByteLength();
+            BitConverter.TryWriteBytes(bytes.Slice(ind), hash);
         }
 
         protected static void ClientDisconnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
-            var ind = rpcId.ExpectedLength();
+            var ind = rpcId.ByteLength();
             rpcId.InsertBytes(bytes.Slice(0, ind));
-            id.InsertBytes(bytes.Slice(ind, id.ExpectedLength()));
+            id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
         }
 
-        protected static RpcId ClientMessageDecode(ReadOnlySpan<byte> message, out ClientId id)
+        protected static RpcId ClientMessageDecode(ReadOnlySpan<byte> message, out ClientId id, out UInt32 hash)
         {
             RpcId result = RpcId.None;
+            hash = 0;
             UInt16 rpcId = BitConverter.ToUInt16(message);
             switch(rpcId)
             {
@@ -325,15 +353,17 @@ namespace OwlTree
                     break;
                 case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
                     result = new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
+                    hash = BitConverter.ToUInt32(message.Slice(result.ByteLength() + ClientId.MaxLength()));
                     break;
                 case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
                     result = new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
                     break;
                 default:
                     id = ClientId.None;
+                    hash = 0;
                     return RpcId.None;
             }
-            id = new ClientId(message.Slice(result.ExpectedLength()));
+            id = new ClientId(message.Slice(result.ByteLength()));
             return result;
         }
     }

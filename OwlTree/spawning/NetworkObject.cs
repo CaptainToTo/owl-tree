@@ -23,7 +23,7 @@ namespace OwlTree
         /// </summary>
         public delegate void Delegate(NetworkObject obj);
 
-        internal Action<ClientId, RpcId, NetworkId, object[]> OnRpcCall;
+        internal Action<ClientId, RpcId, NetworkId, Protocol, object[]> OnRpcCall;
 
         /// <summary>
         /// The object's network id. This is synchronized across clients.

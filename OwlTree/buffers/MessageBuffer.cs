@@ -12,6 +12,7 @@ namespace OwlTree
     {
         private byte[] _buffer; // the actual byte buffer containing
         private int _tail = 0;  // the current end of the buffer
+        private UInt32 _hash = 0; // if the buffer is for a udp socket, prepend this hash
         
         /// <summary>
         /// Gets a span of all added messages. This will exclude empty bytes at the end of the buffer.
@@ -24,12 +25,14 @@ namespace OwlTree
         /// <summary>
         /// Returns true if the buffer is empty.
         /// </summary>
-        public bool IsEmpty { get { return _tail == 0; } }
+        public bool IsEmpty { get { return IsUdp ? _tail == 4 : _tail == 0; } }
 
         /// <summary>
         /// Returns true if the buffer is full.
         /// </summary>
         public bool IsFull { get { return _tail == _buffer.Length; } }
+
+        public bool IsUdp { get; private set; } = false;
 
         /// <summary>
         /// Create a new buffer with an initial size of bufferLen.
@@ -37,6 +40,15 @@ namespace OwlTree
         public MessageBuffer(int bufferLen)
         {
             _buffer = new byte[bufferLen];
+        }
+
+        public MessageBuffer(int bufferLen, UInt32 hash)
+        {
+            _buffer = new byte[bufferLen];
+            IsUdp = true;
+            _hash = hash;
+            BitConverter.TryWriteBytes(_buffer, _hash);
+            _tail = 4;
         }
 
         /// <summary>
@@ -78,7 +90,7 @@ namespace OwlTree
         /// <summary>
         /// Empty the buffer.
         /// </summary>
-        public void Reset() { _tail = 0; }
+        public void Reset() { _tail = IsUdp ? 4 : 0; }
 
         /// <summary>
         /// Splits the given stream into individual message byte arrays.

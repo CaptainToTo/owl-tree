@@ -91,7 +91,7 @@ namespace OwlTree
             return 2;
         }
 
-        public int ExpectedLength()
+        public int ByteLength()
         {
             return 2;
         }

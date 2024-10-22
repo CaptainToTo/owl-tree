@@ -35,9 +35,17 @@ namespace OwlTree
             /// </summary>
             public string serverAddr = "127.0.0.1";
             /// <summary>
-            /// The server port. <b>Default = 8080</b>
+            /// The server TCP port. <b>Default = 8000</b>
             /// </summary>
-            public int port = 8080;
+            public int tcpPort = 8000;
+            /// <summary>
+            /// The port the server will listen to for UDP packets. <b>Default = 9000</b>
+            /// </summary>
+            public int serverUdpPort = 9000;
+            /// <summary>
+            /// The port the client will listen to for UDP packets. <b>Default = 9010</b>
+            /// </summary>
+            public int clientUdpPort = 9010;
             /// <summary>
             /// The maximum number of clients the server will allow to be connected at once.
             /// <b>Default = 4</b>
@@ -111,17 +119,17 @@ namespace OwlTree
         /// </summary>
         public Connection(Args args)
         {
-            RpcAttribute.GenerateRpcProtocols();
-
             _logger = new Logger(args.printer, args.verbosity);
+
+            RpcAttribute.GenerateRpcProtocols(_logger);
 
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(args.serverAddr, args.port, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ClientBuffer(args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.bufferSize, TryDecodeRpc, EncodeRpc);
             }
             else
             {
-                _buffer = new ServerBuffer(args.serverAddr, args.port, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ServerBuffer(args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
                 IsActive = true;
             }
             NetRole = args.role;
@@ -319,7 +327,7 @@ namespace OwlTree
                 }
                 else if (TryGetObject(message.target, out var target))
                 {
-                    RpcAttribute.InvokeRpc(message.rpcId, target!, message.args);
+                    RpcAttribute.InvokeRpc(message.rpcId, target, message.args);
                 }
             }
         }
@@ -334,7 +342,7 @@ namespace OwlTree
             }
             else if (RpcAttribute.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
             {
-                message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, args);
+                message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, Protocol.Tcp, args);
                 return true;
             }
             return false;
@@ -359,21 +367,21 @@ namespace OwlTree
             }
         }
 
-        internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, object[] args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, args));
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol, args));
             if (_logger.IncludesVerbose)
                 _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args));
         }
 
-        internal void AddRpc(ClientId callee, RpcId rpcId, object[] args)
+        internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, args));
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, protocol, args));
         }
 
         internal void AddRpc(RpcId rpcId, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, args));
+            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args));
         }
 
         /// <summary>
