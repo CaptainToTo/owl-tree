@@ -73,11 +73,24 @@ namespace OwlTree
             return title + encoding + " = " + maxSize + " max bytes\n" + parameters;
         }
 
-        public string GetEncodingSummary(NetworkId target, object[] args)
+        public string GetEncodingSummary(NetworkId target, object[] args, ClientId localId)
         {
             int len = ExpectedLength(args);
             string title = Method.Name + " " + Id.ToString() + ", Called on Object " + target.ToString() + ":\n";
             byte[] bytes = new byte[len];
+
+            var paramList = Method.GetParameters();
+            if (paramList != null && paramList.Length > 0)
+            {
+                for (int i = 0; i < paramList.Length; i++)
+                {
+                    if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+                    {
+                        args[i] = localId;
+                    }
+                }
+            }
+
             Encode(bytes, target, args);
             string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
             string encoding = "  Encoding: RpcId |__NetId__|";
@@ -86,7 +99,6 @@ namespace OwlTree
 
             if (args != null && args.Length > 0)
             {
-                var paramList = Method.GetParameters();
                 for (int i = 0; i < paramList.Length; i++)
                 {
                     var param = paramList[i];
@@ -94,7 +106,7 @@ namespace OwlTree
                     int strLen = (size * 2) + (size - 1);
                     string iStr = (i + 1).ToString();
                     int front = (strLen / 2) - 1;
-                    int back = (strLen / 2) - (1 + iStr.Length);
+                    int back = (strLen / 2) - (1 + iStr.Length) + 1;
                     encoding += " |" + new string('_', front) + iStr + new String('_', back) + "|";
                     parameters += "    (" + iStr + ") " + param.ParameterType.ToString() + " " + param.Name;
                     if (param.CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
@@ -190,7 +202,7 @@ namespace OwlTree
                 return str;
             }
 
-            object result = Activator.CreateInstance(t)!;
+            object result = Activator.CreateInstance(t);
             if (t == typeof(int))
             {
                 result = BitConverter.ToInt32(bytes);
@@ -239,10 +251,9 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        var len = bytes[0];
-
+                        var len = ((IEncodable)result).ByteLength();
                         ((IEncodable)result).FromBytes(bytes.Slice(0, len));
-                        ind += len + 1;
+                        ind += len;
                         break;
                     }
                 }
@@ -303,8 +314,7 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        bytes[0] = (byte)((IEncodable)arg).ByteLength();
-                        ((IEncodable)arg).InsertBytes(bytes.Slice(1));
+                        ((IEncodable)arg).InsertBytes(bytes);
                     }
                 }
             }
@@ -367,7 +377,7 @@ namespace OwlTree
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
-                        return ((IEncodable)arg).ByteLength() + 1;
+                        return ((IEncodable)arg).ByteLength();
                 }
             }
             return -1;
@@ -413,8 +423,8 @@ namespace OwlTree
                 {
                     if (a == encodable)
                     {
-                        var method = t.GetMethod("MaxLength", BindingFlags.Static | BindingFlags.Public)!;
-                        return (int)method.Invoke(null, null)! + 1;
+                        IEncodable obj = (IEncodable)Activator.CreateInstance(t);
+                        return obj.ByteLength();
                     }
                 }
             }

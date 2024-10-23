@@ -11,6 +11,7 @@ class Program
             var server = new Connection(new Connection.Args
             {
                 role = Connection.Role.Server,
+                verbosity = Logger.LogRule.Verbose
             });
             server.OnClientConnected += (ClientId id) => {
                 if (radio == null)
@@ -23,6 +24,7 @@ class Program
             var client = new Connection(new Connection.Args
             {
                 role = Connection.Role.Client,
+                verbosity = Logger.LogRule.Verbose
             });
             client.OnObjectSpawn += (obj) => {
                 radio = (Radio)obj;

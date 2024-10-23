@@ -371,7 +371,7 @@ namespace OwlTree
         {
             _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol, args));
             if (_logger.IncludesVerbose)
-                _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args));
+                _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args, LocalId));
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args)

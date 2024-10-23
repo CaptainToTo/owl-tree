@@ -219,9 +219,9 @@ namespace OwlTree
             _protocolsById[id].Invoke(target, args);
         }
 
-        public static string GetEncodingSummary(RpcId id, NetworkId target, object[] args)
+        public static string GetEncodingSummary(RpcId id, NetworkId target, object[] args, ClientId localId)
         {
-            return _protocolsById[id].GetEncodingSummary(target, args);
+            return _protocolsById[id].GetEncodingSummary(target, args, localId);
         }
     }
 }
