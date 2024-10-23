@@ -20,7 +20,11 @@ namespace OwlTree
         /// <summary>
         /// Only clients are allowed to call this RPC, meaning it will be executed on the server.
         /// </summary>
-        Client
+        Client,
+        /// <summary>
+        /// Both server and client connections can call this RPC.
+        /// </summary>
+        Any
     }
 
     /// <summary>
@@ -149,7 +153,7 @@ namespace OwlTree
             
             if (
                 (caller == (RpcCaller)netObj.Connection.NetRole) ||
-                (caller == (RpcCaller)netObj.Connection.NetRole)
+                (caller == RpcCaller.Any && !netObj.IsReceivingRpc)
             )
             {
                 var method = args.Method as MethodInfo;
@@ -177,9 +181,13 @@ namespace OwlTree
                 if (InvokeOnCaller)
                     args.Proceed();
             }
-            else
+            else if (netObj.IsReceivingRpc)
             {
                 args.Proceed();
+            }
+            else
+            {
+                throw new InvalidOperationException("This connection does not have the permission to call this RPC.");
             }
         }
 

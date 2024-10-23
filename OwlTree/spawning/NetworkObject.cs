@@ -42,6 +42,11 @@ namespace OwlTree
         public Connection Connection { get; private set; }
 
         /// <summary>
+        /// FOR INTERNAL USE ONLY. Used to flag an object as receiving an RPC call from a remote source.
+        /// </summary>
+        internal bool IsReceivingRpc = false;
+
+        /// <summary>
         /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.
         /// </summary>
         internal void SetIdInternal(NetworkId id)

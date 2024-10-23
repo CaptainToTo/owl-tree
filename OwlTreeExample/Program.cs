@@ -42,11 +42,11 @@ class Program
             connection.ExecuteQueue();
             if (connection.NetRole == Connection.Role.Server && radio != null)
             {
-                radio.RPC_ServerPosition(0.5f, 0.5f, 0.5f);
+                radio.RPC_SendPosition(0.5f, 0.5f, 0.5f);
             }
             else if (connection.NetRole == Connection.Role.Client && radio != null)
             {
-                radio.RPC_ClientPosition(0.25f, 0.25f, 0.25f);
+                radio.RPC_SendPosition(0.25f, 0.25f, 0.25f);
             }
             Thread.Sleep(10);
         }

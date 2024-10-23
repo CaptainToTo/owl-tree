@@ -147,7 +147,9 @@ namespace OwlTree
             if (target != null && target.GetType() != NetworkObjectType)
                 throw new ArgumentException("Target must match this RPC's type");
             
+            target.IsReceivingRpc = true;
             Method.Invoke(target, args);
+            target.IsReceivingRpc = false;
         }
 
         public object[] Decode(ClientId source, ReadOnlySpan<byte> bytes, out NetworkId target)
