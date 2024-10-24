@@ -94,7 +94,8 @@ namespace OwlTree
             foreach (var t in types)
             {
                 var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                            .Where(m => m.Name.ToLower().Contains("rpc") && !m.Name.Contains("<"));
+                            .Where(m => m.Name.ToLower().Contains("rpc") && !m.Name.Contains("<")).ToArray()
+                            .OrderBy(m => (m.GetCustomAttribute<AssignRpcIdAttribute>() != null ? "0" : "1") + m.Name);
                 
                 foreach (var rpc in rpcs)
                 {
@@ -108,7 +109,7 @@ namespace OwlTree
                     {
                         var arg = args[i];
 
-                        if (!OwlTree.RpcProtocol.IsEncodableParam(arg))
+                        if (!OwlTree.RpcProtocol.IsEncodableParam(arg.ParameterType))
                             throw new ArgumentException("All arguments must be convertible to a byte array.");
                         
                         paramTypes[i] = arg.ParameterType;

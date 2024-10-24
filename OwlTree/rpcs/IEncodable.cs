@@ -5,7 +5,9 @@ using System;
 namespace OwlTree
 {
     /// <summary>
-    /// Implement to make a struct a valid RPC argument. Use for structs that will take a fixed number of bytes to encode.
+    /// Implement to make a struct a valid RPC argument.
+    /// If only IEncodable is implemented, then the struct should take a fixed number of bytes to encode.
+    /// To allow an encoding with variable length, also implement IVariableLength.
     /// </summary>
     public interface IEncodable
     {
@@ -30,8 +32,7 @@ namespace OwlTree
 
         /// <summary>
         /// Returns the number of bytes it will take to encode this object. The value returned
-        /// will be used to allocate the span provided to <c>InsertBytes()</c>. The value should be a constant
-        /// number.
+        /// will be used to allocate the span provided to <c>InsertBytes()</c>.
         /// </summary>
         public int ByteLength();
     }

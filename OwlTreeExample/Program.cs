@@ -4,8 +4,14 @@ class Program
 {
     static Radio? radio = null;
 
+    static NetworkList<Capacity8, int> list = new NetworkList<Capacity8, int>();
+
     static void Main(string[] args)
     {
+        list.Add(2);
+        list.Add(10);
+        list.Add(8);
+        list.Add(500);
         if (args[0] == "s")
         {
             var server = new Connection(new Connection.Args
@@ -44,13 +50,13 @@ class Program
             connection.ExecuteQueue();
             if (connection.NetRole == Connection.Role.Server && radio != null)
             {
-                radio.RPC_SendPosition(0.5f, 0.5f, 0.5f);
+                radio.RPC_ListTest(list);
             }
             else if (connection.NetRole == Connection.Role.Client && radio != null)
             {
-                radio.RPC_SendPosition(0.25f, 0.25f, 0.25f);
+                // radio.RPC_SendPosition(0.25f, 0.25f, 0.25f);
             }
-            Thread.Sleep(10);
+            Thread.Sleep(1000);
         }
     }
 }

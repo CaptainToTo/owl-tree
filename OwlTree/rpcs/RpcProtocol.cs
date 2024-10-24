@@ -9,19 +9,6 @@ namespace OwlTree
 {
     public class RpcProtocol
     {
-        public delegate object Decoder(ReadOnlySpan<byte> bytes);
-
-        private static Dictionary<Type, Decoder> _decoders = new Dictionary<Type, Decoder>();
-
-        public static void GetDecoders()
-        {
-            var encodables = IEncodable.GetEncodableTypes();
-            foreach (var t in encodables)
-            {
-                _decoders.Add(t, (Decoder)t.GetMethod("FromBytes")!.CreateDelegate(typeof(Decoder)));
-            }
-        }
-
         public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes)
         {
             Id = RpcId.New();
@@ -192,7 +179,7 @@ namespace OwlTree
             return args;
         }
 
-        private static object DecodeObject(ReadOnlySpan<byte> bytes, ref int ind, Type t)
+        internal static object DecodeObject(ReadOnlySpan<byte> bytes, ref int ind, Type t)
         {
             if (t == typeof(string))
             {
@@ -246,23 +233,34 @@ namespace OwlTree
             else
             {
                 var encodable = typeof(IEncodable);
+                var variableLen = typeof(IVariableLength);
                 var encodableTypes = t.GetInterfaces();
+                bool isEncodable = false;
+                bool isVariable = false;
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
                     {
-                        var len = ((IEncodable)result).ByteLength();
-                        ((IEncodable)result).FromBytes(bytes.Slice(0, len));
-                        ind += len;
-                        break;
+                        isEncodable = true;
                     }
+                    else if (a == variableLen)
+                    {
+                        isVariable = true;
+                    }
+                }
+
+                if (isEncodable)
+                {
+                    var len = isVariable ? IVariableLength.GetLength(bytes) : ((IEncodable)result).ByteLength();
+                    ((IEncodable)result).FromBytes(bytes.Slice(isVariable ? IVariableLength.LENGTH_ENCODING : 0, len));
+                    ind += len + (isVariable ? IVariableLength.LENGTH_ENCODING : 0);
                 }
             }
 
             return result;
         }
 
-        private static void InsertBytes(Span<byte> bytes, object arg)
+        internal static void InsertBytes(Span<byte> bytes, object arg)
         {
             var t = arg.GetType();
             if (t == typeof(int))
@@ -309,13 +307,30 @@ namespace OwlTree
             else
             {
                 var encodable = typeof(IEncodable);
+                var variableLen = typeof(IVariableLength);
                 var encodableTypes = t.GetInterfaces();
+                bool isEncodable = false;
+                bool isVariable = false;
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
                     {
-                        ((IEncodable)arg).InsertBytes(bytes);
+                        isEncodable = true;
                     }
+                    if (a == variableLen)
+                    {
+                        isVariable = true;
+                    }
+                }
+
+                if (isEncodable)
+                {
+                    if (isVariable)
+                    {
+                        IVariableLength.InsertLength(bytes, ((IEncodable)arg).ByteLength());
+                        bytes = bytes.Slice(IVariableLength.LENGTH_ENCODING);
+                    }
+                    ((IEncodable)arg).InsertBytes(bytes);
                 }
             }
         }
@@ -337,7 +352,7 @@ namespace OwlTree
             return sum + Id.ByteLength() + NetworkId.MaxLength();
         }
 
-        private static int GetExpectedLength(object arg)
+        internal static int GetExpectedLength(object arg)
         {
             var t = arg.GetType();
             if (
@@ -373,17 +388,21 @@ namespace OwlTree
             else
             {
                 var encodable = typeof(IEncodable);
+                var variableLen = typeof(IVariableLength);
                 var encodableTypes = t.GetInterfaces();
+                var len = -1;
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
-                        return ((IEncodable)arg).ByteLength();
+                        len = ((IEncodable)arg).ByteLength();
+                    else if (a == variableLen)
+                        return ((IEncodable)arg).ByteLength() + IVariableLength.LENGTH_ENCODING;
                 }
+                return len;
             }
-            return -1;
         }
 
-        private static int GetMaxLength(Type t)
+        internal static int GetMaxLength(Type t)
         {
             if (
                 t == typeof(int) ||
@@ -418,23 +437,28 @@ namespace OwlTree
             else
             {
                 var encodable = typeof(IEncodable);
+                var variableLen = typeof(IVariableLength);
                 var encodableTypes = t.GetInterfaces();
+                int len = -1;
                 foreach (var a in encodableTypes)
                 {
                     if (a == encodable)
                     {
                         IEncodable obj = (IEncodable)Activator.CreateInstance(t);
-                        return obj.ByteLength();
+                        len = obj.ByteLength();
+                    }
+                    else if (a == variableLen)
+                    {
+                        IVariableLength obj = (IVariableLength)Activator.CreateInstance(t);
+                        return obj.MaxLength();
                     }
                 }
+                return len;
             }
-            return -1;
         }
 
-        public static bool IsEncodableParam(ParameterInfo arg)
+        internal static bool IsEncodableParam(Type t)
         {
-            var t = arg.ParameterType;
-
             if (
                 t == typeof(int) ||
                 t == typeof(uint) ||
@@ -451,9 +475,6 @@ namespace OwlTree
             }
             else
             {
-                if (!t.IsValueType)
-                    return false;
-
                 var encodable = typeof(IEncodable);
                 var encodableTypes = t.GetInterfaces();
                 foreach (var a in encodableTypes)

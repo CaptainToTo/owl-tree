@@ -28,6 +28,16 @@ public class Radio : NetworkObject
         Console.WriteLine($"server position: ({x}, {y}, {z})");
     }
 
+    [Rpc(RpcCaller.Server)]
+    public void RPC_ListTest(NetworkList<Capacity8, int> list)
+    {
+        foreach (var num in list)
+        {
+            Console.Write(num + " ");
+        }
+        Console.Write("\n");
+    }
+
     [Rpc(RpcCaller.Client, RpcProtocol = Protocol.Udp)]
     public void RPC_ClientPosition(float x, float y, float z, [RpcCaller] ClientId caller = default)
     {
