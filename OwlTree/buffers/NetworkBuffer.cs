@@ -347,7 +347,7 @@ namespace OwlTree
         {
             RpcId result = RpcId.None;
             hash = 0;
-            UInt16 rpcId = BitConverter.ToUInt16(message);
+            UInt32 rpcId = BitConverter.ToUInt32(message);
             switch(rpcId)
             {
                 case RpcId.CLIENT_CONNECTED_MESSAGE_ID:

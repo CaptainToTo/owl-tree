@@ -244,7 +244,7 @@ namespace OwlTree
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
                     ind += 1;
-                    args = new object[]{message[2], new NetworkId(message.Slice(rpcId.ByteLength() + 1))};
+                    args = new object[]{message[RpcId.MaxLength()], new NetworkId(message.Slice(rpcId.ByteLength() + 1))};
                     break;
                 case RpcId.NETWORK_OBJECT_DESPAWN:
                     args = new object[]{new NetworkId(message.Slice(rpcId.ByteLength()))};

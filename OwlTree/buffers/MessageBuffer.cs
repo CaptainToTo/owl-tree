@@ -67,22 +67,17 @@ namespace OwlTree
         /// </summary>
         public Span<byte> GetSpan(int byteCount)
         {
-            if (byteCount > ushort.MaxValue)
-                throw new ArgumentOutOfRangeException("message length is too long. Cannot be represented in a ushort (<65535).");
-
-            ushort len = (ushort)byteCount;
-
-            if (!HasSpaceFor(len + 2))
+            if (!HasSpaceFor(byteCount + 4))
                 Array.Resize(ref _buffer, _buffer.Length * 2);
             
-            BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), len);
-            _tail += 2;
+            BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), byteCount);
+            _tail += 4;
 
-            for (int i = _tail; i < _tail + len; i++)
+            for (int i = _tail; i < _tail + byteCount; i++)
                 _buffer[i] = 0;
 
-            var span = _buffer.AsSpan(_tail, len);
-            _tail += len;
+            var span = _buffer.AsSpan(_tail, byteCount);
+            _tail += byteCount;
 
             return span;
         }
@@ -103,13 +98,13 @@ namespace OwlTree
             if (start >= stream.Length)
                 return false;
             
-            var len = BitConverter.ToUInt16(stream.Slice(start));
+            var len = BitConverter.ToInt32(stream.Slice(start));
 
             if (len == 0 || start + len > stream.Length)
                 return false;
             
-            message = stream.Slice(start + 2, len);
-            start += 2 + len;
+            message = stream.Slice(start + 4, len);
+            start += 4 + len;
             return true;
         }
 

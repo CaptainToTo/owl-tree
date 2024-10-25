@@ -80,7 +80,7 @@ namespace OwlTree
 
             Encode(bytes, target, args);
             string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
-            string encoding = "  Encoding: RpcId |__NetId__|";
+            string encoding = "  Encoding: |__RpcId__| |__NetId__|";
 
             string parameters = "";
 

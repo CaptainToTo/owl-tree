@@ -5,19 +5,19 @@ namespace OwlTree
     public struct RpcId : IEncodable
     {
         // reserved rpc ids
-        internal const ushort RPC_NONE = 0;
-        internal const ushort CLIENT_CONNECTED_MESSAGE_ID       = 1;
-        internal const ushort LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 2;
-        internal const ushort CLIENT_DISCONNECTED_MESSAGE_ID    = 3;
-        internal const ushort NETWORK_OBJECT_SPAWN              = 4;
-        internal const ushort NETWORK_OBJECT_DESPAWN            = 5;
+        internal const UInt32 RPC_NONE = 0;
+        internal const UInt32 CLIENT_CONNECTED_MESSAGE_ID       = 1;
+        internal const UInt32 LOCAL_CLIENT_CONNECTED_MESSAGE_ID = 2;
+        internal const UInt32 CLIENT_DISCONNECTED_MESSAGE_ID    = 3;
+        internal const UInt32 NETWORK_OBJECT_SPAWN              = 4;
+        internal const UInt32 NETWORK_OBJECT_DESPAWN            = 5;
 
         public static RpcId None = new RpcId(RPC_NONE);
 
         /// <summary>
         /// The first valid RpcId value that isn't reserved for specific operations handled by OwlTree.
         /// </summary>
-        public const ushort FIRST_RPC_ID = 10;
+        public const UInt32 FIRST_RPC_ID = 10;
 
         /// <summary>
         /// Basic function signature for passing RpcIds.
@@ -25,10 +25,10 @@ namespace OwlTree
         public delegate void Delegate(RpcId id);
 
         // tracks the current id for the next id generated
-        private static UInt16 _curId = FIRST_RPC_ID;
+        private static UInt32 _curId = FIRST_RPC_ID;
 
         // the actual id
-        private UInt16 _id;
+        private UInt32 _id;
 
         /// <summary>
         /// Generate a new rpc id.
@@ -41,11 +41,11 @@ namespace OwlTree
         /// <summary>
         /// Get a RpcId instance using an existing id.
         /// </summary>
-        public RpcId(ushort id)
+        public RpcId(uint id)
         {
             _id = id;
             if (id >= _curId)
-                _curId = (ushort)(id + 1);
+                _curId = (UInt32)(id + 1);
         }
 
         /// <summary>
@@ -69,31 +69,31 @@ namespace OwlTree
         /// <summary>
         /// The id value.
         /// </summary>
-        public ushort Id { get { return _id; } } 
+        public uint Id { get { return _id; } } 
 
         /// <summary>
         /// Gets the rpc id from the given bytes.
         /// </summary>
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            if (bytes.Length < 2)
-                throw new ArgumentException("Span must have 2 bytes from ind to decode a RpcId from.");
+            if (bytes.Length < 4)
+                throw new ArgumentException("Span must have 4 bytes to decode a RpcId from.");
 
-            var result = BitConverter.ToUInt16(bytes);
+            var result = BitConverter.ToUInt32(bytes);
 
             _id = result;
             if (_id >= _curId)
-                _curId = (ushort)(_id + 1);
+                _curId = (UInt32)(_id + 1);
         }
 
         public static int MaxLength()
         {
-            return 2;
+            return 4;
         }
 
         public int ByteLength()
         {
-            return 2;
+            return 4;
         }
 
         /// <summary>
@@ -102,7 +102,7 @@ namespace OwlTree
         /// </summary>
         public bool InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < 2)
+            if (bytes.Length < 4)
                 return false;
             BitConverter.TryWriteBytes(bytes, _id);
             return true;
@@ -128,7 +128,7 @@ namespace OwlTree
             return a._id != b._id;
         }
 
-        public static implicit operator ushort(RpcId id)
+        public static implicit operator uint(RpcId id)
         {
             return id._id;
         } 
