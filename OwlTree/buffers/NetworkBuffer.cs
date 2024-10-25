@@ -27,8 +27,6 @@ namespace OwlTree
         /// <summary>
         /// Function signature used to encode a Message struct into raw bytes.
         /// </summary>
-        /// <param name="message"></param>
-        /// <param name="buffer"></param>
         public delegate void Encoder(Message message, MessageBuffer buffer);
 
         /// <summary>
@@ -66,6 +64,8 @@ namespace OwlTree
             /// </summary>
             public object[] args;
 
+            public byte[] bytes;
+
             /// <summary>
             /// Describes an RPC call, and its relevant meta data.
             /// </summary>
@@ -77,6 +77,7 @@ namespace OwlTree
                 this.target = target;
                 this.protocol = protocol;
                 this.args = args;
+                bytes = null;
             }
 
             public Message(ClientId callee, RpcId rpcId, object[] args)
@@ -87,6 +88,7 @@ namespace OwlTree
                 this.target = NetworkId.None;
                 this.protocol = Protocol.Tcp;
                 this.args = args;
+                bytes = null;
             }
 
             /// <summary>

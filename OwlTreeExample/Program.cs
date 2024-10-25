@@ -54,7 +54,7 @@ class Program
             }
             else if (connection.NetRole == Connection.Role.Client && radio != null)
             {
-                // radio.RPC_SendPosition(0.25f, 0.25f, 0.25f);
+                radio.RPC_SendPosition(0.25f, 0.25f, 0.25f);
             }
             Thread.Sleep(1000);
         }

@@ -350,38 +350,46 @@ namespace OwlTree
 
         private void EncodeRpc(NetworkBuffer.Message message, MessageBuffer buffer)
         {
-            if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
+            var span = buffer.GetSpan(message.bytes.Length);
+            for (int i = 0; i < span.Length; i++)
             {
-                var span = buffer.GetSpan(NetworkSpawner.SpawnByteLength);
-                NetworkSpawner.SpawnEncode(span, (Type)message.args![0], (NetworkId)message.args![1]);
-            }
-            else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
-            {
-                var span = buffer.GetSpan(NetworkSpawner.DespawnByteLength);
-                NetworkSpawner.DespawnEncode(span, (NetworkId)message.args![0]);
-            }
-            else
-            {
-                var span = buffer.GetSpan(RpcAttribute.RpcExpectedLength(message.rpcId, message.args));
-                RpcAttribute.EncodeRpc(span, message.rpcId, message.target, message.args);
+                span[i] = message.bytes[i];
             }
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol, args));
-            if (_logger.IncludesVerbose)
-                _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args, LocalId));
+            var message = new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol, args);
+
+            if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
+            {
+                message.bytes = new byte[NetworkSpawner.SpawnByteLength];
+                NetworkSpawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+            }
+            else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
+            {
+                message.bytes = new byte[NetworkSpawner.DespawnByteLength];
+                NetworkSpawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
+            }
+            else
+            {
+                message.bytes = new byte[RpcAttribute.RpcExpectedLength(message.rpcId, message.args)];
+                RpcAttribute.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
+                if (_logger.IncludesVerbose)
+                    _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args, LocalId));
+            }
+
+            _buffer.AddMessage(message);
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, callee, rpcId, NetworkId.None, protocol, args));
+            AddRpc(callee, rpcId, NetworkId.None, protocol, args);
         }
 
         internal void AddRpc(RpcId rpcId, object[] args)
         {
-            _buffer.AddMessage(new NetworkBuffer.Message(LocalId, ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args));
+            AddRpc(ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args);
         }
 
         /// <summary>
