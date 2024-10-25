@@ -150,15 +150,15 @@ namespace OwlTree
 
             if (args.useCompression)
             {
-                _buffer.AddReadStep(new NetworkBuffer.Transformer{
-                    priority = 100,
-                    step = Huffman.Decode
-                });
+                // _buffer.AddReadStep(new NetworkBuffer.Transformer{
+                //     priority = 100,
+                //     step = Huffman.Decode
+                // });
 
-                _buffer.AddSendStep(new NetworkBuffer.Transformer{
-                    priority = 100,
-                    step = Huffman.Encode
-                });
+                // _buffer.AddSendStep(new NetworkBuffer.Transformer{
+                //     priority = 100,
+                //     step = Huffman.Encode
+                // });
             }
 
             foreach (var step in args.readSteps)
@@ -348,7 +348,7 @@ namespace OwlTree
             return false;
         }
 
-        private void EncodeRpc(NetworkBuffer.Message message, MessageBuffer buffer)
+        private void EncodeRpc(NetworkBuffer.Message message, Packet buffer)
         {
             var span = buffer.GetSpan(message.bytes.Length);
             for (int i = 0; i < span.Length; i++)

@@ -27,7 +27,7 @@ namespace OwlTree
         /// <summary>
         /// Function signature used to encode a Message struct into raw bytes.
         /// </summary>
-        public delegate void Encoder(Message message, MessageBuffer buffer);
+        public delegate void Encoder(Message message, Packet buffer);
 
         /// <summary>
         /// Describes an RPC call, and its relevant meta data.
@@ -214,9 +214,8 @@ namespace OwlTree
         /// Function signature for transformer steps. Should return the same span of bytes
         /// provided as an argument.
         /// </summary>
-        /// <param name="bytes"></param>
         /// <returns></returns>
-        public delegate Span<byte> BufferAction(Span<byte> bytes);
+        public delegate void BufferAction(Packet packet);
 
         /// <summary>
         /// Use to add transformer steps to sending and reading.
@@ -254,13 +253,12 @@ namespace OwlTree
         /// Apply all of the currently added send transformer steps. Returns the 
         /// same span, with transformations applied to the underlying bytes.
         /// </summary>
-        protected Span<byte> ApplySendSteps(Span<byte> bytes)
+        protected void ApplySendSteps(Packet packet)
         {
             foreach (var step in _sendProcess)
             {
-                bytes = step.step(bytes);
+                step.step(packet);
             }
-            return bytes;
         }
 
         /// <summary>
@@ -284,13 +282,12 @@ namespace OwlTree
         /// Apply all of the currently added read transformer steps. Returns the 
         /// same span, with transformations applied to the underlying bytes.
         /// </summary>
-        protected Span<byte> ApplyReadSteps(Span<byte> bytes)
+        protected void ApplyReadSteps(Packet packet)
         {
             foreach (var step in _readProcess)
             {
-                bytes = step.step(bytes);
+                step.step(packet);
             }
-            return bytes;
         }
 
         /// <summary>

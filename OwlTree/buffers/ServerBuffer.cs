@@ -52,9 +52,9 @@ namespace OwlTree
         {
             public ClientId id;
             public UInt32 hash;
-            public MessageBuffer tcpBuffer;
+            public Packet tcpPacket;
             public Socket tpcSocket;
-            public MessageBuffer udpBuffer;
+            public Packet udpPacket;
             public IPEndPoint udpEndPoint;
 
             public static ClientData None = new ClientData() { id = ClientId.None };
@@ -100,6 +100,13 @@ namespace OwlTree
             return ClientData.None;
         }
 
+        private ClientData FindClientData(IPEndPoint endPoint)
+        {
+            foreach (var data in _clientData)
+                if (data.udpEndPoint.Address == endPoint.Address) return data;
+            return ClientData.None;
+        }
+
         private ClientId[] GetClientIds()
         {
             ClientId[] ids = new ClientId[_clientData.Count];
@@ -121,6 +128,8 @@ namespace OwlTree
             
             Socket.Select(_readList, null, null, 0);
 
+            Packet recvPacket = new Packet(BufferSize);
+
             foreach (var socket in _readList)
             {
                 // new client connects
@@ -134,9 +143,9 @@ namespace OwlTree
                     var clientData = new ClientData() {
                         id = ClientId.New(), 
                         hash = hash, 
-                        tcpBuffer = new MessageBuffer(BufferSize), 
+                        tcpPacket = new Packet(BufferSize), 
                         tpcSocket = tcpClient,
-                        udpBuffer = new MessageBuffer(BufferSize),
+                        udpPacket = new Packet(BufferSize),
                         udpEndPoint = udpEndPoint
                     };
 
@@ -145,7 +154,7 @@ namespace OwlTree
                     OnClientConnected?.Invoke(clientData.id);
 
                     // send new client their id
-                    var span = clientData.tcpBuffer.GetSpan(LocalClientConnectLength);
+                    var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
                     LocalClientConnectEncode(span, clientData.id, clientData.hash);
 
                     foreach (var otherClient in _clientData)
@@ -153,18 +162,19 @@ namespace OwlTree
                         if (otherClient.id == clientData.id) continue;
 
                         // notify clients of a new client in the next send
-                        span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
+                        span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
                         ClientConnectEncode(span, clientData.id);
 
                         // add existing clients to new client
-                        span = clientData.tcpBuffer.GetSpan(ClientMessageLength);
+                        span = clientData.tcpPacket.GetSpan(ClientMessageLength);
                         ClientConnectEncode(span, otherClient.id);
                     }
                     
-                    var bytes = clientData.tcpBuffer.GetBuffer();
-                    bytes = ApplySendSteps(bytes);
+                    clientData.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ApplySendSteps(clientData.tcpPacket);
+                    var bytes = clientData.tcpPacket.GetPacket();
                     tcpClient.Send(bytes);
-                    clientData.tcpBuffer.Reset();
+                    clientData.tcpPacket.Reset();
                 }
                 else if (socket == _udpServer) // receive client udp messages
                 {
@@ -178,14 +188,19 @@ namespace OwlTree
                     }
                     catch { }
 
-                    UInt32 hash = BitConverter.ToUInt32(ReadBuffer);
+                    recvPacket.FromBytes(ReadBuffer);
 
-                    var transformed = ApplyReadSteps(ReadBuffer.AsSpan(4));
+                    ApplyReadSteps(recvPacket);
 
-                    var client = FindClientData(hash);
+                    var client = FindClientData(recvPacket.header.hash);
 
-                    int start = 0;
-                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
+                    if (client == ClientData.None)
+                    {
+                        continue;
+                    }
+
+                    recvPacket.StartMessageRead();
+                    while (recvPacket.TryGetNextMessage(out var bytes))
                     {
                         if (TryDecode(client.id, bytes, out var message))
                         {
@@ -200,11 +215,16 @@ namespace OwlTree
                     int dataLen = -1;
                     try
                     {
-                        dataLen = socket.Receive(ReadBuffer);
+                        int iters = 0;
+                        do {
+                            dataLen = socket.Receive(ReadBuffer);
+                            recvPacket.FromBytes(ReadBuffer);
+                            iters++;
+                        } while (recvPacket.Incomplete && iters < 5);
                     }
                     catch { }
 
-                    var transformed = ApplyReadSteps(ReadBuffer.AsSpan());
+                    ApplyReadSteps(recvPacket);
 
                     var client = FindClientData(socket);
 
@@ -217,14 +237,14 @@ namespace OwlTree
 
                         foreach (var otherClient in _clientData)
                         {
-                            var span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
+                            var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
                             ClientDisconnectEncode(span, client.id);
                         }
                         continue;
                     }
-
-                    int start = 0;
-                    while (MessageBuffer.GetNextMessage(transformed, ref start, out var bytes))
+                    
+                    recvPacket.StartMessageRead();
+                    while (recvPacket.TryGetNextMessage(out var bytes))
                     {
                         if (TryDecode(client.id, bytes, out var message))
                         {
@@ -250,9 +270,9 @@ namespace OwlTree
                     if (client != ClientData.None)
                     {
                         if (message.protocol == Protocol.Tcp)
-                            Encode(message, client.tcpBuffer);
+                            Encode(message, client.tcpPacket);
                         else
-                            Encode(message, client.udpBuffer);
+                            Encode(message, client.udpPacket);
                     }
                 }
                 else
@@ -261,34 +281,36 @@ namespace OwlTree
                     {
                         foreach (var client in _clientData)
                         {
-                            Encode(message, client.tcpBuffer);
+                            Encode(message, client.tcpPacket);
                         }
                     }
                     else
                     {
                         foreach (var client in _clientData)
                         {
-                            Encode(message, client.udpBuffer);
+                            Encode(message, client.udpPacket);
                         }
                     }
                 }
             }
             foreach (var client in _clientData)
             {
-                if (!client.tcpBuffer.IsEmpty)
+                if (!client.tcpPacket.IsEmpty)
                 {
-                    var bytes = client.tcpBuffer.GetBuffer();
-                    bytes = ApplySendSteps(bytes);
+                    client.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ApplySendSteps(client.tcpPacket);
+                    var bytes = client.tcpPacket.GetPacket();
                     client.tpcSocket.Send(bytes);
-                    client.tcpBuffer.Reset();
+                    client.tcpPacket.Reset();
                 }
 
-                if (!client.udpBuffer.IsEmpty)
+                if (!client.udpPacket.IsEmpty)
                 {
-                    var bytes = client.udpBuffer.GetBuffer();
-                    bytes = ApplySendSteps(bytes);
+                    client.udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ApplySendSteps(client.udpPacket);
+                    var bytes = client.udpPacket.GetPacket();
                     _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
-                    client.udpBuffer.Reset();
+                    client.udpPacket.Reset();
                 }
             }
         }
@@ -322,7 +344,7 @@ namespace OwlTree
 
                 foreach (var otherClient in _clientData)
                 {
-                    var span = otherClient.tcpBuffer.GetSpan(ClientMessageLength);
+                    var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
                     ClientDisconnectEncode(span, client.id);
                 }
             }

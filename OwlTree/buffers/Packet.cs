@@ -1,0 +1,355 @@
+
+using System;
+
+namespace OwlTree
+{
+    /// <summary>
+    /// Handles concatenating messages into a single buffer so that they can be sent in a single packet.
+    /// messages are stacked in the format: <br />
+    /// <c>[packet header][message byte length][message bytes][message byte length][message bytes]...</c>
+    /// </summary>
+    public class Packet
+    {
+        public struct Header
+        {
+            internal const int BYTE_LEN = 28;
+
+            // 2 bytes
+            /// <summary>
+            /// The specific version of OwlTree this packet was sent from.
+            /// </summary>
+            public ushort owlTreeVer { get; internal set; }
+
+            // 2 bytes
+            /// <summary>
+            /// The specific version of your application this packet was sent from.
+            /// </summary>
+            public ushort appVer { get; internal set; }
+
+            // 1 byte
+            /// <summary>
+            /// Reserved flag for signifying whether or not compression was used on this packet.
+            /// </summary>
+            public bool compressionEnabled { get; internal set; }
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag1;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag2;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag3;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag4;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag5;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag6;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag7;
+
+            // 8 bytes
+            /// <summary>
+            /// The Unix Epoch millisecond timestamp this packet was sent at.
+            /// </summary>
+            public long timestamp { get; internal set; }
+
+            // 4 bytes
+            /// <summary>
+            /// The number of bytes in the packet, including the header. To get the number of bytes, excluding the header,
+            /// subtract <c>Header.BYTE_LEN</c> from this.
+            /// </summary>
+            public int length { get; internal set; }
+
+            // 4 bytes
+            /// <summary>
+            /// The client id of the client who sent this packet, as a UInt32.
+            /// </summary>
+            public uint sender { get; internal set; }
+
+            // 4 bytes
+            /// <summary>
+            /// The hash assigned to the client that sent this packet.
+            /// </summary>
+            internal uint hash;
+
+            public void InsertBytes(Span<byte> bytes)
+            {
+                int ind = 0;
+                BitConverter.TryWriteBytes(bytes, owlTreeVer);
+                ind += 2;
+
+                BitConverter.TryWriteBytes(bytes.Slice(ind), appVer);
+                ind += 2;
+
+                BitConverter.TryWriteBytes(bytes.Slice(ind), timestamp);
+                ind += 8;
+
+                BitConverter.TryWriteBytes(bytes.Slice(ind), length);
+                ind += 4;
+
+                BitConverter.TryWriteBytes(bytes.Slice(ind), sender);
+                ind += 4;
+
+                BitConverter.TryWriteBytes(bytes.Slice(ind), hash);
+                ind += 4;
+
+                byte flags = 0;
+                flags |= (byte)(compressionEnabled ? 0x1 : 0);
+                flags |= (byte)(flag1 ? 0x1 << 1 : 0);
+                flags |= (byte)(flag2 ? 0x1 << 2 : 0);
+                flags |= (byte)(flag3 ? 0x1 << 3 : 0);
+                flags |= (byte)(flag4 ? 0x1 << 4 : 0);
+                flags |= (byte)(flag5 ? 0x1 << 5 : 0);
+                flags |= (byte)(flag6 ? 0x1 << 6 : 0);
+                flags |= (byte)(flag7 ? 0x1 << 7 : 0);
+                bytes[ind] = flags;
+            }
+
+            public void FromBytes(ReadOnlySpan<byte> bytes)
+            {
+                int ind = 0;
+                owlTreeVer = BitConverter.ToUInt16(bytes);
+                ind += 2;
+
+                appVer = BitConverter.ToUInt16(bytes.Slice(ind));
+                ind += 2;
+
+                timestamp = BitConverter.ToInt64(bytes.Slice(ind));
+                ind += 8;
+
+                length = BitConverter.ToInt32(bytes.Slice(ind));
+                ind += 4;
+
+                sender = BitConverter.ToUInt32(bytes.Slice(ind));
+                ind += 4;
+
+                hash = BitConverter.ToUInt32(bytes.Slice(ind));
+                ind += 4;
+
+                byte flags = bytes[ind];
+                compressionEnabled = (flags & 0x1) == 1;
+                flag1 = (flags & (0x1 << 1)) != 0;
+                flag2 = (flags & (0x1 << 2)) != 0;
+                flag3 = (flags & (0x1 << 3)) != 0;
+                flag4 = (flags & (0x1 << 4)) != 0;
+                flag5 = (flags & (0x1 << 5)) != 0;
+                flag6 = (flags & (0x1 << 6)) != 0;
+                flag7 = (flags & (0x1 << 7)) != 0;
+            }
+        }
+
+        /// <summary>
+        /// The number bytes currently used in the packet.
+        /// </summary>
+        public int Length { get { return _tail; } }
+
+        private int _fragmentSize;
+        private int _endOfFragment = 0;
+        private bool _useFragments;
+
+        private bool FragmentationNeeded { get { return _tail > _fragmentSize; } }
+
+        private byte[] _buffer; // the actual byte buffer containing
+        private int _tail = 0;  // the current end of the buffer
+        /// <summary>
+        /// Struct containing data that will be contained in the header of the packet.
+        /// </summary>
+        public Header header;
+        
+        /// <summary>
+        /// Gets a span of the full packet. This will exclude empty bytes at the end of the buffer.
+        /// </summary>
+        internal Span<byte> GetPacket()
+        {
+            header.length = (_useFragments && FragmentationNeeded) ? _endOfFragment : _tail;
+            header.InsertBytes(_buffer);
+            return _buffer.AsSpan(0, (_useFragments && FragmentationNeeded) ? _endOfFragment : _tail);
+        }
+
+        /// <summary>
+        /// Gets a span of the full buffer excluding the header.
+        /// </summary>
+        public Span<byte> GetBuffer()
+        {
+            return _buffer.AsSpan(Header.BYTE_LEN);
+        }
+
+        /// <summary>
+        /// Gets a span of the packet bytes excluding the header.
+        /// </summary>
+        public Span<byte> GetMessages()
+        {
+            return _buffer.AsSpan(Header.BYTE_LEN, ((_useFragments && FragmentationNeeded) ? _endOfFragment : _tail) - Header.BYTE_LEN);
+        }
+        
+        /// <summary>
+        /// Returns true if the packet is empty.
+        /// </summary>
+        public bool IsEmpty { get { return _tail == Header.BYTE_LEN; } }
+
+        /// <summary>
+        /// Create a new packet buffer with an initial size of bufferLen.
+        /// </summary>
+        public Packet(int bufferLen, bool useFragments = false)
+        {
+            _useFragments = useFragments;
+            _fragmentSize = bufferLen;
+            _buffer = new byte[bufferLen];
+            _tail = Header.BYTE_LEN;
+        }
+
+        /// <summary>
+        /// Returns true if the buffer has space to add the specified number of bytes without needing to resize.
+        /// </summary>
+        public bool HasSpaceFor(int bytes)
+        {
+            return _tail + bytes < _buffer.Length;
+        }
+
+        /// <summary>
+        /// Gets space for a new message, which can be written into using to provided span. 
+        /// If there isn't enough space for the given number of bytes, the buffer will double in size.
+        /// </summary>
+        public Span<byte> GetSpan(int byteCount)
+        {
+            if (!HasSpaceFor(byteCount + 4))
+                Array.Resize(ref _buffer, _buffer.Length * 2);
+
+            if (byteCount + 4 + _tail > _fragmentSize && _endOfFragment == 0)
+                _endOfFragment = _tail;
+            
+            BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), byteCount);
+            _tail += 4;
+
+            for (int i = _tail; i < _tail + byteCount; i++)
+                _buffer[i] = 0;
+
+            var span = _buffer.AsSpan(_tail, byteCount);
+            _tail += byteCount;
+
+            return span;
+        }
+
+        /// <summary>
+        /// True if there is missing data from this packet.
+        /// </summary>
+        public bool Incomplete { get; private set; } = false;
+
+        internal void FromBytes(byte[] bytes)
+        {
+            int i = 0;
+            if (!Incomplete)
+            {
+                header.FromBytes(bytes);
+                Incomplete = bytes.Length < header.length; 
+
+                if (header.length > _buffer.Length)
+                    Array.Resize(ref _buffer, header.length + 1);
+                
+                _tail = Header.BYTE_LEN;
+                i = Header.BYTE_LEN;
+            }
+
+            for (; (i < bytes.Length) && (_tail < header.length); i++)
+            {
+                _buffer[_tail] = bytes[i];
+                _tail++;
+            }
+
+            if (_tail == header.length)
+            {
+                Incomplete = false;
+            }
+        }
+
+        /// <summary>
+        /// Empty the buffer of bytes that currently would be sent using <c>GetPacket()</c>.
+        /// </summary>
+        internal void Reset() 
+        { 
+            // if no fragmentation used, just reset indices
+            if (!_useFragments || !FragmentationNeeded)
+            {
+                _tail = Header.BYTE_LEN;
+                _endOfFragment = 0;
+            }
+            // if fragmentation was used, shift bytes over for next fragment, and find the new end of fragment index
+            else if (FragmentationNeeded)
+            {
+                int nextFragmentLen = Header.BYTE_LEN;
+                int remainingBytes = _tail - _endOfFragment;
+                int lastByte = _endOfFragment;
+                _endOfFragment = 0;
+                for (int i = 0; i < remainingBytes;)
+                {
+                    var len = BitConverter.ToInt32(_buffer.AsSpan(lastByte + i));
+                    if (nextFragmentLen + len + 4 > _fragmentSize && _endOfFragment == 0)
+                        _endOfFragment = nextFragmentLen;
+                    else
+                        nextFragmentLen += len + 4;
+
+                    BitConverter.TryWriteBytes(_buffer.AsSpan(Header.BYTE_LEN + i), len);
+                    i += 4;
+                    for (int j = 0; j < len; j++)
+                    {
+                        var b = _buffer[lastByte + i + j];
+                        _buffer[Header.BYTE_LEN + i + j] = b;
+                    }
+                    i += len;
+                }
+                _tail = Header.BYTE_LEN + remainingBytes;
+            }
+        }
+
+
+        private int _start = 0;
+
+        internal void StartMessageRead()
+        {
+            _start = 0;
+        }
+
+        /// <summary>
+        /// Splits the given stream into individual message byte arrays.
+        /// Uses the start argument to track where the next message should be read from. Returns false if the end of the stream
+        /// has been reached, and there are no more messages to be read.
+        /// </summary>
+        internal bool TryGetNextMessage(out ReadOnlySpan<byte> message)
+        {
+            var bytes = GetMessages();
+            message = new Span<byte>();
+            if (_start >= bytes.Length - 4)
+                return false;
+            
+            var len = BitConverter.ToInt32(bytes.Slice(_start));
+
+            if (len == 0 || _start + len > bytes.Length)
+                return false;
+            
+            message = bytes.Slice(_start + 4, len);
+            _start += 4 + len;
+            return true;
+        }
+
+        /// <summary>
+        /// Get the current buffer as a string of hex values.
+        /// </summary>
+        public override string ToString()
+        {
+            return BitConverter.ToString(GetPacket().ToArray());
+        }
+    }
+}
