@@ -156,7 +156,7 @@ public static class Huffman
     {
         var histogram = BuildHistogram(bytes, out var unique);
         var tree = BuildEncodingTree(histogram);
-        var table = new ByteEncoding[byte.MaxValue];
+        var table = new ByteEncoding[byte.MaxValue + 1];
         BuildEncodingTable(table, tree);
         var compression = Compress(bytes, table, out var bitLen);
 
