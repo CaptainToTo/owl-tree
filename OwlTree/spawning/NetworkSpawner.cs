@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OwlTree
 {
@@ -13,24 +14,42 @@ namespace OwlTree
         private static Dictionary<byte, Type> _idsToType = new Dictionary<byte, Type>();
 
         /// <summary>
+        /// The id reserved for signifying the bae NetworkObject type.
+        /// </summary>
+        public const byte NETWORK_BASE_TYPE_ID = 1;
+        /// <summary>
+        /// The first valid id for derived network object types.
+        /// </summary>
+        public const byte FIRST_NETWORK_TYPE_ID = 2;
+
+        private static bool _initialized = false;
+
+        /// <summary>
         /// Initialize spawner, requires a NetworkBuffer for sending spawn and destroy messages.
         /// </summary>
         public NetworkSpawner(Connection connection)
         {
-            byte id = 1;
-            _typeToIds.Add(typeof(NetworkObject), id);
-            _idsToType.Add(id, typeof(NetworkObject));
-
-            id += 1;
-
-            var subClasses = NetworkObject.GetNetworkObjectTypes();
-
-            foreach (var subClass in subClasses)
+            if (!_initialized)
             {
-                if (_typeToIds.ContainsKey(subClass)) continue;
-                _typeToIds.Add(subClass, id);
-                _idsToType.Add(id, subClass);
-                id++;
+                byte id = 1;
+                _typeToIds.Add(typeof(NetworkObject), id);
+                _idsToType.Add(id, typeof(NetworkObject));
+
+                id += 1;
+
+                var subClasses = NetworkObject.GetNetworkObjectTypes().ToArray()
+                    .OrderBy(t => (t.CustomAttributes.Any(a => a.AttributeType == typeof(AssignTypeIdAttribute)) ? "0" : "1") + t.Name);
+
+                foreach (var subClass in subClasses)
+                {
+                    if (_typeToIds.ContainsKey(subClass)) continue;
+                    var assignedId = (AssignTypeIdAttribute[])subClass.GetCustomAttributes(typeof(AssignTypeIdAttribute), false);
+                    if (assignedId != null)
+                        id = assignedId[0].Id;
+                    _typeToIds.Add(subClass, id);
+                    _idsToType.Add(id, subClass);
+                    id++;
+                }
             }
 
             _connection = connection;
@@ -146,10 +165,10 @@ namespace OwlTree
             OnObjectSpawn?.Invoke(newObj);
         }
 
-        public static int SpawnByteLength { get { return RpcId.MaxLength() + 1 + NetworkId.MaxLength(); } }
+        internal static int SpawnByteLength { get { return RpcId.MaxLength() + 1 + NetworkId.MaxLength(); } }
 
         // encodes spawn into byte array for send
-        public static void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
+        internal static void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
         {
             int ind = 0;
 
@@ -163,6 +182,16 @@ namespace OwlTree
 
             var idSpan = bytes.Slice(ind, id.ByteLength());
             id.InsertBytes(idSpan);
+        }
+
+        internal static string SpawnEncodingSummary(Type objType, NetworkId id)
+        {
+            string title = "Spawn Network Object of type <" + objType.Name + "> w/ Id " + id.ToString() + ":\n";
+            byte[] bytes = new byte[SpawnByteLength];
+            SpawnEncode(bytes.AsSpan(), objType, id);
+            string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string encoding = "  Encoding: |__RpcId__| NT |__NetId__|";
+            return title + bytesStr + encoding;
         }
 
         /// <summary>
@@ -199,10 +228,10 @@ namespace OwlTree
             _netObjects.Clear();
         }
 
-        public static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
+        internal static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
 
         // encodes destroy into byte array for send
-        public static void DespawnEncode(Span<byte> bytes, NetworkId id)
+        internal static void DespawnEncode(Span<byte> bytes, NetworkId id)
         {
             var ind = 0;
 
@@ -215,11 +244,21 @@ namespace OwlTree
             id.InsertBytes(idSpan);
         }
 
+        internal static string DespawnEncodingSummary(NetworkId id)
+        {
+            string title = "Despawn Network Object " + id.ToString() + ":\n";
+            byte[] bytes = new byte[DespawnByteLength];
+            DespawnEncode(bytes.AsSpan(), id);
+            string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string encoding = "  Encoding: |__RpcId__| |__NetId__|";
+            return title + bytesStr + encoding;
+        }
+
         /// <summary>
         /// Decodes the given message, assuming it is either a spawn or destroy instruction from the server.
         /// If decoded, the spawn or destroy instruction will be executed.
         /// </summary>
-        public void ReceiveInstruction(RpcId rpcId, object[] args)
+        internal void ReceiveInstruction(RpcId rpcId, object[] args)
         {
             if (args == null) return;
             switch(rpcId.Id)
@@ -235,7 +274,7 @@ namespace OwlTree
             }
         }
 
-        public static bool TryDecode(ReadOnlySpan<byte> message, out RpcId rpcId, out object[] args)
+        internal static bool TryDecode(ReadOnlySpan<byte> message, out RpcId rpcId, out object[] args)
         {
             args = null;
             int ind = 0;

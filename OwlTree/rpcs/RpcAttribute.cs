@@ -39,6 +39,10 @@ namespace OwlTree
     [AttributeUsage(AttributeTargets.Parameter)]
     public class RpcCalleeAttribute : Attribute { }
 
+    /// <summary>
+    /// Manually assign an id value to RPCs.
+    /// Setting this manually ensures the id matches across different programs.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public class AssignRpcIdAttribute : Attribute {
         public ushort Id = 0;

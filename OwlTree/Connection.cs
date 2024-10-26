@@ -379,11 +379,15 @@ namespace OwlTree
             {
                 message.bytes = new byte[NetworkSpawner.SpawnByteLength];
                 NetworkSpawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                if (_logger.IncludesVerbose)
+                    _logger.Write(Logger.LogRule.Verbose, NetworkSpawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
             {
                 message.bytes = new byte[NetworkSpawner.DespawnByteLength];
                 NetworkSpawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
+                if (_logger.IncludesVerbose)
+                    _logger.Write(Logger.LogRule.Verbose, NetworkSpawner.DespawnEncodingSummary((NetworkId)message.args[0]));
             }
             else
             {

@@ -1,5 +1,6 @@
 using OwlTree;
 
+[AssignTypeId(3)]
 public class Radio : NetworkObject
 {
     public override string ToString()
