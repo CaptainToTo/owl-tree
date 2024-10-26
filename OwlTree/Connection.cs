@@ -52,10 +52,24 @@ namespace OwlTree
             /// </summary>
             public byte maxClients = 4;
             /// <summary>
-            /// The byte length of read and write buffers. messages exceeding this length will cause data loss.
+            /// The byte length of read and write buffers.
             /// <b>Default = 2048</b>
             /// </summary>
             public int bufferSize = 2048;
+
+            // app data
+
+            /// <summary>
+            /// The version of Owl Tree this connection is running on. 
+            /// This value can be lowered from the default to use older formats of Owl Tree. 
+            /// <b>Default = Current Version</b>
+            /// </summary>
+            public ushort owlTreeVersion = 1;
+
+            /// <summary>
+            /// The version of your app this connection is running on. <b>Default = 1</b>
+            /// </summary>
+            public ushort appVersion = 1;
 
             // buffer transformers
 
@@ -125,11 +139,11 @@ namespace OwlTree
 
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ClientBuffer(args.owlTreeVersion, args.appVersion, args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.bufferSize, TryDecodeRpc, EncodeRpc);
             }
             else
             {
-                _buffer = new ServerBuffer(args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ServerBuffer(args.owlTreeVersion, args.appVersion, args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
                 IsActive = true;
             }
             NetRole = args.role;

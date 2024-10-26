@@ -15,12 +15,14 @@ namespace OwlTree
         /// <summary>
         /// Manages sending and receiving messages for a server instance.
         /// </summary>
+        /// <param name="owlTreeVer">The version of Owl Tree packets will be formatted according to.</param>
+        /// <param name="appVer">The version of your app this connection is running on.</param>
         /// <param name="addr">The server's IP address.</param>
         /// <param name="tpcPort">The port to bind the TCP socket to.</param>
         /// /// <param name="serverUdpPort">The port to bind the UDP socket to.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
         /// <param name="bufferSize">The size of read and write buffers in bytes.</param>
-        public ServerBuffer(string addr, int tpcPort, int serverUdpPort, int clientUdpPort, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (addr, tpcPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
+        public ServerBuffer(ushort owlTreeVer, ushort appVer, string addr, int tpcPort, int serverUdpPort, int clientUdpPort, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (owlTreeVer, appVer, addr, tpcPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
         {
 
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
@@ -128,8 +130,6 @@ namespace OwlTree
             
             Socket.Select(_readList, null, null, 0);
 
-            Packet recvPacket = new Packet(BufferSize);
-
             foreach (var socket in _readList)
             {
                 // new client connects
@@ -145,9 +145,13 @@ namespace OwlTree
                         hash = hash, 
                         tcpPacket = new Packet(BufferSize), 
                         tpcSocket = tcpClient,
-                        udpPacket = new Packet(BufferSize),
+                        udpPacket = new Packet(BufferSize, true),
                         udpEndPoint = udpEndPoint
                     };
+                    clientData.tcpPacket.header.owlTreeVer = OwlTreeVersion;
+                    clientData.tcpPacket.header.appVer = AppVersion;
+                    clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
+                    clientData.udpPacket.header.appVer = AppVersion;
 
                     _clientData.Add(clientData);
 
@@ -179,28 +183,28 @@ namespace OwlTree
                 else if (socket == _udpServer) // receive client udp messages
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+                    ReadPacket.Clear();
 
                     EndPoint source = new IPEndPoint(IPAddress.Any, 0);
                     int dataLen = -1;
                     try
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
+                        ReadPacket.FromBytes(ReadBuffer);
                     }
                     catch { }
 
-                    recvPacket.FromBytes(ReadBuffer);
-
-                    ApplyReadSteps(recvPacket);
-
-                    var client = FindClientData(recvPacket.header.hash);
+                    var client = FindClientData(ReadPacket.header.hash);
 
                     if (client == ClientData.None)
                     {
                         continue;
                     }
 
-                    recvPacket.StartMessageRead();
-                    while (recvPacket.TryGetNextMessage(out var bytes))
+                    ApplyReadSteps(ReadPacket);
+
+                    ReadPacket.StartMessageRead();
+                    while (ReadPacket.TryGetNextMessage(out var bytes))
                     {
                         if (TryDecode(client.id, bytes, out var message))
                         {
@@ -211,6 +215,7 @@ namespace OwlTree
                 else // receive client tcp messages
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+                    ReadPacket.Clear();
 
                     int dataLen = -1;
                     try
@@ -218,13 +223,13 @@ namespace OwlTree
                         int iters = 0;
                         do {
                             dataLen = socket.Receive(ReadBuffer);
-                            recvPacket.FromBytes(ReadBuffer);
+                            ReadPacket.FromBytes(ReadBuffer);
                             iters++;
-                        } while (recvPacket.Incomplete && iters < 5);
+                        } while (ReadPacket.Incomplete && iters < 5);
                     }
                     catch { }
 
-                    ApplyReadSteps(recvPacket);
+                    ApplyReadSteps(ReadPacket);
 
                     var client = FindClientData(socket);
 
@@ -243,8 +248,8 @@ namespace OwlTree
                         continue;
                     }
                     
-                    recvPacket.StartMessageRead();
-                    while (recvPacket.TryGetNextMessage(out var bytes))
+                    ReadPacket.StartMessageRead();
+                    while (ReadPacket.TryGetNextMessage(out var bytes))
                     {
                         if (TryDecode(client.id, bytes, out var message))
                         {

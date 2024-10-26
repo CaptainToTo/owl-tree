@@ -1,5 +1,6 @@
 
 using System;
+using System.Linq;
 
 namespace OwlTree
 {
@@ -149,6 +150,22 @@ namespace OwlTree
                 flag6 = (flags & (0x1 << 6)) != 0;
                 flag7 = (flags & (0x1 << 7)) != 0;
             }
+
+            public void Reset()
+            {
+                timestamp = 0;
+                length = 0;
+                sender = 0;
+                hash = 0;
+                compressionEnabled = false;
+                flag1 = false;
+                flag2 = false;
+                flag3 = false;
+                flag4 = false;
+                flag5 = false;
+                flag6 = false;
+                flag7 = false;
+            }
         }
 
         /// <summary>
@@ -158,6 +175,7 @@ namespace OwlTree
 
         private int _fragmentSize;
         private int _endOfFragment = 0;
+        private int _startOfNextFragment = 0;
         private bool _useFragments;
 
         private bool FragmentationNeeded { get { return _tail > _fragmentSize; } }
@@ -246,7 +264,10 @@ namespace OwlTree
                 Array.Resize(ref _buffer, _buffer.Length * 2);
 
             if (byteCount + 4 + _tail > _fragmentSize && _endOfFragment == 0)
+            {
                 _endOfFragment = _tail;
+                _startOfNextFragment = _tail;
+            }
             
             BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), byteCount);
             _tail += 4;
@@ -302,19 +323,24 @@ namespace OwlTree
             {
                 _tail = Header.BYTE_LEN;
                 _endOfFragment = 0;
+                _startOfNextFragment = 0;
             }
             // if fragmentation was used, shift bytes over for next fragment, and find the new end of fragment index
             else if (FragmentationNeeded)
             {
                 int nextFragmentLen = Header.BYTE_LEN;
-                int remainingBytes = _tail - _endOfFragment;
-                int lastByte = _endOfFragment;
+                int remainingBytes = _tail - _startOfNextFragment;
+                int lastByte = _startOfNextFragment;
                 _endOfFragment = 0;
+                _startOfNextFragment = 0;
                 for (int i = 0; i < remainingBytes;)
                 {
                     var len = BitConverter.ToInt32(_buffer.AsSpan(lastByte + i));
                     if (nextFragmentLen + len + 4 > _fragmentSize && _endOfFragment == 0)
+                    {
                         _endOfFragment = nextFragmentLen;
+                        _startOfNextFragment = nextFragmentLen;
+                    }
                     else
                         nextFragmentLen += len + 4;
 
@@ -331,6 +357,18 @@ namespace OwlTree
             }
         }
 
+        internal void Clear()
+        {
+            for (int i = 0; i < _buffer.Length; i++)
+            {
+                _buffer[i] = 0;
+            }
+            header.Reset();
+            _tail = Header.BYTE_LEN;
+            _endOfFragment = 0;
+            _startOfNextFragment = 0;
+            _start = 0;
+        }
 
         private int _start = 0;
 
@@ -340,9 +378,8 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Splits the given stream into individual message byte arrays.
-        /// Uses the start argument to track where the next message should be read from. Returns false if the end of the stream
-        /// has been reached, and there are no more messages to be read.
+        /// Splits this packet into the messages that compose it. Retrieves each next message, 
+        /// until the entire packet has been split.
         /// </summary>
         internal bool TryGetNextMessage(out ReadOnlySpan<byte> message)
         {

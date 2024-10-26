@@ -109,6 +109,7 @@ namespace OwlTree
         public int BufferSize { get; private set; }
 
         protected byte[] ReadBuffer;
+        protected Packet ReadPacket;
 
         // ip and port number this client is bound to
         public int TcpPort { get; private set; } 
@@ -116,8 +117,13 @@ namespace OwlTree
         public int ClientUdpPort { get; private set; }
         public IPAddress Address { get; private set; }
 
-        public NetworkBuffer(string addr, int tpcPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder)
+        public ushort OwlTreeVersion { get; private set; }
+        public ushort AppVersion { get; private set; }
+
+        public NetworkBuffer(ushort owlTreeVer, ushort appVer, string addr, int tpcPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder)
         {
+            OwlTreeVersion = owlTreeVer;
+            AppVersion = appVer;
             Address = IPAddress.Parse(addr);
             TcpPort = tpcPort;
             ServerUdpPort = serverUdpPort;
@@ -126,6 +132,7 @@ namespace OwlTree
             ReadBuffer = new byte[bufferSize];
             TryDecode = decoder;
             Encode = encoder;
+            ReadPacket = new Packet(BufferSize);
         }
 
         /// <summary>
