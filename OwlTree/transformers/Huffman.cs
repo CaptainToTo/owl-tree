@@ -152,8 +152,9 @@ public static class Huffman
     /// Since Encoding takes a Span, compression is done in-place, and will override the contents of the 
     /// original.
     /// </summary>
-    public static Span<byte> Encode(Span<byte> bytes)
+    public static void Encode(Packet packet)
     {
+        var bytes = packet.GetMessages();
         var histogram = BuildHistogram(bytes, out var unique);
         var tree = BuildEncodingTree(histogram);
         var table = new ByteEncoding[byte.MaxValue + 1];
@@ -162,13 +163,13 @@ public static class Huffman
 
         var size = tree.Size();
         if (bytes.Length < 13 + (size * 2) + (bitLen / 8) + 1)
-            return bytes;
+            return;
 
-        BitConverter.TryWriteBytes(bytes, HEADER);
-        BitConverter.TryWriteBytes(bytes.Slice(4), bytes.Length);
-        BitConverter.TryWriteBytes(bytes.Slice(8), bitLen);
-        bytes[12] = (byte) unique;
-        int treeInd = 13;
+        packet.header.compressionEnabled = true;
+        BitConverter.TryWriteBytes(bytes, bytes.Length);
+        BitConverter.TryWriteBytes(bytes.Slice(4), bitLen);
+        bytes[8] = (byte) unique;
+        int treeInd = 9;
         int treeBitInd = treeInd * 8;
         tree.Encode(bytes, ref treeBitInd);
         treeInd = (treeBitInd / 8) + 1;
@@ -178,7 +179,8 @@ public static class Huffman
             bytes[treeInd] = b;
             treeInd++;
         }
-        return bytes.Slice(0, treeInd);
+        packet.SetSize(treeInd);
+        return;
     }
 
     internal static int[] BuildHistogram(Span<byte> bytes, out int unique)
@@ -265,32 +267,35 @@ public static class Huffman
     /// Since Encoding takes a Span, compression is done in-place, and will override the contents of the 
     /// original.
     /// </summary>
-    public static Span<byte> Decode(Span<byte> bytes)
+    public static void Decode(Packet packet)
     {
-        var header = BitConverter.ToUInt32(bytes);
-        if (header != HEADER)
+        if (!packet.header.compressionEnabled)
         {
-            return bytes;
+            return;
         }
 
-        var originalLen = BitConverter.ToInt32(bytes.Slice(4));
-        var bitLen = BitConverter.ToInt32(bytes.Slice(8));
-        var size = bytes[12];
+        var bytes = packet.GetBuffer();
+
+        var originalLen = BitConverter.ToInt32(bytes);
+        var bitLen = BitConverter.ToInt32(bytes.Slice(4));
+        var size = bytes[8];
 
         if (originalLen > bytes.Length)
         {
-            return bytes;
+            return;
         }
         
-        Node tree = RebuildTree(bytes.Slice(13), size, out var start);
-        var decompressed = Decompress(bytes.Slice(13 + start), tree, originalLen, bitLen);
+        Node tree = RebuildTree(bytes.Slice(9), size, out var start);
+        var decompressed = Decompress(bytes.Slice(9 + start), tree, originalLen, bitLen);
 
         for (int i = 0; i < decompressed.Length; i++)
         {
             bytes[i] = decompressed[i];
         }
 
-        return decompressed;
+        packet.SetSize(originalLen);
+
+        return;
     }
 
     internal static Node RebuildTree(Span<byte> bytes, int size, out int last)

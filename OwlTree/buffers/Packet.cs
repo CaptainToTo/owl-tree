@@ -168,6 +168,47 @@ namespace OwlTree
         /// Struct containing data that will be contained in the header of the packet.
         /// </summary>
         public Header header;
+
+        /// <summary>
+        /// Create a new packet buffer with an initial size of bufferLen.
+        /// </summary>
+        public Packet(int bufferLen, bool useFragments = false)
+        {
+            _useFragments = useFragments;
+            _fragmentSize = bufferLen;
+            _buffer = new byte[bufferLen];
+            _tail = Header.BYTE_LEN;
+        }
+
+        /// <summary>
+        /// Returns true if the packet is empty.
+        /// </summary>
+        public bool IsEmpty { get { return _tail == Header.BYTE_LEN; } }
+
+        /// <summary>
+        /// Returns true if the buffer has space to add the specified number of bytes without needing to resize.
+        /// </summary>
+        public bool HasSpaceFor(int bytes)
+        {
+            return _tail + bytes < _buffer.Length;
+        }
+        
+        /// <summary>
+        /// If the packet data has been resized from outside the class (such as for compression),
+        /// update the byte length of the message portion of this packet. The given size excludes the 
+        /// header size.
+        /// </summary>
+        public void SetSize(int size)
+        {
+            if (_useFragments && FragmentationNeeded)
+            {
+                _endOfFragment = Header.BYTE_LEN + size;
+            }
+            else
+            {
+                _tail = Header.BYTE_LEN + size;
+            }
+        }
         
         /// <summary>
         /// Gets a span of the full packet. This will exclude empty bytes at the end of the buffer.
@@ -193,30 +234,6 @@ namespace OwlTree
         public Span<byte> GetMessages()
         {
             return _buffer.AsSpan(Header.BYTE_LEN, ((_useFragments && FragmentationNeeded) ? _endOfFragment : _tail) - Header.BYTE_LEN);
-        }
-        
-        /// <summary>
-        /// Returns true if the packet is empty.
-        /// </summary>
-        public bool IsEmpty { get { return _tail == Header.BYTE_LEN; } }
-
-        /// <summary>
-        /// Create a new packet buffer with an initial size of bufferLen.
-        /// </summary>
-        public Packet(int bufferLen, bool useFragments = false)
-        {
-            _useFragments = useFragments;
-            _fragmentSize = bufferLen;
-            _buffer = new byte[bufferLen];
-            _tail = Header.BYTE_LEN;
-        }
-
-        /// <summary>
-        /// Returns true if the buffer has space to add the specified number of bytes without needing to resize.
-        /// </summary>
-        public bool HasSpaceFor(int bytes)
-        {
-            return _tail + bytes < _buffer.Length;
         }
 
         /// <summary>
