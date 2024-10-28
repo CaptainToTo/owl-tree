@@ -134,7 +134,7 @@ namespace OwlTree
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            for (int i = 0; i < bytes.Length; i++)
+            for (int i = 0; i < Math.Min(bytes.Length, _set.Length); i++)
             {
                 _set[i] = bytes[i];
             }
@@ -147,6 +147,11 @@ namespace OwlTree
                 bytes[i] = _set[i];
             }
             return true;
+        }
+
+        public override string ToString()
+        {
+            return "<NetworkBitSet; Length: " + Length + "; Byte Count: " + _set.Length + ">";
         }
     }
 }
