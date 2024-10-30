@@ -35,7 +35,7 @@ namespace OwlTree
             Capacity = capacity;
 
             if (str.Length > Capacity)
-                _str = str.Substring(0, Capacity);
+                _str = str.Substring(0, Math.Min(str.Length, Capacity));
             else
                 _str = str;
         }

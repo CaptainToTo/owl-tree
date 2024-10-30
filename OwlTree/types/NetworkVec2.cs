@@ -104,6 +104,11 @@ namespace OwlTree
         {
             return new NetworkVec2(a.x / b, a.y / b);
         }
+
+        public override string ToString()
+        {
+            return "(" + x + ", " + y + ")";
+        }
     }
 
 }
