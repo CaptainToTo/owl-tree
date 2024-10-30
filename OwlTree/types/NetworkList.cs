@@ -26,6 +26,8 @@ namespace OwlTree
         private int _maxLen;
         private bool _isVariable;
 
+        public bool IsVariable() => _isVariable;
+
         public NetworkList()
         {
             int capacity = ((ICapacity)Activator.CreateInstance(typeof(C))).Capacity();
@@ -42,7 +44,7 @@ namespace OwlTree
 
             _maxLen = 4 + (Capacity * RpcProtocol.GetMaxLength(typeof(T)));
 
-            _isVariable = typeof(T) == typeof(IVariableLength);
+            _isVariable = typeof(IVariableLength).IsAssignableFrom(typeof(T));
         }
 
         /// <summary>
@@ -126,17 +128,7 @@ namespace OwlTree
             int ind = 4;
             while (count > 0)
             {
-                int len = 0;
-                if (_isVariable)
-                {
-                    len = BitConverter.ToInt32(bytes.Slice(ind));
-                    ind += 4;
-                }
-                else
-                {
-                    len = RpcProtocol.GetMaxLength(typeof(T));
-                }
-                var nextElem = (T)RpcProtocol.DecodeObject(bytes.Slice(ind, len), ref ind, typeof(T));
+                var nextElem = (T)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(T));
                 Add(nextElem);
                 count -= 1;
             }
@@ -150,11 +142,6 @@ namespace OwlTree
             foreach (var elem in this)
             {
                 int len = RpcProtocol.GetExpectedLength(elem);
-                if (_isVariable)
-                {
-                    BitConverter.TryWriteBytes(bytes.Slice(ind), len);
-                    ind += 4;
-                }
                 RpcProtocol.InsertBytes(bytes.Slice(ind, len), elem);
                 ind += len;
             }
