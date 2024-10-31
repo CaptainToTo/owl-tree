@@ -52,7 +52,8 @@ namespace OwlTree
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            _str = Encoding.UTF8.GetString(bytes.Slice(0, Capacity));
+            _str = Encoding.UTF8.GetString(bytes.Slice(0, Math.Min(bytes.Length, MaxLength())));
+            _str = _str.Substring(0, Math.Min(_str.Length, Capacity));
         }
 
         public bool InsertBytes(Span<byte> bytes)
