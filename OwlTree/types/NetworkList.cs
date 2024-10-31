@@ -24,9 +24,6 @@ namespace OwlTree
         public bool IsEmpty { get { return Count == 0; } }
 
         private int _maxLen;
-        private bool _isVariable;
-
-        public bool IsVariable() => _isVariable;
 
         public NetworkList()
         {
@@ -43,8 +40,6 @@ namespace OwlTree
             _list = new List<T>(capacity);
 
             _maxLen = 4 + (Capacity * RpcProtocol.GetMaxLength(typeof(T)));
-
-            _isVariable = typeof(IVariableLength).IsAssignableFrom(typeof(T));
         }
 
         /// <summary>

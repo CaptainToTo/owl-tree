@@ -26,8 +26,6 @@ namespace OwlTree
         public bool IsEmpty { get { return Count == 0; } }
 
         private int _maxLen;
-        private bool _keyIsVariable;
-        private bool _valueIsVariable;
 
         public NetworkDict()
         {
@@ -49,9 +47,6 @@ namespace OwlTree
             _dict = new Dictionary<K, V>(capacity);
 
             _maxLen = 4 + (Capacity * (RpcProtocol.GetMaxLength(typeof(K)) + RpcProtocol.GetMaxLength(typeof(V))));
-
-            _keyIsVariable = typeof(K) == typeof(IVariableLength);
-            _valueIsVariable = typeof(V) == typeof(IVariableLength);
         }
 
         /// <summary>
@@ -154,29 +149,8 @@ namespace OwlTree
             int ind = 4;
             while (count > 0)
             {
-                int keyLen = 0;
-                if (_keyIsVariable)
-                {
-                    keyLen = BitConverter.ToInt32(bytes.Slice(ind));
-                    ind += 4;
-                }
-                else
-                {
-                    keyLen = RpcProtocol.GetMaxLength(typeof(K));
-                }
-                var nextKey = (K)RpcProtocol.DecodeObject(bytes.Slice(ind, keyLen), ref ind, typeof(K));
-
-                var valLen = 0;
-                if (_valueIsVariable)
-                {
-                    valLen = BitConverter.ToInt32(bytes.Slice(ind + keyLen));
-                    ind += 4;
-                }
-                else
-                {
-                    valLen = RpcProtocol.GetMaxLength(typeof(V));
-                }
-                var nextValue = (V)RpcProtocol.DecodeObject(bytes.Slice(ind + keyLen, valLen), ref ind, typeof(V));
+                var nextKey = (K)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(K));
+                var nextValue = (V)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(V));
 
                 Add(nextKey, nextValue);
                 count -= 1;
@@ -193,19 +167,9 @@ namespace OwlTree
                 int keyLen = RpcProtocol.GetExpectedLength(elem.Key);
                 int valLen = RpcProtocol.GetExpectedLength(elem.Value);
 
-                if (_keyIsVariable)
-                {
-                    BitConverter.TryWriteBytes(bytes.Slice(ind), keyLen);
-                    ind += 4;
-                }
                 RpcProtocol.InsertBytes(bytes.Slice(ind, keyLen), elem.Key);
                 ind += keyLen;
 
-                if (_valueIsVariable)
-                {
-                    BitConverter.TryWriteBytes(bytes.Slice(ind), valLen);
-                    ind += 4;
-                }
                 RpcProtocol.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
                 ind += valLen;
             }

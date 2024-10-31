@@ -87,7 +87,6 @@ public class NetworkListTests
         // Assert.Fail(BitConverter.ToString(bytes));
 
         var list2 = new NetworkList<Capacity8, NetworkList<Capacity8, NetworkVec4>>();
-        Assert.True(list2.IsVariable());
         list2.FromBytes(bytes);
 
         string str = "";
