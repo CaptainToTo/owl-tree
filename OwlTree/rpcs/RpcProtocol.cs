@@ -215,6 +215,11 @@ namespace OwlTree
                 result = BitConverter.ToInt64(bytes);
                 ind += 8;
             }
+            else if (t == typeof(ulong))
+            {
+                result = BitConverter.ToUInt64(bytes);
+                ind += 8;
+            }
             else if (t == typeof(ushort))
             {
                 result = BitConverter.ToUInt16(bytes);
@@ -283,9 +288,17 @@ namespace OwlTree
             {
                 BitConverter.TryWriteBytes(bytes, (long)arg);
             }
+            else if (t == typeof(ulong))
+            {
+                BitConverter.TryWriteBytes(bytes, (ulong)arg);
+            }
             else if (t == typeof(ushort))
             {
                 BitConverter.TryWriteBytes(bytes, (ushort)arg);
+            }
+            else if (t == typeof(short))
+            {
+                BitConverter.TryWriteBytes(bytes, (short)arg);
             }
             else if (t == typeof(byte))
             {
@@ -365,12 +378,16 @@ namespace OwlTree
             }
             else if (
                 t == typeof(double) ||
-                t == typeof(long)
+                t == typeof(long) ||
+                t == typeof(ulong)
             )
             {
                 return 8;
             }
-            else if (t == typeof(ushort))
+            else if (
+                t == typeof(ushort) ||
+                t == typeof(short)
+            )
             {
                 return 2;
             }
@@ -414,12 +431,16 @@ namespace OwlTree
             }
             else if (
                 t == typeof(double) ||
-                t == typeof(long)
+                t == typeof(long) ||
+                t == typeof(ulong)
             )
             {
                 return 8;
             }
-            else if (t == typeof(ushort))
+            else if (
+                t == typeof(ushort) ||
+                t == typeof(short)
+            )
             {
                 return 2;
             }
@@ -463,12 +484,18 @@ namespace OwlTree
                 t == typeof(int) ||
                 t == typeof(uint) ||
                 t == typeof(float) ||
+
                 t == typeof(double) ||
                 t == typeof(long) ||
+                t == typeof(ulong) ||
+
                 t == typeof(ushort) ||
+                t == typeof(short) ||
+
                 t == typeof(byte) ||
-                t == typeof(string) ||
-                t == typeof(bool)
+                t == typeof(bool) ||
+
+                t == typeof(string)
             )
             {
                 return true;
