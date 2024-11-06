@@ -13,18 +13,11 @@ namespace OwlTree
         /// <summary>
         /// Manages sending and receiving messages for a client instance.
         /// </summary>
-        /// <param name="owlTreeVer">The version of Owl Tree packets will be formatted according to.</param>
-        /// <param name="appVer">The version of your app this connection is running on.</param>
-        /// <param name="addr">The server's IP address.</param>
-        /// <param name="addr">The server's IP address.</param>
-        /// <param name="tpcPort">The port to bind the TCP socket to.</param>
-        /// <param name="serverUdpPort">The port to bind the UDP socket to.</param>
-        /// <param name="bufferSize">The size of read and write buffers in bytes.</param>
-        public ClientBuffer(ushort owlTreeVer, ushort appVer, string addr, int tcpPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder) : base(owlTreeVer, appVer, addr, tcpPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
+        /// <param name="Args">NetworkBuffer parameters.</param>
+        public ClientBuffer(Args args, int requestRate) : base(args)
         {
             _tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            IPEndPoint endPoint = new IPEndPoint(Address, TcpPort);
-            _tcpClient.Connect(endPoint);
+            _tcpEndPoint = new IPEndPoint(Address, TcpPort);
 
             _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _udpClient.Bind(new IPEndPoint(Address, ClientUdpPort));
@@ -34,17 +27,20 @@ namespace OwlTree
             _readList.Add(_tcpClient);
             _readList.Add(_udpClient);
 
-            _tcpPacket = new Packet(bufferSize);
+            _tcpPacket = new Packet(BufferSize);
             _tcpPacket.header.owlTreeVer = OwlTreeVersion;
             _tcpPacket.header.appVer = AppVersion;
-            _udpPacket = new Packet(bufferSize, true);
+            _udpPacket = new Packet(BufferSize, true);
             _udpPacket.header.owlTreeVer = OwlTreeVersion;
             _udpPacket.header.appVer = AppVersion;
+
+            _requestRate = requestRate;
         }
 
         // client state
         private Socket _tcpClient;
         private Socket _udpClient;
+        private IPEndPoint _tcpEndPoint;
         private IPEndPoint _udpEndPoint;
         private List<Socket> _readList = new List<Socket>();
         private List<ClientId> _clients = new List<ClientId>();
@@ -53,16 +49,71 @@ namespace OwlTree
         private Packet _tcpPacket;
         private Packet _udpPacket;
 
+        private bool _acceptedRequest = false;
+        private int _requestRate;
+        private long _lastRequest;
+
+        public void Connect()
+        {
+            if (_acceptedRequest) return;
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
+            {
+                var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
+                ConnectionRequestEncode(idBytes, ApplicationId);
+                _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
+                _udpPacket.Clear();
+                _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            }
+
+            _readList.Clear();
+            _readList.Add(_udpClient);
+            Socket.Select(_readList, null, null, _requestRate);
+
+            foreach (var socket in _readList)
+            {
+                if (socket == _udpClient)
+                {
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+                    ReadPacket.Clear();
+
+                    EndPoint source = new IPEndPoint(IPAddress.Any, 0);
+                    int dataLen = -1;
+                    try
+                    {
+                        dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
+                        ReadPacket.FromBytes(ReadBuffer);
+                    }
+                    catch { }
+
+                    if (dataLen <= 0)
+                    {
+                        continue;
+                    }
+
+                    Console.WriteLine("request confirmed");
+
+                    _acceptedRequest = true;
+                    _tcpClient.Connect(_tcpEndPoint);
+                }
+            }
+        }
+
         /// <summary>
         /// Reads any data currently on the socket. Putting new messages in the queue.
         /// Blocks infinitely while waiting for the server to initially assign the buffer a ClientId.
         /// </summary>
         public override void Read()
         {
-            if (!_tcpClient.Connected)
+            if (!_acceptedRequest)
             {
+                Connect();
                 return;
             }
+
+            if (!_tcpClient.Connected)
+                return;
+
             _readList.Clear();
             _readList.Add(_tcpClient);
             _readList.Add(_udpClient);

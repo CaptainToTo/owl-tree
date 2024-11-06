@@ -40,6 +40,11 @@ namespace OwlTree
             return 64;
         }
 
+        public static int MaxLength()
+        {
+            return 64;
+        }
+
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             _id = Encoding.ASCII.GetString(bytes);

@@ -11,6 +11,7 @@ namespace OwlTree
         internal const UInt32 CLIENT_DISCONNECTED_MESSAGE_ID    = 3;
         internal const UInt32 NETWORK_OBJECT_SPAWN              = 4;
         internal const UInt32 NETWORK_OBJECT_DESPAWN            = 5;
+        internal const UInt32 CONNECTION_REQUEST                = 6;
 
         public static RpcId None = new RpcId(RPC_NONE);
 

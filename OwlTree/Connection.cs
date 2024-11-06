@@ -51,6 +51,12 @@ namespace OwlTree
             /// <b>Default = 4</b>
             /// </summary>
             public byte maxClients = 4;
+
+            /// <summary>
+            /// The number of milliseconds clients will wait before sending another connection request to the server.
+            /// <b>Default = 5000 (5 sec)</b>
+            /// </summary>
+            public int connectionRequestRate = 5000;
             /// <summary>
             /// The byte length of read and write buffers.
             /// <b>Default = 2048</b>
@@ -67,9 +73,26 @@ namespace OwlTree
             public ushort owlTreeVersion = 1;
 
             /// <summary>
+            /// The minimum Owl Tree version that will be supported. If clients using an older version attempt to connect,
+            /// they will be rejected. <b>Default = 0 (always accept)</b>
+            /// </summary>
+            public ushort minOwlTreeVersion = 0;
+
+            /// <summary>
             /// The version of your app this connection is running on. <b>Default = 1</b>
             /// </summary>
             public ushort appVersion = 1;
+
+            /// <summary>
+            /// The minimum app version that will be supported. If clients using an older version attempt to connect,
+            /// they will be rejected. <b>Default = 0 (always accept)</b>
+            /// </summary>
+            public ushort minAppVersion = 0;
+
+            /// <summary>
+            /// A unique, max 64 ASCII character id used for simple client verification. <b>Default = "MyOwlTreeApp"</b>
+            /// </summary>
+            public string appId = "MyOwlTreeApp";
 
             // buffer transformers
 
@@ -137,13 +160,28 @@ namespace OwlTree
 
             RpcAttribute.GenerateRpcProtocols(_logger);
 
+            NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
+                owlTreeVer = args.owlTreeVersion,
+                minOwlTreeVer = args.minOwlTreeVersion,
+                appVer = args.appVersion,
+                minAppVer = args.minAppVersion,
+                appId = args.appId,
+                addr = args.serverAddr,
+                tcpPort = args.tcpPort,
+                serverUdpPort = args.serverUdpPort,
+                clientUdpPort = args.clientUdpPort,
+                bufferSize = args.bufferSize,
+                encoder = EncodeRpc,
+                decoder = TryDecodeRpc
+            };
+
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(args.owlTreeVersion, args.appVersion, args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate);
             }
             else
             {
-                _buffer = new ServerBuffer(args.owlTreeVersion, args.appVersion, args.serverAddr, args.tcpPort, args.serverUdpPort, args.clientUdpPort, args.maxClients, args.bufferSize, TryDecodeRpc, EncodeRpc);
+                _buffer = new ServerBuffer(bufferArgs, args.maxClients);
                 IsActive = true;
             }
             NetRole = args.role;
@@ -211,7 +249,7 @@ namespace OwlTree
                     _buffer.Send();
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
-                Thread.Sleep((int)(_threadUpdateDelta - diff));
+                Thread.Sleep(Math.Max(0, (int)(_threadUpdateDelta - diff)));
             }
         }
 

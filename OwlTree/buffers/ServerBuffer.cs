@@ -15,14 +15,9 @@ namespace OwlTree
         /// <summary>
         /// Manages sending and receiving messages for a server instance.
         /// </summary>
-        /// <param name="owlTreeVer">The version of Owl Tree packets will be formatted according to.</param>
-        /// <param name="appVer">The version of your app this connection is running on.</param>
-        /// <param name="addr">The server's IP address.</param>
-        /// <param name="tpcPort">The port to bind the TCP socket to.</param>
-        /// /// <param name="serverUdpPort">The port to bind the UDP socket to.</param>
+        /// <param name="args">NetworkBuffer parameters.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        /// <param name="bufferSize">The size of read and write buffers in bytes.</param>
-        public ServerBuffer(ushort owlTreeVer, ushort appVer, string addr, int tpcPort, int serverUdpPort, int clientUdpPort, byte maxClients, int bufferSize, Decoder decoder, Encoder encoder) : base (owlTreeVer, appVer, addr, tpcPort, serverUdpPort, clientUdpPort, bufferSize, decoder, encoder)
+        public ServerBuffer(Args args, byte maxClients) : base (args)
         {
 
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
@@ -80,6 +75,20 @@ namespace OwlTree
         private Socket _udpServer;
         private List<Socket> _readList = new List<Socket>();
         private List<ClientData> _clientData = new List<ClientData>();
+        private List<IPEndPoint> _connectionRequests = new List<IPEndPoint>();
+
+        private bool GetConnectionRequest(IPEndPoint endPoint)
+        {
+            for (int i = 0; i < _connectionRequests.Count; i++)
+            {
+                if (_connectionRequests[i].Address.Equals(endPoint.Address))
+                {
+                    _connectionRequests.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
+        }
 
         private ClientData FindClientData(Socket s)
         {
@@ -105,7 +114,7 @@ namespace OwlTree
         private ClientData FindClientData(IPEndPoint endPoint)
         {
             foreach (var data in _clientData)
-                if (data.udpEndPoint.Address == endPoint.Address) return data;
+                if (data.udpEndPoint.Address.Equals(endPoint.Address)) return data;
             return ClientData.None;
         }
 
@@ -136,6 +145,13 @@ namespace OwlTree
                 if (socket == _tcpServer)
                 {
                     var tcpClient = socket.Accept();
+
+                    // reject connections that aren't from verified app instances
+                    if(!GetConnectionRequest((IPEndPoint)tcpClient.RemoteEndPoint))
+                    {
+                        tcpClient.Close();
+                        continue;
+                    }
 
                     IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, ClientUdpPort);
                     var hash = (UInt32)_rand.Next();
@@ -191,13 +207,45 @@ namespace OwlTree
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
                         ReadPacket.FromBytes(ReadBuffer);
+
+                        if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
+                        {
+                            throw new InvalidOperationException("Cannot accept packets from outdated OwlTree or app versions.");
+                        }
                     }
                     catch { }
 
-                    var client = FindClientData(ReadPacket.header.hash);
+                    if (dataLen <= 0)
+                    {
+                        continue;
+                    }
 
+                    var client = FindClientData((IPEndPoint)source);
+
+                    // try to verify a new client connection
                     if (client == ClientData.None)
                     {
+                        ReadPacket.StartMessageRead();
+                        if (ReadPacket.TryGetNextMessage(out var bytes))
+                        {
+                            var rpcId = ServerMessageDecode(bytes, out var id);
+                            if (rpcId == RpcId.CONNECTION_REQUEST && id == ApplicationId)
+                            {
+
+                                // connection request verified, send client confirmation
+                                _connectionRequests.Add((IPEndPoint)source);
+                                Console.WriteLine("request confirmed");
+
+                                ReadPacket.Clear();
+                                ReadPacket.header.owlTreeVer = OwlTreeVersion;
+                                ReadPacket.header.appVer = AppVersion;
+                                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                ReadPacket.header.sender = 0;
+                                ReadPacket.header.hash = 0;
+                                var confirmation = ReadPacket.GetPacket();
+                                _udpServer.SendTo(confirmation.ToArray(), source);
+                            }
+                        }
                         continue;
                     }
 
@@ -225,7 +273,12 @@ namespace OwlTree
                             dataLen = socket.Receive(ReadBuffer);
                             ReadPacket.FromBytes(ReadBuffer);
                             iters++;
-                        } while (ReadPacket.Incomplete && iters < 5);
+                        } while (ReadPacket.Incomplete && iters < 10);
+
+                        if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
+                        {
+                            throw new InvalidOperationException("Cannot accept packets from outdated OwlTree or app versions.");
+                        }
                     }
                     catch { }
 

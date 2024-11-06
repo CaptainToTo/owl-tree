@@ -102,6 +102,25 @@ namespace OwlTree
             public bool IsEmpty { get { return args == null; } }
         }
 
+        public struct Args
+        {
+            public ushort owlTreeVer;
+            public ushort minOwlTreeVer;
+            public ushort appVer;
+            public ushort minAppVer;
+            public string appId;
+
+            public string addr;
+            public int tcpPort;
+            public int serverUdpPort;
+            public int clientUdpPort;
+
+            public int bufferSize;
+
+            public Decoder decoder;
+            public Encoder encoder;
+        }
+
         /// <summary>
         /// The size of read and write buffers in bytes.
         /// Exceeding this size will result in lost data.
@@ -118,20 +137,37 @@ namespace OwlTree
         public IPAddress Address { get; private set; }
 
         public ushort OwlTreeVersion { get; private set; }
+        public ushort MinOwlTreeVersion { get; private set; }
         public ushort AppVersion { get; private set; }
+        public ushort MinAppVersion { get; private set; }
+        public AppId ApplicationId { get; private set; }
 
-        public NetworkBuffer(ushort owlTreeVer, ushort appVer, string addr, int tpcPort, int serverUdpPort, int clientUdpPort, int bufferSize, Decoder decoder, Encoder encoder)
+        public NetworkBuffer(Args args)
         {
-            OwlTreeVersion = owlTreeVer;
-            AppVersion = appVer;
-            Address = IPAddress.Parse(addr);
-            TcpPort = tpcPort;
-            ServerUdpPort = serverUdpPort;
-            ClientUdpPort = clientUdpPort;
-            BufferSize = bufferSize;
-            ReadBuffer = new byte[bufferSize];
-            TryDecode = decoder;
-            Encode = encoder;
+            if (args.owlTreeVer < args.minOwlTreeVer)
+            {
+                throw new ArgumentException("The local connection instance is using an older version of Owl Tree than the minimum requirement.");
+            }
+
+            if (args.appVer < args.minAppVer)
+            {
+                throw new ArgumentException("The local connection instance is using an older app version than the minimum requirement.");
+            }
+
+            OwlTreeVersion = args.owlTreeVer;
+            MinOwlTreeVersion = args.minOwlTreeVer;
+            AppVersion = args.appVer;
+            MinAppVersion = args.minAppVer;
+            ApplicationId = new AppId(args.appId);
+
+            Address = IPAddress.Parse(args.addr);
+            TcpPort = args.tcpPort;
+            ServerUdpPort = args.serverUdpPort;
+            ClientUdpPort = args.clientUdpPort;
+            BufferSize = args.bufferSize;
+            ReadBuffer = new byte[BufferSize];
+            TryDecode = args.decoder;
+            Encode = args.encoder;
             ReadPacket = new Packet(BufferSize);
         }
 
@@ -321,6 +357,11 @@ namespace OwlTree
         /// </summary>
         protected static int LocalClientConnectLength { get { return RpcId.MaxLength() + ClientId.MaxLength() + 4; } }
 
+        /// <summary>
+        /// The number of bytes required to encode a new connection request.
+        /// </summary>
+        protected static int ConnectionRequestLength { get { return RpcId.MaxLength() + AppId.MaxLength(); } }
+
         protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
@@ -345,6 +386,28 @@ namespace OwlTree
             var ind = rpcId.ByteLength();
             rpcId.InsertBytes(bytes.Slice(0, ind));
             id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
+        }
+
+        protected static void ConnectionRequestEncode(Span<byte> bytes, AppId id)
+        {
+            var rpc = new RpcId(RpcId.CONNECTION_REQUEST);
+            var ind = rpc.ByteLength();
+            rpc.InsertBytes(bytes);
+            id.InsertBytes(bytes.Slice(ind));
+        }
+
+        protected static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out AppId id)
+        {
+            RpcId result = RpcId.None;
+            result.FromBytes(bytes);
+            id = new AppId();
+            switch (result.Id)
+            {
+                case RpcId.CONNECTION_REQUEST:
+                    id.FromBytes(bytes.Slice(result.ByteLength()));
+                    break;
+            }
+            return result;
         }
 
         protected static RpcId ClientMessageDecode(ReadOnlySpan<byte> message, out ClientId id, out UInt32 hash)
