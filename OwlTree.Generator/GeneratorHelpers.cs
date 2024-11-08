@@ -2,7 +2,9 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace OwlTree.Generator
 {
@@ -18,6 +20,11 @@ namespace OwlTree.Generator
         public const string Tk_OwlTreeNamespace = "OwlTree";
         public const string Tk_NetworkObject = "NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";
+
+        // first rpc id tokens
+        public const string Tk_FirstId = "FIRST_RPC_ID";
+        public const string Tk_FirstIdWithClass = "RpcId.FIRST_RPC_ID";
+        public const string Tk_FirstIdWithNamespace = "OwlTree.RpcId.FIRST_RPC_ID";
 
         // attributes
         public const string AttrTk_Rpc = "Rpc";
@@ -69,12 +76,44 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
+        /// Reconstructs full dot-notation member access.
+        /// </summary>
+        public static string GetAccessorString(MemberAccessExpressionSyntax access)
+        {
+            var name = new StringBuilder(access.Name.ToString());
+            var expression = access.Expression;
+            while (expression is MemberAccessExpressionSyntax nextAccess)
+            {
+                name.Insert(0, ".").Insert(0, nextAccess.Name.ToString());
+                expression = nextAccess.Expression;
+            }
+            return name.ToString();
+        }
+
+        /// <summary>
         /// Tries to parse the variable name and literal value from an integer variable definition.
         /// </summary>
-        public static bool TryGetInt(FieldDeclarationSyntax field, out string name, out int value)
+        public static bool TryGetInt(FieldDeclarationSyntax field, List<string> names, out int value)
         {
             var def = field.Declaration.Variables.First();
-            name = def.Identifier.ValueText;
+
+            var name = new StringBuilder(def.Identifier.ValueText);
+            names.Add(name.ToString());
+            
+            var parents = field.Ancestors().OfType<ClassDeclarationSyntax>();
+
+            foreach (var parent in parents)
+            {
+                name.Insert(0, ".").Insert(0, parent.Identifier.ValueText);
+                names.Add(name.ToString());
+            }
+
+            var space = field.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
+            if (space != null)
+            {
+                name.Insert(0, ".").Insert(0, space.Name);
+            }
+
             value = 0;
 
             if (def.Initializer.Value is LiteralExpressionSyntax literal)

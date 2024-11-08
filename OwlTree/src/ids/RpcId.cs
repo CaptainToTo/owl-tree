@@ -1,7 +1,7 @@
 using System;
 
 namespace OwlTree
-{
+{    
     public struct RpcId : IEncodable
     {
         // reserved rpc ids

@@ -120,13 +120,24 @@ namespace OwlTree.Generator
             var (compilation, list) = tuple;
 
             consts.Clear();
+
+            // add built in first rpc id const
+            consts.Add(Helpers.Tk_FirstId, (int)Helpers.FIRST_RPC_ID);
+            consts.Add(Helpers.Tk_FirstIdWithClass, (int)Helpers.FIRST_RPC_ID);
+            consts.Add(Helpers.Tk_FirstIdWithNamespace, (int)Helpers.FIRST_RPC_ID);
+
+            var names = new List<string>();
             foreach (var field in list)
             {
 
                 if (Helpers.IsConst(field) && Helpers.IsInt(field))
                 {
-                    Helpers.TryGetInt(field, out var name, out var value);
-                    consts.Add(name, value);
+                    names.Clear();
+                    Helpers.TryGetInt(field, names, out var value);
+                    foreach (var name in names)
+                    {
+                        consts.Add(name, value);
+                    }
                 }
                 else
                 {
@@ -164,7 +175,24 @@ namespace OwlTree.Generator
                     var val = m.EqualsValue;
                     if (val != null)
                     {
+                        switch (val.Value)
+                        {
+                            case LiteralExpressionSyntax literal:
+                                if (literal != null && literal.IsKind(SyntaxKind.NumericLiteralExpression))
+                                    i = (int)literal.Token.Value;
+                            break;
 
+                            case IdentifierNameSyntax identifier:
+                                if (consts.ContainsKey(identifier.Identifier.ValueText))
+                                    i = consts[identifier.Identifier.ValueText];
+                            break;
+
+                            case MemberAccessExpressionSyntax access:
+                                var name = Helpers.GetAccessorString(access);
+                                if (consts.ContainsKey(name))
+                                    i = consts[name];
+                            break;
+                        }
                     }
 
                     values[m.Identifier.ValueText] = i;

@@ -4,14 +4,20 @@
 
 class Program
 {
-    [RpcIdConst]
-    public const int FirstRpcId = 30;
+    public class ConstTest
+    {
+        public class ConstTest2
+        {
+            [RpcIdConst]
+            public const int FirstRpcId = 30;
+        }
+    }
 
     [RpcIdEnum]
     public enum ExampleRpcIds
     {
-        Test = FirstRpcId,
-        Test2
+        Test = RpcId.FIRST_RPC_ID,
+        Test2 = ConstTest.ConstTest2.FirstRpcId
     }
 
     static Radio? radio = null;
