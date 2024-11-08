@@ -1,3 +1,0 @@
-ExampleRpcIds:
-  Test : 0
-  Test2 : 1

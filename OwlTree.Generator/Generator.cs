@@ -48,6 +48,11 @@ namespace OwlTree.Generator
         
         static Dictionary<string, int> consts = new();
 
+        public static bool TryGetConst(string constName, out int value)
+        {
+            return consts.TryGetValue(constName, out value);
+        }
+
         static string GetConsts()
         {
             var str = new StringBuilder();
@@ -59,6 +64,17 @@ namespace OwlTree.Generator
         }
 
         static Dictionary<string, Dictionary<string, int>> enums = new();
+
+        public static bool TryGetEnumValue(string enumName, string valueName, out int enumValue)
+        {
+            if (enums.ContainsKey(enumName) && enums[enumName].ContainsKey(valueName))
+            {
+                enumValue = enums[enumName][valueName];
+                return true;
+            }
+            enumValue = 0;
+            return false;
+        }
 
         static string GetEnums()
         {

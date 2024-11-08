@@ -17,7 +17,12 @@ class Program
     public enum ExampleRpcIds
     {
         Test = RpcId.FIRST_RPC_ID,
-        Test2 = ConstTest.ConstTest2.FirstRpcId
+        B,
+        Test2 = ConstTest.ConstTest2.FirstRpcId,
+        C,
+        D,
+        E,
+        F
     }
 
     static Radio? radio = null;
