@@ -18,7 +18,8 @@ namespace OwlTree
         /// <summary>
         /// The first valid RpcId value that isn't reserved for specific operations handled by OwlTree.
         /// </summary>
-        public const UInt32 FIRST_RPC_ID = 10;
+        [RpcIdConst]
+        public const int FIRST_RPC_ID = 10;
 
         /// <summary>
         /// Basic function signature for passing RpcIds.

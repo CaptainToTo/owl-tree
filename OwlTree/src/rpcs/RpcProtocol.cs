@@ -17,7 +17,7 @@ namespace OwlTree
             NetworkObjectType = networkObjectType;
         }
 
-        public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes, ushort id)
+        public RpcProtocol(Type networkObjectType, MethodInfo method, Type[] paramTypes, uint id)
         {
             Id = new RpcId(id);
             ParamTypes = paramTypes;

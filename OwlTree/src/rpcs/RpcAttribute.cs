@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using PostSharp.Aspects;
-using PostSharp.Serialization;
 
 namespace OwlTree
 {
@@ -30,13 +28,13 @@ namespace OwlTree
     /// <summary>
     /// Provides the callee the ClientId of the caller.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Parameter)]
+    [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
     public class RpcCallerAttribute : Attribute { }
 
     /// <summary>
     /// Provides the caller a way to specify a specific client as the callee.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Parameter)]
+    [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
     public class RpcCalleeAttribute : Attribute { }
 
     /// <summary>
@@ -45,21 +43,44 @@ namespace OwlTree
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public class AssignRpcIdAttribute : Attribute {
-        public ushort Id = 0;
+        public uint Id = 0;
 
-        public AssignRpcIdAttribute(ushort id)
+        public AssignRpcIdAttribute(uint id)
         {
             Id = id;
+        }
+
+        public AssignRpcIdAttribute(int id)
+        {
+            Id = (uint)id;
         }
     }
 
     /// <summary>
+    /// Marks this enum as intended to assign RPC ids. 
+    /// Enum values will be solved at compile-time to generate ids.
+    /// Enums used to assign an RPC id with the <c>AssignRpcId()</c>
+    /// attribute must have this attribute.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Enum, AllowMultiple = false)]
+    public class RpcIdEnumAttribute : Attribute { }
+
+    /// <summary>
+    /// Marks this constant as a RPC id value.
+    /// Consts used to set RPC ids with the <c>AssignRpcId()</c>
+    /// attribute, or enums labeled with the <c>RpcIdEnum()</c> attribute
+    /// must have this attribute.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+    public class RpcIdConstAttribute : Attribute { }
+
+    /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false), PSerializable]
-    public class RpcAttribute : MethodInterceptionAspect
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+    public class RpcAttribute : Attribute
     {
-        public RpcCaller caller = RpcCaller.Server;
+        public RpcCaller caller = RpcCaller.Any;
 
         /// <summary>
         /// Whether this RPC is delivered through TCP or UDP.
@@ -74,7 +95,7 @@ namespace OwlTree
         /// <summary>
         /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
         /// </summary>
-        public RpcAttribute(RpcCaller caller)
+        public RpcAttribute(RpcCaller caller = RpcCaller.Any)
         {
             this.caller = caller;
         }
@@ -84,7 +105,7 @@ namespace OwlTree
 
         private static bool _initialized = false;
 
-        Type netObjType = typeof(NetworkObject);
+        static Type netObjType = typeof(NetworkObject);
 
         public static void GenerateRpcProtocols(Logger logger)
         {
@@ -98,7 +119,7 @@ namespace OwlTree
             foreach (var t in types)
             {
                 var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                            .Where(m => m.Name.ToLower().Contains("rpc") && !m.Name.Contains("<")).ToArray()
+                            .Where(m => m.GetCustomAttribute<RpcAttribute>() != null).ToArray()
                             .OrderBy(m => (m.GetCustomAttribute<AssignRpcIdAttribute>() != null ? "0" : "1") + m.Name);
                 
                 foreach (var rpc in rpcs)
@@ -143,26 +164,26 @@ namespace OwlTree
             logger.Write(Logger.LogRule.Verbose, "Completed RPC Protocols ======");
         }
 
-        public override void OnInvoke(MethodInterceptionArgs args)
+        public static bool IsRpc(MethodInfo method)
         {
-            if (!netObjType.IsAssignableFrom(args.Instance.GetType()))
-                throw new InvalidOperationException("RPCs cannot be called on non-NetworkObjects.");
-            
-            var netObj = (NetworkObject)args.Instance;
+            return _protocolsByMethod.ContainsKey(method);
+        }
 
+        public static bool OnInvoke(MethodInfo method, NetworkObject netObj, object[] argsList)
+        {
             if (!netObj.IsActive)
                 throw new InvalidOperationException("RPCs can only be called on active network objects.");
 
-            if (netObj.Connection == null || !netObj.Connection.IsActive)
+            if (netObj.Connection == null)
                 throw new InvalidOperationException("RPCs can only be called on an active connection.");
+
+            var attr = method.GetCustomAttribute<RpcAttribute>();
             
             if (
-                (caller == (RpcCaller)netObj.Connection.NetRole) ||
-                (caller == RpcCaller.Any && !netObj.IsReceivingRpc)
+                (attr.caller == (RpcCaller)netObj.Connection.NetRole) ||
+                (attr.caller == RpcCaller.Any && !netObj.IsReceivingRpc)
             )
             {
-                var method = args.Method as MethodInfo;
-
                 if (method == null)
                     throw new InvalidOperationException("RPC does not exist");
 
@@ -170,25 +191,25 @@ namespace OwlTree
                     throw new InvalidOperationException("RPC protocol does not exist.");
                 
                 var paramList = method.GetParameters();
-                var argsList = args.Arguments.ToArray();
                 ClientId callee = ClientId.None;
 
                 for (int i = 0; i < paramList.Length; i++)
                 {
                     if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
-                        args.Arguments.SetArgument(i, netObj.Connection.LocalId);
+                        argsList[i] = netObj.Connection.LocalId;
                     else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
                         callee = (ClientId)argsList[i];
                 }
                 
-                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, this.RpcProtocol, argsList);
+                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, attr.RpcProtocol, argsList);
 
-                if (InvokeOnCaller)
-                    args.Proceed();
+                if (attr.InvokeOnCaller)
+                    return true;
+                return false;
             }
             else if (netObj.IsReceivingRpc)
             {
-                args.Proceed();
+                return true;
             }
             else
             {

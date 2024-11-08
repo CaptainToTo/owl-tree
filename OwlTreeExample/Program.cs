@@ -1,13 +1,62 @@
 ﻿using OwlTree;
 
+
+
 class Program
 {
+    [RpcIdConst]
+    public const int FirstRpcId = 30;
+
+    [RpcIdEnum]
+    public enum ExampleRpcIds
+    {
+        Test = FirstRpcId,
+        Test2
+    }
+
     static Radio? radio = null;
 
     static NetworkList<Capacity8, int> list = new NetworkList<Capacity8, int>();
 
+    public class ClassA : NetworkObject
+    {
+        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId(30)]
+        public virtual void Test() {
+            Console.WriteLine("instance");
+        }
+
+        public int test;
+    }
+
+    public class ClassAProxy : ClassA
+    {
+        public ClassA _instance;
+
+        public ClassAProxy(ClassA instance)
+        {
+            _instance = instance;
+        }
+
+        public override void Test() {
+            Console.WriteLine("proxy");
+            _instance.Test();
+        }
+    }
+
     static void Main(string[] args)
     {
+
+        var a = new ClassA();
+        var b = new ClassAProxy(a);
+        var c = (ClassA)b;
+        c.Test();
+        return;
+
+        radio = new Radio();
+
+        radio.RPC_Test();
+        return;
+
         list.Add(2);
         list.Add(10);
         list.Add(8);
