@@ -1,37 +1,31 @@
 ﻿using OwlTree;
 
-
-
-class Program
+[RpcIdRegistry]
+static class IdRegistry
 {
-    public class ConstTest
-    {
-        public class ConstTest2
-        {
-            [RpcIdConst]
-            public const int FirstRpcId = 30;
-        }
-    }
+    public const int FirstRpcId = 30;
 
-    [RpcIdEnum]
     public enum ExampleRpcIds
     {
         Test = RpcId.FIRST_RPC_ID,
         B,
-        Test2 = ConstTest.ConstTest2.FirstRpcId,
+        Test2 = FirstRpcId,
         C,
         D,
         E,
         F
     }
+}
 
+class Program
+{
     static Radio? radio = null;
 
     static NetworkList<Capacity8, int> list = new NetworkList<Capacity8, int>();
 
     public class ClassA : NetworkObject
     {
-        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId((int)ExampleRpcIds.C)]
+        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId((int)IdRegistry.ExampleRpcIds.C)]
         public virtual void Test() {
             Console.WriteLine("instance");
         }

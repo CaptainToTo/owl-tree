@@ -48,25 +48,15 @@ namespace OwlTree.Generator
         
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // pre-solve const values
-            var constProvider = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is FieldDeclarationSyntax c && Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_RpcIdConst),
-                transform: (ctx, _) => (FieldDeclarationSyntax)ctx.Node
+            // pre-solve const and values
+            var registryProvider = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_RpcIdRegistry),
+                transform: (ctx, _) => (ClassDeclarationSyntax)ctx.Node
             ).Where(n => n is not null);
 
-            var constCompilation = context.CompilationProvider.Combine(constProvider.Collect());
+            var registryCompilation = context.CompilationProvider.Combine(registryProvider.Collect());
 
-            context.RegisterSourceOutput(constCompilation, SolveConstValues);
-
-            // pre-solve enum values
-            var enumProvider = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is EnumDeclarationSyntax e && Helpers.HasAttribute(e.AttributeLists, Helpers.AttrTk_RpcIdEnum),
-                transform: static (ctx, _) => (EnumDeclarationSyntax)ctx.Node
-            ).Where(m => m is not null);
-
-            var enumCompilation = context.CompilationProvider.Combine(enumProvider.Collect());
-
-            context.RegisterSourceOutput(enumCompilation, SolveEnumValues);
+            context.RegisterSourceOutput(registryCompilation, SolveConstAndEnumValues);
 
             // filter for network objects
             var provider = context.SyntaxProvider.CreateSyntaxProvider(
@@ -74,7 +64,7 @@ namespace OwlTree.Generator
                 {
                     if (node is ClassDeclarationSyntax cls)
                     {
-                        return cls.BaseList?.Types.Any(t => t.Type is IdentifierNameSyntax idn && idn.Identifier.ValueText == Helpers.Tk_NetworkObject) ?? false;
+                        return Helpers.InheritsFrom(cls, Helpers.Tk_NetworkObject);
                     }
                     return false;
                 },
@@ -86,10 +76,35 @@ namespace OwlTree.Generator
             context.RegisterSourceOutput(compilation, Execute);
         }
 
-        private void SolveConstValues(SourceProductionContext context, (Compilation Left, ImmutableArray<FieldDeclarationSyntax> Right) tuple)
+        private void SolveConstAndEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
         {
             var (compilation, list) = tuple;
 
+            if (list.Length == 0)
+                return;
+            
+            var registry = list[0];
+
+            for (int i = 1; i < list.Length; i++)
+            {
+                Diagnostics.MultipleIdRegistries(context, list[i]);
+            }
+
+            if (!Helpers.IsStatic(registry))
+            {
+                Diagnostics.NonStaticRegistry(context, registry);
+                return;
+            }
+
+            var fields = registry.Members.Where(m => m is FieldDeclarationSyntax).Cast<FieldDeclarationSyntax>();
+            SolveConstValues(context, fields);
+
+            var enums = registry.Members.Where(m => m is EnumDeclarationSyntax).Cast<EnumDeclarationSyntax>();
+            SolveEnumValues(context, enums);
+        }
+
+        private void SolveConstValues(SourceProductionContext context, IEnumerable<FieldDeclarationSyntax> fields)
+        {
             GeneratorState.ClearConsts();
 
             // add built in first rpc id const
@@ -98,7 +113,7 @@ namespace OwlTree.Generator
             GeneratorState.AddConst(Helpers.Tk_FirstIdWithNamespace, (int)Helpers.FIRST_RPC_ID);
 
             var names = new List<string>();
-            foreach (var field in list)
+            foreach (var field in fields)
             {
 
                 if (Helpers.IsConst(field) && Helpers.IsInt(field))
@@ -120,13 +135,12 @@ namespace OwlTree.Generator
             File.WriteAllText(EnvConsts.ProjectPath + "const-out.txt", GeneratorState.GetConstsString());
         }
 
-        private void SolveEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<EnumDeclarationSyntax> Right) tuple)
+        private void SolveEnumValues(SourceProductionContext context, IEnumerable<EnumDeclarationSyntax> enums)
         {
-            var (compilation, list) = tuple;
 
             GeneratorState.ClearEnums();
             var names = new List<string>();
-            foreach (var e in list)
+            foreach (var e in enums)
             {
                 names.Clear();
                 Helpers.GetAllNames(e.Identifier.ValueText, e, names);

@@ -57,22 +57,11 @@ namespace OwlTree
     }
 
     /// <summary>
-    /// Marks this enum as intended to assign RPC ids. 
-    /// Enum values will be solved at compile-time to generate ids.
-    /// Enums used to assign an RPC id with the <c>AssignRpcId()</c>
-    /// attribute must have this attribute.
+    /// Mark a static class as a registry for RPC ids, using consts and enums.
+    /// There should only ever be 1 RpcIdRegistry per project.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Enum, AllowMultiple = false)]
-    public class RpcIdEnumAttribute : Attribute { }
-
-    /// <summary>
-    /// Marks this constant as a RPC id value.
-    /// Consts used to set RPC ids with the <c>AssignRpcId()</c>
-    /// attribute, or enums labeled with the <c>RpcIdEnum()</c> attribute
-    /// must have this attribute.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
-    public class RpcIdConstAttribute : Attribute { }
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    public class RpcIdRegistryAttribute : Attribute { }
 
     /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.

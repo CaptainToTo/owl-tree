@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,6 +32,7 @@ namespace OwlTree.Generator
         public const string AttrTk_AssignRpcId = "AssignRpcId";
         public const string AttrTk_RpcIdEnum = "RpcIdEnum";
         public const string AttrTk_RpcIdConst = "RpcIdConst";
+        public const string AttrTk_RpcIdRegistry = "RpcIdRegistry";
 
         // int types
         public const string Tk_Byte = "byte";
@@ -48,6 +50,22 @@ namespace OwlTree.Generator
         public const string Tk_Int64 = "Int64";
 
         // * helpers
+
+        /// <summary>
+        /// Checks if the given bass class name is in the given class declaration's base list.
+        /// </summary>
+        public static bool InheritsFrom(ClassDeclarationSyntax c, string baseClass)
+        {
+            return c.BaseList?.Types.Any(t => t.Type is IdentifierNameSyntax idn && idn.Identifier.ValueText == baseClass) ?? false;
+        }
+
+        /// <summary>
+        /// Checks if the given class is static.
+        /// </summary>
+        public static bool IsStatic(MemberDeclarationSyntax c)
+        {
+            return c.Modifiers.Any(mod => mod.IsKind(SyntaxKind.StaticKeyword));
+        }
 
         /// <summary>
         /// Checks if the given field is a constant.
