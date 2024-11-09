@@ -63,13 +63,13 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        static Dictionary<string, Dictionary<string, int>> enums = new();
+        static Dictionary<string, int> enums = new();
 
-        public static bool TryGetEnumValue(string enumName, string valueName, out int enumValue)
+        public static bool TryGetEnum(string name, out int enumValue)
         {
-            if (enums.ContainsKey(enumName) && enums[enumName].ContainsKey(valueName))
+            if (enums.ContainsKey(name))
             {
-                enumValue = enums[enumName][valueName];
+                enumValue = enums[name];
                 return true;
             }
             enumValue = 0;
@@ -81,14 +81,29 @@ namespace OwlTree.Generator
             var str = new StringBuilder();
             foreach (var e in enums)
             {
-                str.Append(e.Key).Append(":\n");
-                foreach (var m in e.Value)
-                {
-                    str.Append("  ").Append(m.Key).Append(" : ").Append(m.Value).Append("\n");
-                }
+                str.Append(e.Key).Append(" : ").Append(e.Value).Append("\n");
             }
             return str.ToString();
         }
+
+        public static bool TryGetConstOrEnum(MemberAccessExpressionSyntax access, out int value)
+        {
+            var name = Helpers.GetAccessorString(access);
+            if (TryGetConst(name, out value))
+            {
+                return true;
+            }
+            if (TryGetEnum(name, out value))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        static Dictionary<string, uint> rpcIds = new();
+
+
+        // =====================================================
         
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
@@ -180,10 +195,11 @@ namespace OwlTree.Generator
             var (compilation, list) = tuple;
 
             enums.Clear();
+            var names = new List<string>();
             foreach (var e in list)
             {
-                enums.Add(e.Identifier.ValueText, new());
-                var values = enums[e.Identifier.ValueText];
+                names.Clear();
+                Helpers.GetAllNames(e.Identifier.ValueText, e, names);
 
                 int i = 0;
                 foreach (var m in e.Members)
@@ -211,7 +227,11 @@ namespace OwlTree.Generator
                         }
                     }
 
-                    values[m.Identifier.ValueText] = i;
+                    foreach (var n in names)
+                    {
+                        enums[n + "." + m.Identifier.ValueText] = i;
+                    }
+
                     i++;
                 }
             }
@@ -253,6 +273,7 @@ namespace OwlTree.Generator
                             m.Identifier.ValueText);
 
                         context.ReportDiagnostic(diagnostic);
+                    continue;
                 }
 
                 bool isProcedure = m.ReturnType.GetFirstToken().IsKind(SyntaxKind.VoidKeyword);
@@ -271,20 +292,61 @@ namespace OwlTree.Generator
                             m.Identifier.ValueText);
 
                         context.ReportDiagnostic(diagnostic);
+                    continue;
                 }
 
                 curId = _curId;
-                if (Helpers.TryGetAssignRpcIdAttr(m, out var assignedId))
+                var attr = Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId);
+                if (attr != null)
                 {
-                    curId = assignedId;
+                    var assignedId = Helpers.GetAssignedRpcId(attr);
+                    if (assignedId != -1)
+                    {
+                        curId = (uint)assignedId;
+                    }
+                    else
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "OT004",
+                                "Invalid Assign RPC Id Value",
+                                "RPC method '{0}' can only have its RPC id assigned with a literal integer, a constant with the '{1}' attribute, or an enum value with the '{2}' attribute.",
+                                "Syntax",
+                                DiagnosticSeverity.Error,
+                                isEnabledByDefault: true),
+                            attr.GetLocation(),
+                            m.Identifier.ValueText, Helpers.AttrTk_RpcIdConst, Helpers.AttrTk_RpcIdEnum);
+
+                        context.ReportDiagnostic(diagnostic);
+                        continue;
+                    }
                 }
+
+                if (rpcIds.ContainsValue(curId))
+                {
+                    var diagnostic = Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "OT005",
+                            "Duplicate RPC Ids",
+                            "RPC method '{0}' cannot have the same id as another RPC.",
+                            "Syntax",
+                            DiagnosticSeverity.Error,
+                            isEnabledByDefault: true),
+                        m.GetLocation(),
+                        m.Identifier.ValueText, Helpers.AttrTk_RpcIdConst, Helpers.AttrTk_RpcIdEnum);
+
+                    context.ReportDiagnostic(diagnostic);
+                    continue;
+                }
+
+                rpcIds.Add(m.Identifier.ValueText, curId);
 
                 output += m.Identifier.ValueText + " " + curId + "\n";
                 if (_curId <= curId)
                     _curId = curId + 1;
             }
 
-            File.WriteAllText(EnvConsts.ProjectPath + "out.txt", output);
+            File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", output);
         }
     }
 }

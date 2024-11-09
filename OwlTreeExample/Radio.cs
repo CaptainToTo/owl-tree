@@ -73,7 +73,9 @@ public class Radio : NetworkObject
         Console.WriteLine($"   {i}, {x}, {z}, {j}");
     }
 
+    [RpcIdConst]
     const int TestId = 14;
+    
     [Rpc, AssignRpcId(TestId)]
     public virtual void RPC_Test()
     {

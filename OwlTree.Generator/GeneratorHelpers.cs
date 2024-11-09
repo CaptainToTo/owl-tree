@@ -87,7 +87,33 @@ namespace OwlTree.Generator
                 name.Insert(0, ".").Insert(0, nextAccess.Name.ToString());
                 expression = nextAccess.Expression;
             }
+
+            if (expression is IdentifierNameSyntax identifier)
+            {
+                name.Insert(0, ".").Insert(0, identifier.Identifier.ValueText);
+            }
+
             return name.ToString();
+        }
+
+        public static void GetAllNames(string token, SyntaxNode node, List<string> names)
+        {
+            var name = new StringBuilder(token);
+            names.Add(name.ToString());
+            
+            var parents = node.Ancestors().OfType<ClassDeclarationSyntax>();
+
+            foreach (var parent in parents)
+            {
+                name.Insert(0, ".").Insert(0, parent.Identifier.ValueText);
+                names.Add(name.ToString());
+            }
+
+            var space = node.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
+            if (space != null)
+            {
+                name.Insert(0, ".").Insert(0, space.Name);
+            }
         }
 
         /// <summary>
@@ -97,22 +123,7 @@ namespace OwlTree.Generator
         {
             var def = field.Declaration.Variables.First();
 
-            var name = new StringBuilder(def.Identifier.ValueText);
-            names.Add(name.ToString());
-            
-            var parents = field.Ancestors().OfType<ClassDeclarationSyntax>();
-
-            foreach (var parent in parents)
-            {
-                name.Insert(0, ".").Insert(0, parent.Identifier.ValueText);
-                names.Add(name.ToString());
-            }
-
-            var space = field.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
-            if (space != null)
-            {
-                name.Insert(0, ".").Insert(0, space.Name);
-            }
+            GetAllNames(def.Identifier.ValueText, field, names);
 
             value = 0;
 
@@ -138,13 +149,68 @@ namespace OwlTree.Generator
             return attrLists.Any(attrList => attrList.Attributes.Any(a => a.Name.ToString() == attrName));
         }
 
+        public static AttributeSyntax GetAttribute(SyntaxList<AttributeListSyntax> attrLists, string attrName)
+        {
+            foreach (var attrList in attrLists)
+            {
+                foreach (var attr in attrList.Attributes)
+                {
+                    if (attr.Name.ToString() == attrName)
+                        return attr;
+                }
+            }
+            return null;
+        }
+
         /// <summary>
         /// Tries to get an assigned RPC id value from the given method declaration.
         /// </summary>
-        public static bool TryGetAssignRpcIdAttr(MethodDeclarationSyntax method, out uint assignedId)
+        public static int GetAssignedRpcId(AttributeSyntax attr)
         {
-            assignedId = 0;
-            return false;
+            var arg = attr.ArgumentList.Arguments.FirstOrDefault();
+
+            if (arg == null)
+            {
+                return -1;
+            }
+
+            switch (arg.Expression)
+            {
+                case LiteralExpressionSyntax literal:
+                    if (literal != null && literal.IsKind(SyntaxKind.NumericLiteralExpression))
+                    {
+                        return (int)literal.Token.Value;
+                    }
+                break;
+
+                case IdentifierNameSyntax identifier:
+                    if (OwlTreeGenerator.TryGetConst(identifier.Identifier.ValueText, out var v))
+                    {
+                        return v;
+                    }
+                break;
+
+                case CastExpressionSyntax cast:
+                    switch (cast.Expression)
+                    {
+                        case IdentifierNameSyntax identifier:
+                            if (OwlTreeGenerator.TryGetConst(identifier.Identifier.ValueText, out v))
+                            {
+                                return v;
+                            }
+                        break;
+
+                        case MemberAccessExpressionSyntax access:
+                            if (OwlTreeGenerator.TryGetConstOrEnum(access, out v))
+                            {
+                                return v;
+                            }
+                        break;
+                    }
+                break;
+            }
+
+            return -1;
         }
     }
 }

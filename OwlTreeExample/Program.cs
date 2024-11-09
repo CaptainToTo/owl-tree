@@ -31,7 +31,7 @@ class Program
 
     public class ClassA : NetworkObject
     {
-        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId(30)]
+        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId((int)ExampleRpcIds.C)]
         public virtual void Test() {
             Console.WriteLine("instance");
         }
