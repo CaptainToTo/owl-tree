@@ -56,13 +56,6 @@ class Program
 
     static void Main(string[] args)
     {
-
-        var a = new ClassA();
-        var b = new ClassAProxy(a);
-        var c = (ClassA)b;
-        c.Test();
-        return;
-
         radio = new Radio();
 
         radio.RPC_Test();

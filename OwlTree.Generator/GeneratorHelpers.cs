@@ -70,13 +70,16 @@ namespace OwlTree.Generator
                 typeName == Tk_ULong   || typeName == Tk_Long  || typeName == Tk_UInt64 || typeName == Tk_Int64;
         }
 
+        /// <summary>
+        /// Gets the name of given variable.
+        /// </summary>
         public static string GetFieldName(FieldDeclarationSyntax field)
         {
             return field.Declaration.Variables.First().Identifier.ValueText;
         }
 
         /// <summary>
-        /// Reconstructs full dot-notation member access.
+        /// Reconstructs full dot-notation member access string.
         /// </summary>
         public static string GetAccessorString(MemberAccessExpressionSyntax access)
         {
@@ -96,6 +99,10 @@ namespace OwlTree.Generator
             return name.ToString();
         }
 
+        /// <summary>
+        /// Fills the names list all versions of the accessor strings that could be used to access the given node.
+        /// The token argument is the name of that node, used to start the accessor chain.
+        /// </summary>
         public static void GetAllNames(string token, SyntaxNode node, List<string> names)
         {
             var name = new StringBuilder(token);
@@ -113,31 +120,59 @@ namespace OwlTree.Generator
             if (space != null)
             {
                 name.Insert(0, ".").Insert(0, space.Name);
+                names.Add(name.ToString());
+            }
+            var fileSpace = node.Ancestors().OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
+            if (fileSpace != null)
+            {
+                name.Insert(0, ".").Insert(0, fileSpace.Name);
+                names.Add(name.ToString());
             }
         }
 
         /// <summary>
-        /// Tries to parse the variable name and literal value from an integer variable definition.
+        /// Gets the full identifier of the given node. The full dot-notation, of all
+        /// parenting classes, and namespace.
         /// </summary>
-        public static bool TryGetInt(FieldDeclarationSyntax field, List<string> names, out int value)
+        public static string GetFullName(string token, SyntaxNode node)
+        {
+            var name = new StringBuilder(token);
+            var parents = node.Ancestors().OfType<ClassDeclarationSyntax>();
+            foreach (var parent in parents)
+            {
+                name.Insert(0, ".").Insert(0, parent.Identifier.ValueText);
+            }
+            var space = node.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
+            if (space != null)
+            {
+                name.Insert(0, ".").Insert(0, space.Name);
+            }
+            var fileSpace = node.Ancestors().OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
+            if (fileSpace != null)
+            {
+                name.Insert(0, ".").Insert(0, fileSpace.Name);
+            }
+            return name.ToString();
+        }
+
+        /// <summary>
+        /// Gets the literal value from an integer variable definition.
+        /// Verify this field is an integer first with <c>IsInt()</c>.
+        /// </summary>
+        public static int GetInt(FieldDeclarationSyntax field)
         {
             var def = field.Declaration.Variables.First();
-
-            GetAllNames(def.Identifier.ValueText, field, names);
-
-            value = 0;
 
             if (def.Initializer.Value is LiteralExpressionSyntax literal)
             {
                 if (literal.IsKind(SyntaxKind.NumericLiteralExpression))
                 {
-                    value = (int)literal.Token.Value;
-                    return true;
+                    return (int)literal.Token.Value;
                 }
-                return false;
+                return -1;
             }
 
-            return false;
+            return -1;
         }
 
         /// <summary>
@@ -149,6 +184,10 @@ namespace OwlTree.Generator
             return attrLists.Any(attrList => attrList.Attributes.Any(a => a.Name.ToString() == attrName));
         }
 
+        /// <summary>
+        /// Retrieves an attribute from the given attributes.
+        /// Use one of the tokens <c>Tk_TokenName</c> in this helper class for the attrName.
+        /// </summary>
         public static AttributeSyntax GetAttribute(SyntaxList<AttributeListSyntax> attrLists, string attrName)
         {
             foreach (var attrList in attrLists)
@@ -163,48 +202,48 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
-        /// Tries to get an assigned RPC id value from the given method declaration.
+        /// Tries to get an assigned RPC id value from the given attribute.
+        /// This attribute should be an AssignRpcIdAttribute.
         /// </summary>
         public static int GetAssignedRpcId(AttributeSyntax attr)
         {
             var arg = attr.ArgumentList.Arguments.FirstOrDefault();
 
             if (arg == null)
-            {
                 return -1;
-            }
 
             switch (arg.Expression)
             {
+                // AssignRpcId(10)
                 case LiteralExpressionSyntax literal:
                     if (literal != null && literal.IsKind(SyntaxKind.NumericLiteralExpression))
-                    {
                         return (int)literal.Token.Value;
-                    }
                 break;
 
+                // AssignRpcId(MyConst)
                 case IdentifierNameSyntax identifier:
-                    if (OwlTreeGenerator.TryGetConst(identifier.Identifier.ValueText, out var v))
-                    {
+                    if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out var v))
                         return v;
-                    }
                 break;
 
+                // AssignRpcId(MyClass.MyConst)
+                case MemberAccessExpressionSyntax access:
+                    if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
+                        return v;
+                break;
+
+                // AssignRpcId((int)MyClass.MyEnum.Val1)
                 case CastExpressionSyntax cast:
                     switch (cast.Expression)
                     {
                         case IdentifierNameSyntax identifier:
-                            if (OwlTreeGenerator.TryGetConst(identifier.Identifier.ValueText, out v))
-                            {
+                            if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out v))
                                 return v;
-                            }
                         break;
 
                         case MemberAccessExpressionSyntax access:
-                            if (OwlTreeGenerator.TryGetConstOrEnum(access, out v))
-                            {
+                            if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
                                 return v;
-                            }
                         break;
                     }
                 break;

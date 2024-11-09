@@ -46,65 +46,6 @@ namespace OwlTree.Generator
         //     return targetMethod.Invoke(_instance, args);
         // }
         
-        static Dictionary<string, int> consts = new();
-
-        public static bool TryGetConst(string constName, out int value)
-        {
-            return consts.TryGetValue(constName, out value);
-        }
-
-        static string GetConsts()
-        {
-            var str = new StringBuilder();
-            foreach (var c in consts)
-            {
-                str.Append(c.Key).Append(" : ").Append(c.Value).Append("\n");
-            }
-            return str.ToString();
-        }
-
-        static Dictionary<string, int> enums = new();
-
-        public static bool TryGetEnum(string name, out int enumValue)
-        {
-            if (enums.ContainsKey(name))
-            {
-                enumValue = enums[name];
-                return true;
-            }
-            enumValue = 0;
-            return false;
-        }
-
-        static string GetEnums()
-        {
-            var str = new StringBuilder();
-            foreach (var e in enums)
-            {
-                str.Append(e.Key).Append(" : ").Append(e.Value).Append("\n");
-            }
-            return str.ToString();
-        }
-
-        public static bool TryGetConstOrEnum(MemberAccessExpressionSyntax access, out int value)
-        {
-            var name = Helpers.GetAccessorString(access);
-            if (TryGetConst(name, out value))
-            {
-                return true;
-            }
-            if (TryGetEnum(name, out value))
-            {
-                return true;
-            }
-            return false;
-        }
-
-        static Dictionary<string, uint> rpcIds = new();
-
-
-        // =====================================================
-        
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
             // pre-solve const values
@@ -133,7 +74,6 @@ namespace OwlTree.Generator
                 {
                     if (node is ClassDeclarationSyntax cls)
                     {
-                        // return true;
                         return cls.BaseList?.Types.Any(t => t.Type is IdentifierNameSyntax idn && idn.Identifier.ValueText == Helpers.Tk_NetworkObject) ?? false;
                     }
                     return false;
@@ -150,12 +90,12 @@ namespace OwlTree.Generator
         {
             var (compilation, list) = tuple;
 
-            consts.Clear();
+            GeneratorState.ClearConsts();
 
             // add built in first rpc id const
-            consts.Add(Helpers.Tk_FirstId, (int)Helpers.FIRST_RPC_ID);
-            consts.Add(Helpers.Tk_FirstIdWithClass, (int)Helpers.FIRST_RPC_ID);
-            consts.Add(Helpers.Tk_FirstIdWithNamespace, (int)Helpers.FIRST_RPC_ID);
+            GeneratorState.AddConst(Helpers.Tk_FirstId, (int)Helpers.FIRST_RPC_ID);
+            GeneratorState.AddConst(Helpers.Tk_FirstIdWithClass, (int)Helpers.FIRST_RPC_ID);
+            GeneratorState.AddConst(Helpers.Tk_FirstIdWithNamespace, (int)Helpers.FIRST_RPC_ID);
 
             var names = new List<string>();
             foreach (var field in list)
@@ -164,37 +104,27 @@ namespace OwlTree.Generator
                 if (Helpers.IsConst(field) && Helpers.IsInt(field))
                 {
                     names.Clear();
-                    Helpers.TryGetInt(field, names, out var value);
+                    Helpers.GetAllNames(Helpers.GetFieldName(field), field, names);
+                    var value = Helpers.GetInt(field);
                     foreach (var name in names)
                     {
-                        consts.Add(name, value);
+                        GeneratorState.AddConst(name, value);
                     }
                 }
                 else
                 {
-                    var diagnostic = Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "OT003",
-                                "RPC Id Consts must be consts",
-                                "RPC const '{0}' must be a const integer. {1}",
-                                "Syntax",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            field.GetLocation(),
-                            Helpers.GetFieldName(field), field.Declaration.Type.ToString());
-
-                        context.ReportDiagnostic(diagnostic);
+                    Diagnostics.BadRpcIdConst(context, field);
                 }
             }
 
-            File.WriteAllText(EnvConsts.ProjectPath + "const-out.txt", GetConsts());
+            File.WriteAllText(EnvConsts.ProjectPath + "const-out.txt", GeneratorState.GetConstsString());
         }
 
         private void SolveEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<EnumDeclarationSyntax> Right) tuple)
         {
             var (compilation, list) = tuple;
 
-            enums.Clear();
+            GeneratorState.ClearEnums();
             var names = new List<string>();
             foreach (var e in list)
             {
@@ -215,28 +145,28 @@ namespace OwlTree.Generator
                             break;
 
                             case IdentifierNameSyntax identifier:
-                                if (consts.ContainsKey(identifier.Identifier.ValueText))
-                                    i = consts[identifier.Identifier.ValueText];
+                                if (GeneratorState.HasConst(identifier.Identifier.ValueText))
+                                    i = GeneratorState.GetConst(identifier.Identifier.ValueText);
                             break;
 
                             case MemberAccessExpressionSyntax access:
                                 var name = Helpers.GetAccessorString(access);
-                                if (consts.ContainsKey(name))
-                                    i = consts[name];
+                                if (GeneratorState.HasConst(name))
+                                    i = GeneratorState.GetConst(name);
                             break;
                         }
                     }
 
                     foreach (var n in names)
                     {
-                        enums[n + "." + m.Identifier.ValueText] = i;
+                        GeneratorState.AddEnum(n + "." + m.Identifier.ValueText, i);
                     }
 
                     i++;
                 }
             }
 
-            File.WriteAllText(EnvConsts.ProjectPath + "enum-out.txt", GetEnums());
+            File.WriteAllText(EnvConsts.ProjectPath + "enum-out.txt", GeneratorState.GetEnumsString());
         }
 
         private void Execute(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
@@ -250,10 +180,9 @@ namespace OwlTree.Generator
                     Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId) ? "0" : "1"
                     ) + m.Identifier.ValueText);
 
-            var output = "Rpcs:\n";
-
             uint curId = Helpers.FIRST_RPC_ID;
             uint _curId = Helpers.FIRST_RPC_ID;
+            GeneratorState.ClearRpcIds();
 
             foreach (MethodDeclarationSyntax m in methods)
             {
@@ -261,18 +190,7 @@ namespace OwlTree.Generator
 
                 if (!isVirtual)
                 {
-                    var diagnostic = Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "OT001",
-                                "RPC Must Be Virtual",
-                                "RPC method '{0}' must be virtual for RPC protocol to be generated properly.",
-                                "Syntax",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            m.GetLocation(),
-                            m.Identifier.ValueText);
-
-                        context.ReportDiagnostic(diagnostic);
+                    Diagnostics.NonVirtualRpc(context, m);
                     continue;
                 }
 
@@ -280,18 +198,7 @@ namespace OwlTree.Generator
 
                 if (!isProcedure)
                 {
-                    var diagnostic = Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "OT002",
-                                "RPC Must Return Void",
-                                "RPC method '{0}' cannot have a return type.",
-                                "Syntax",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            m.GetLocation(),
-                            m.Identifier.ValueText);
-
-                        context.ReportDiagnostic(diagnostic);
+                    Diagnostics.NonVoidRpc(context, m);
                     continue;
                 }
 
@@ -306,47 +213,24 @@ namespace OwlTree.Generator
                     }
                     else
                     {
-                        var diagnostic = Diagnostic.Create(
-                            new DiagnosticDescriptor(
-                                "OT004",
-                                "Invalid Assign RPC Id Value",
-                                "RPC method '{0}' can only have its RPC id assigned with a literal integer, a constant with the '{1}' attribute, or an enum value with the '{2}' attribute.",
-                                "Syntax",
-                                DiagnosticSeverity.Error,
-                                isEnabledByDefault: true),
-                            attr.GetLocation(),
-                            m.Identifier.ValueText, Helpers.AttrTk_RpcIdConst, Helpers.AttrTk_RpcIdEnum);
-
-                        context.ReportDiagnostic(diagnostic);
+                        Diagnostics.BadRpcIdAssignment(context, m, attr);
                         continue;
                     }
                 }
 
-                if (rpcIds.ContainsValue(curId))
+                if (GeneratorState.HasRpcId(curId))
                 {
-                    var diagnostic = Diagnostic.Create(
-                        new DiagnosticDescriptor(
-                            "OT005",
-                            "Duplicate RPC Ids",
-                            "RPC method '{0}' cannot have the same id as another RPC.",
-                            "Syntax",
-                            DiagnosticSeverity.Error,
-                            isEnabledByDefault: true),
-                        m.GetLocation(),
-                        m.Identifier.ValueText, Helpers.AttrTk_RpcIdConst, Helpers.AttrTk_RpcIdEnum);
-
-                    context.ReportDiagnostic(diagnostic);
+                    Diagnostics.DuplicateRpcIds(context, m, curId);
                     continue;
                 }
 
-                rpcIds.Add(m.Identifier.ValueText, curId);
+                GeneratorState.AddRpcId(Helpers.GetFullName(m.Identifier.ValueText, m), curId);
 
-                output += m.Identifier.ValueText + " " + curId + "\n";
                 if (_curId <= curId)
                     _curId = curId + 1;
             }
 
-            File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", output);
+            File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", GeneratorState.GetRpcIdsString());
         }
     }
 }
