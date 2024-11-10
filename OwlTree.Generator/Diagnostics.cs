@@ -32,6 +32,7 @@ namespace OwlTree.Generator
         {
             NonVirtualRpc = 1,
             NonVoidRpc,
+            StaticRpc,
             BadRpcIdConst,
             BadRpcIdAssignment,
             DuplicateRpcIds,
@@ -41,7 +42,7 @@ namespace OwlTree.Generator
 
         public static string GetId(Ids id)
         {
-            return Symbol + ((int)id).ToString("D4");
+            return Symbol + ((int)id).ToString("D3");
         }
 
         public static void NonVirtualRpc(SourceProductionContext context, MethodDeclarationSyntax m)
@@ -76,6 +77,22 @@ namespace OwlTree.Generator
             context.ReportDiagnostic(diagnostic);
         }
 
+        public static void StaticRpc(SourceProductionContext context, MethodDeclarationSyntax m)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.StaticRpc),
+                    "RPC Cannot Be Static",
+                    "RPC method '{0}' cannot be static.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                m.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m));
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
         public static void BadRpcIdConst(SourceProductionContext context, FieldDeclarationSyntax field)
         {
             var diagnostic = Diagnostic.Create(
@@ -98,12 +115,12 @@ namespace OwlTree.Generator
                 new DiagnosticDescriptor(
                     GetId(Ids.BadRpcIdAssignment),
                     "Invalid Assign RPC Id Value",
-                    "RPC method '{0}' can only have its RPC id assigned with a literal integer, a constant with the '{1}' attribute, or an enum value with the '{2}' attribute.",
+                    "RPC method '{0}' can only have its RPC id assigned with a literal integer, or a constant or enum value from an id registry.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
                 attr.GetLocation(),
-                Helpers.GetFullName(m.Identifier.ValueText, m), Helpers.AttrTk_RpcIdConst, Helpers.AttrTk_RpcIdEnum);
+                Helpers.GetFullName(m.Identifier.ValueText, m));
 
             context.ReportDiagnostic(diagnostic);
         }

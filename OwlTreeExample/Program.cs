@@ -35,16 +35,10 @@ class Program
 
     public class ClassAProxy : ClassA
     {
-        public ClassA _instance;
-
-        public ClassAProxy(ClassA instance)
-        {
-            _instance = instance;
-        }
 
         public override void Test() {
-            Console.WriteLine("proxy");
-            _instance.Test();
+            Console.WriteLine("test");
+            base.Test();
         }
     }
 

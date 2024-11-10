@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OwlTree.Generator
 {
@@ -48,7 +48,7 @@ namespace OwlTree.Generator
         
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // pre-solve const and values
+            // pre-solve const and enum values
             var registryProvider = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_RpcIdRegistry),
                 transform: (ctx, _) => (ClassDeclarationSyntax)ctx.Node
@@ -58,22 +58,15 @@ namespace OwlTree.Generator
 
             context.RegisterSourceOutput(registryCompilation, SolveConstAndEnumValues);
 
-            // filter for network objects
+            // generate network object proxies
             var provider = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) =>  
-                {
-                    if (node is ClassDeclarationSyntax cls)
-                    {
-                        return Helpers.InheritsFrom(cls, Helpers.Tk_NetworkObject);
-                    }
-                    return false;
-                },
+                predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.InheritsFrom(c, Helpers.Tk_NetworkObject),
                 transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node
             ).Where(m => m is not null);
 
             var compilation = context.CompilationProvider.Combine(provider.Collect());
 
-            context.RegisterSourceOutput(compilation, Execute);
+            context.RegisterSourceOutput(compilation, GenerateProxies);
         }
 
         private void SolveConstAndEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
@@ -86,9 +79,7 @@ namespace OwlTree.Generator
             var registry = list[0];
 
             for (int i = 1; i < list.Length; i++)
-            {
                 Diagnostics.MultipleIdRegistries(context, list[i]);
-            }
 
             if (!Helpers.IsStatic(registry))
             {
@@ -96,10 +87,10 @@ namespace OwlTree.Generator
                 return;
             }
 
-            var fields = registry.Members.Where(m => m is FieldDeclarationSyntax).Cast<FieldDeclarationSyntax>();
+            var fields = registry.Members.OfType<FieldDeclarationSyntax>();
             SolveConstValues(context, fields);
 
-            var enums = registry.Members.Where(m => m is EnumDeclarationSyntax).Cast<EnumDeclarationSyntax>();
+            var enums = registry.Members.OfType<EnumDeclarationSyntax>();
             SolveEnumValues(context, enums);
         }
 
@@ -122,9 +113,7 @@ namespace OwlTree.Generator
                     Helpers.GetAllNames(Helpers.GetFieldName(field), field, names);
                     var value = Helpers.GetInt(field);
                     foreach (var name in names)
-                    {
                         GeneratorState.AddConst(name, value);
-                    }
                 }
                 else
                 {
@@ -183,36 +172,48 @@ namespace OwlTree.Generator
             File.WriteAllText(EnvConsts.ProjectPath + "enum-out.txt", GeneratorState.GetEnumsString());
         }
 
-        private void Execute(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
+        private void GenerateProxies(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
         {
             var (compilation, list) = tuple;
 
-            // filter for rpcs, and sort rpcs with assigned ids first
+            // select all methods, filter for rpcs, and sort rpcs with assigned ids first
             var methods = list.SelectMany(c => c.Members.OfType<MethodDeclarationSyntax>())
                 .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc))
                 .OrderBy(m => (
                     Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId) ? "0" : "1"
                     ) + m.Identifier.ValueText);
+            AssignRpcIds(context, methods);
+            
+            foreach (var c in list)
+            {
+                var proxy = CreateProxy(c);
+                File.WriteAllText(EnvConsts.ProjectPath + c.Identifier.ValueText + ".txt", proxy.ToString());
+            }
+        }
 
+        public void AssignRpcIds(SourceProductionContext context, IOrderedEnumerable<MethodDeclarationSyntax> methods)
+        {
             uint curId = Helpers.FIRST_RPC_ID;
             uint _curId = Helpers.FIRST_RPC_ID;
             GeneratorState.ClearRpcIds();
 
             foreach (MethodDeclarationSyntax m in methods)
             {
-                bool isVirtual = m.Modifiers.Any(mod => mod.IsKind(SyntaxKind.VirtualKeyword));
-
-                if (!isVirtual)
+                if (!Helpers.IsVirtual(m))
                 {
                     Diagnostics.NonVirtualRpc(context, m);
                     continue;
                 }
 
-                bool isProcedure = m.ReturnType.GetFirstToken().IsKind(SyntaxKind.VoidKeyword);
-
-                if (!isProcedure)
+                if (!Helpers.IsProcedure(m))
                 {
                     Diagnostics.NonVoidRpc(context, m);
+                    continue;
+                }
+
+                if (Helpers.IsStatic(m))
+                {
+                    Diagnostics.StaticRpc(context, m);
                     continue;
                 }
 
@@ -245,6 +246,267 @@ namespace OwlTree.Generator
             }
 
             File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", GeneratorState.GetRpcIdsString());
+        }
+
+        public CompilationUnitSyntax CreateProxy(ClassDeclarationSyntax c)
+        {
+            return CompilationUnit()
+            .WithUsings(
+                SingletonList<UsingDirectiveSyntax>(
+                    UsingDirective(
+                        IdentifierName("OwlTree"))))
+            .WithMembers(
+                SingletonList<MemberDeclarationSyntax>(
+                    ClassDeclaration(c.Identifier.ValueText + Helpers.Tk_ProxySuffix)
+                    .WithBaseList(
+                        BaseList(
+                            SingletonSeparatedList<BaseTypeSyntax>(
+                                SimpleBaseType(
+                                    IdentifierName(c.Identifier.ValueText)
+                                ))))
+                    .WithMembers(
+                        CreateRpcProxies(c))))
+            .NormalizeWhitespace();
+        }
+
+        static List<MethodDeclarationSyntax> proxyBuilderStage = new();
+
+        private SyntaxList<MemberDeclarationSyntax> CreateRpcProxies(ClassDeclarationSyntax c)
+        {
+
+            var methods = c.Members.OfType<MethodDeclarationSyntax>()
+                .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc));
+
+            proxyBuilderStage.Clear();
+
+            foreach (var m in methods)
+            {
+                if (!GeneratorState.TryGetRpcId(Helpers.GetFullName(m.Identifier.ValueText, m), out var id))
+                {
+                    continue;
+                }
+
+                var proxy = MethodDeclaration(
+                    PredefinedType(
+                        Token(SyntaxKind.VoidKeyword)),
+                    Identifier(m.Identifier.ValueText))
+                    .WithModifiers(
+                        TokenList(
+                            new[]{
+                                Token(Helpers.GetMethodScope(m)),
+                                Token(SyntaxKind.OverrideKeyword)
+                            }))
+                    .WithParameterList(m.ParameterList)
+                    .WithBody(m.ParameterList.Parameters.Count == 0 ? CreateProxyBodyNoParams(m, id) : CreateProxyBody(m, id));
+                
+                proxyBuilderStage.Add(proxy);
+            }
+
+            var proxyList = List<MemberDeclarationSyntax>(proxyBuilderStage);
+
+            return proxyList;
+        }
+
+        /*
+        creates:
+        object[] args = new[]{a, b, c, d};
+        bool run = RpcAttribute.OnInvoke(id, this, args);
+
+        if (run)
+        {
+            base.MyRpc(a, b, c, d);
+        }
+        return;
+        */
+        private BlockSyntax CreateProxyBody(MethodDeclarationSyntax m, uint id)
+        {
+            return Block(
+                // object[] args = new[]{a, b, c, d};
+                LocalDeclarationStatement(
+                    VariableDeclaration(
+                        ArrayType(
+                            PredefinedType(
+                                Token(SyntaxKind.ObjectKeyword)))
+                        .WithRankSpecifiers(
+                            SingletonList<ArrayRankSpecifierSyntax>(
+                                ArrayRankSpecifier(
+                                    SingletonSeparatedList<ExpressionSyntax>(
+                                        OmittedArraySizeExpression())))))
+                    .WithVariables(
+                        SingletonSeparatedList<VariableDeclaratorSyntax>(
+                            VariableDeclarator(
+                                Identifier("args"))
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    ImplicitArrayCreationExpression(
+                                        InitializerExpression(
+                                            SyntaxKind.ArrayInitializerExpression,
+                                            SeparatedList<ExpressionSyntax>(
+                                                CreateArgArray(m) )))))))),
+                // bool run = RpcAttribute.OnInvoke(id, this, args);
+                LocalDeclarationStatement(
+                    VariableDeclaration(
+                        PredefinedType(
+                            Token(SyntaxKind.BoolKeyword)))
+                    .WithVariables(
+                        SingletonSeparatedList<VariableDeclaratorSyntax>(
+                            VariableDeclarator(
+                                Identifier("run"))
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    InvocationExpression(
+                                        MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName("RpcAttribute"),
+                                            IdentifierName("OnInvoke")))
+                                    .WithArgumentList(
+                                        ArgumentList(
+                                            SeparatedList<ArgumentSyntax>(
+                                                new SyntaxNodeOrToken[]{
+                                                    Argument(
+                                                        LiteralExpression(
+                                                            SyntaxKind.NumericLiteralExpression,
+                                                            Literal(id))),
+                                                    Token(SyntaxKind.CommaToken),
+                                                    Argument(
+                                                        ThisExpression()),
+                                                    Token(SyntaxKind.CommaToken),
+                                                    Argument(
+                                                        IdentifierName("args"))})))))))),
+                //  if (run)
+                //      base.MyRpc(a, b, c, d);
+                IfStatement(
+                    IdentifierName("run"),
+                    Block(
+                        SingletonList<StatementSyntax>(
+                            ExpressionStatement(
+                                InvocationExpression(
+                                    MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        BaseExpression(),
+                                        IdentifierName(m.Identifier.ValueText)))
+                                .WithArgumentList(
+                                    ArgumentList(
+                                        SeparatedList<ArgumentSyntax>(
+                                            CreateParamArray(m) ))))))),
+                ReturnStatement());
+        }
+
+        private SyntaxNodeOrToken[] CreateArgArray(MethodDeclarationSyntax m)
+        {
+            var arr = new SyntaxNodeOrToken[(m.ParameterList.Parameters.Count * 2) - 1];
+            
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (i % 2 == 0)
+                    arr[i] = IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText);
+                else
+                    arr[i] = Token(SyntaxKind.CommaToken);
+            }
+
+            return arr;
+        }
+
+        private SyntaxNodeOrToken[] CreateParamArray(MethodDeclarationSyntax m)
+        {
+            var arr = new SyntaxNodeOrToken[(m.ParameterList.Parameters.Count * 2) - 1];
+            
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (i % 2 == 0)
+                    arr[i] = Argument(IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText));
+                else
+                    arr[i] = Token(SyntaxKind.CommaToken);
+            }
+
+            return arr;
+        }
+
+        /*
+        creates:
+        object[] args = new object[0];
+        bool run = RpcAttribute.OnInvoke(id, this, args);
+
+        if (run)
+        {
+            base.MyRpc();
+        }
+        return;
+        */
+        private BlockSyntax CreateProxyBodyNoParams(MethodDeclarationSyntax m, uint id)
+        {
+            return Block(
+                // object[] args = new object[0];
+                LocalDeclarationStatement(
+                    VariableDeclaration(
+                        ArrayType(
+                            PredefinedType(
+                                Token(SyntaxKind.ObjectKeyword)))
+                        .WithRankSpecifiers(
+                            SingletonList<ArrayRankSpecifierSyntax>(
+                                ArrayRankSpecifier(
+                                    SingletonSeparatedList<ExpressionSyntax>(
+                                        OmittedArraySizeExpression())))))
+                    .WithVariables(
+                        SingletonSeparatedList<VariableDeclaratorSyntax>(
+                            VariableDeclarator(
+                                Identifier("args"))
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    ArrayCreationExpression(
+                                        ArrayType(
+                                            PredefinedType(
+                                                Token(SyntaxKind.ObjectKeyword)))
+                                        .WithRankSpecifiers(
+                                            SingletonList<ArrayRankSpecifierSyntax>(
+                                                ArrayRankSpecifier(
+                                                    SingletonSeparatedList<ExpressionSyntax>(
+                                                        LiteralExpression(
+                                                            SyntaxKind.NumericLiteralExpression,
+                                                            Literal(0)))))))))))),
+                // bool run = RpcAttribute.OnInvoke(id, this, args);
+                LocalDeclarationStatement(
+                    VariableDeclaration(
+                        PredefinedType(
+                            Token(SyntaxKind.BoolKeyword)))
+                    .WithVariables(
+                        SingletonSeparatedList<VariableDeclaratorSyntax>(
+                            VariableDeclarator(
+                                Identifier("run"))
+                            .WithInitializer(
+                                EqualsValueClause(
+                                    InvocationExpression(
+                                        MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName("RpcAttribute"),
+                                            IdentifierName("OnInvoke")))
+                                    .WithArgumentList(
+                                        ArgumentList(
+                                            SeparatedList<ArgumentSyntax>(
+                                                new SyntaxNodeOrToken[]{
+                                                    Argument(
+                                                        LiteralExpression(
+                                                            SyntaxKind.NumericLiteralExpression,
+                                                            Literal(id))),
+                                                    Token(SyntaxKind.CommaToken),
+                                                    Argument(
+                                                        ThisExpression()),
+                                                    Token(SyntaxKind.CommaToken),
+                                                    Argument(
+                                                        IdentifierName("args"))})))))))),
+                //  if (run)
+                //      base.MyRpc();
+                IfStatement(
+                    IdentifierName("run"),
+                    Block(
+                        SingletonList<StatementSyntax>(
+                            ExpressionStatement(
+                                InvocationExpression(
+                                    MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        BaseExpression(),
+                                        IdentifierName(m.Identifier.ValueText))))))),
+                ReturnStatement());
         }
     }
 }

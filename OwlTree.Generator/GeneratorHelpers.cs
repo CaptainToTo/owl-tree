@@ -30,9 +30,9 @@ namespace OwlTree.Generator
         // attributes
         public const string AttrTk_Rpc = "Rpc";
         public const string AttrTk_AssignRpcId = "AssignRpcId";
-        public const string AttrTk_RpcIdEnum = "RpcIdEnum";
-        public const string AttrTk_RpcIdConst = "RpcIdConst";
         public const string AttrTk_RpcIdRegistry = "RpcIdRegistry";
+        public const string AttrTk_RpcCaller = "RpcCaller";
+        public const string AttrTk_RpcCallee = "RpcCallee";
 
         // int types
         public const string Tk_Byte = "byte";
@@ -50,6 +50,22 @@ namespace OwlTree.Generator
         public const string Tk_Int64 = "Int64";
 
         // * helpers
+        
+        /// <summary>
+        /// Checks if the given method is virtual.
+        /// </summary>
+        public static bool IsVirtual(MethodDeclarationSyntax m)
+        {
+            return m.Modifiers.Any(mod => mod.IsKind(SyntaxKind.VirtualKeyword));
+        }
+
+        /// <summary>
+        /// Checks if the given method has no return type.
+        /// </summary>
+        public static bool IsProcedure(MethodDeclarationSyntax m)
+        {
+            return m.ReturnType.GetFirstToken().IsKind(SyntaxKind.VoidKeyword);
+        }
 
         /// <summary>
         /// Checks if the given bass class name is in the given class declaration's base list.
@@ -60,7 +76,7 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
-        /// Checks if the given class is static.
+        /// Checks if the given member is static.
         /// </summary>
         public static bool IsStatic(MemberDeclarationSyntax c)
         {
@@ -89,7 +105,7 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
-        /// Gets the name of given variable.
+        /// Gets the name of the given variable.
         /// </summary>
         public static string GetFieldName(FieldDeclarationSyntax field)
         {
@@ -119,7 +135,8 @@ namespace OwlTree.Generator
 
         /// <summary>
         /// Fills the names list all versions of the accessor strings that could be used to access the given node.
-        /// The token argument is the name of that node, used to start the accessor chain.
+        /// The token argument is the name of that node, used to start the accessor chain.<br />
+        /// The node "MyVar", will create: "MyVar", "MyClass.MyVar", "MyNamespace.MyClass.MyVar", etc.
         /// </summary>
         public static void GetAllNames(string token, SyntaxNode node, List<string> names)
         {
@@ -268,6 +285,26 @@ namespace OwlTree.Generator
             }
 
             return -1;
+        }
+
+        /// <summary>
+        /// Checks if a given token defines a member scope (public, private, etc).
+        /// </summary>
+        public static bool IsScopeToken(SyntaxToken t)
+        {
+            return t.IsKind(SyntaxKind.PublicKeyword) || t.IsKind(SyntaxKind.PrivateKeyword) ||
+                t.IsKind(SyntaxKind.ProtectedKeyword) || t.IsKind(SyntaxKind.InterfaceKeyword);
+        }
+
+        /// <summary>
+        /// Gets the scope for the given method (public, private, etc).
+        /// </summary>
+        public static SyntaxKind GetMethodScope(MethodDeclarationSyntax m)
+        {
+            var found = m.Modifiers.Where(mod => IsScopeToken(mod)).FirstOrDefault().Kind();
+            if (found == SyntaxKind.None)
+                return SyntaxKind.PrivateKeyword;
+            return found;
         }
     }
 }
