@@ -17,6 +17,24 @@ static class IdRegistry
     }
 }
 
+public class TestEncodable : IEncodable
+{
+    public int ByteLength()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void FromBytes(ReadOnlySpan<byte> bytes)
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool InsertBytes(Span<byte> bytes)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 class Program
 {
     static Radio? radio = null;

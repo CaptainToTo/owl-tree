@@ -16,42 +16,31 @@ namespace OwlTree.Generator
     /// </summary>
     [Generator]
     public class OwlTreeGenerator : IIncrementalGenerator
-    {
-        // public static T Create<T>(T target) where T : NetworkObject
-        // {
-        //     var proxy = Create<T, RpcInterceptor>();
-        //     var interceptor = proxy as RpcInterceptor;
-        //     interceptor._instance = target;
-        //     return proxy;
-        // }
-
-        // // the proxied object
-        // private NetworkObject _instance = null;
-
-        // // run RPC encoding & send procedure instead of actual method
-        // protected override object Invoke(MethodInfo targetMethod, object[] args)
-        // {
-        //     // check if the proxied method is a RPC
-        //     if (RpcAttribute.IsRpc(targetMethod))
-        //     {
-        //         bool run = RpcAttribute.OnInvoke(targetMethod, _instance, args);
-        //         // run the RPC body on the caller client if marked to do so
-        //         if (run)
-        //         {
-        //             return targetMethod.Invoke(_instance, args);
-        //         }
-        //         return null;
-        //     }
-        //     // run a non-RPC method like normal
-        //     return targetMethod.Invoke(_instance, args);
-        // }
-        
+    {        
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
+            // reset generator state
+            GeneratorState.ClearEncodables();
+            GeneratorState.ClearConsts();
+            GeneratorState.ClearEnums();
+            GeneratorState.ClearRpcIds();
+            AddPrimitives();
+            AddBuiltIns();
+
+            // cache IEncodable types
+            var encodableProvider = context.SyntaxProvider.CreateSyntaxProvider(
+                predicate: static (node, _) => node is TypeDeclarationSyntax c && Helpers.InheritsFrom(c, Helpers.Tk_IEncodable),
+                transform: static (ctx, _) => (TypeDeclarationSyntax)ctx.Node
+            ).Where(n => n is not null);
+
+            var encodableCompilation = context.CompilationProvider.Combine(encodableProvider.Collect());
+
+            context.RegisterSourceOutput(encodableCompilation, CacheEncodables);
+
             // pre-solve const and enum values
             var registryProvider = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_RpcIdRegistry),
-                transform: (ctx, _) => (ClassDeclarationSyntax)ctx.Node
+                transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node
             ).Where(n => n is not null);
 
             var registryCompilation = context.CompilationProvider.Combine(registryProvider.Collect());
@@ -67,6 +56,82 @@ namespace OwlTree.Generator
             var compilation = context.CompilationProvider.Combine(provider.Collect());
 
             context.RegisterSourceOutput(compilation, GenerateProxies);
+        }
+
+        private void AddBuiltIns()
+        {
+            GeneratorState.AddEncodable(Helpers.Tk_RpcId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_RpcId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_ClientId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_ClientId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_AppId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_AppId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkId, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkBitSet, true);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkBitSet, true);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkDict, true);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkDict, true);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkList, true);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkList, true);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkString, true);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkString, true);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkVec2, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkVec2, false);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkVec3, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkVec3, false);
+            GeneratorState.AddEncodable(Helpers.Tk_NetworkVec4, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkVec4, false);
+        }
+
+        private void AddPrimitives()
+        {
+            GeneratorState.AddEncodable(Helpers.Tk_Byte, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_UShort, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Short, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_UInt, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Int, false);
+            GeneratorState.AddEncodable(Helpers.Tk_UInt32, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Int32, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_Float, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_ULong, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Long, false);
+            GeneratorState.AddEncodable(Helpers.Tk_UInt64, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Int64, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_Double, false);
+
+            GeneratorState.AddEncodable(Helpers.Tk_String, false);
+        }
+
+        private void CacheEncodables(SourceProductionContext context, (Compilation Left, ImmutableArray<TypeDeclarationSyntax> Right) tuple)
+        {
+            var (compilation, list) = tuple;
+
+            if (list.Length == 0)
+                return;
+            
+            var names = new List<string>();
+
+            foreach (var encodable in list)
+            {
+                names.Clear();
+                Helpers.GetAllNames(encodable.Identifier.ValueText, encodable, names);
+                bool isVariable = Helpers.InheritsFrom(encodable, Helpers.Tk_IVariable);
+
+                if (!GeneratorState.HasEncodable(names.Last()))
+                {
+                    foreach (var name in names)
+                        GeneratorState.AddEncodable(name, isVariable);
+                }
+            }
+
+            File.WriteAllText(EnvConsts.ProjectPath + "encodable-out.txt", GeneratorState.GetEncodablesString());
         }
 
         private void SolveConstAndEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
@@ -96,8 +161,6 @@ namespace OwlTree.Generator
 
         private void SolveConstValues(SourceProductionContext context, IEnumerable<FieldDeclarationSyntax> fields)
         {
-            GeneratorState.ClearConsts();
-
             // add built in first rpc id const
             GeneratorState.AddConst(Helpers.Tk_FirstId, (int)Helpers.FIRST_RPC_ID);
             GeneratorState.AddConst(Helpers.Tk_FirstIdWithClass, (int)Helpers.FIRST_RPC_ID);
@@ -214,6 +277,12 @@ namespace OwlTree.Generator
                 if (Helpers.IsStatic(m))
                 {
                     Diagnostics.StaticRpc(context, m);
+                    continue;
+                }
+
+                if (!Helpers.IsEncodable(m.ParameterList, out var err))
+                {
+                    Diagnostics.NonEncodableRpcParam(context, m, err);
                     continue;
                 }
 
@@ -399,7 +468,19 @@ namespace OwlTree.Generator
             for (int i = 0; i < arr.Length; i++)
             {
                 if (i % 2 == 0)
-                    arr[i] = IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText);
+                {
+                    if (Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCaller))
+                    {
+                        arr[i] = MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName(Helpers.Tk_Connection),
+                                    IdentifierName(Helpers.Tk_LocalId));
+                    }
+                    else
+                    {
+                        arr[i] = IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText);
+                    }
+                }
                 else
                     arr[i] = Token(SyntaxKind.CommaToken);
             }
@@ -414,7 +495,17 @@ namespace OwlTree.Generator
             for (int i = 0; i < arr.Length; i++)
             {
                 if (i % 2 == 0)
-                    arr[i] = Argument(IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText));
+                    if (Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCaller))
+                    {
+                        arr[i] = Argument(MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName(Helpers.Tk_Connection),
+                                    IdentifierName(Helpers.Tk_LocalId)));
+                    }
+                    else
+                    {
+                        arr[i] = Argument(IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText));
+                    }
                 else
                     arr[i] = Token(SyntaxKind.CommaToken);
             }

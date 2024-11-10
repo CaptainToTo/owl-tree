@@ -11,6 +11,34 @@ namespace OwlTree.Generator
     /// </summary>
     internal static class GeneratorState
     {
+        // IEncodable Cache =====================
+        
+        static Dictionary<string, bool> _encodables = new();
+
+        public static void ClearEncodables() => _encodables.Clear();
+
+        public static void AddEncodable(string k, bool isVariable) => _encodables.Add(k, isVariable);
+
+        public static bool HasEncodable(string k) => _encodables.ContainsKey(k);
+
+        public static bool EncodableIsVariable(string k) => _encodables[k];
+
+        public static Dictionary<string, bool>.Enumerator GetEncodables() => _encodables.GetEnumerator();
+
+        public static string GetEncodablesString()
+        {
+            var str = new StringBuilder("cached IEncodables:\n");
+            var isVariable = "is variable";
+            var isFixed = "is fixed size";
+
+            foreach (var pair in _encodables)
+                str.Append($"{pair.Key} : {(pair.Value ? isVariable : isFixed)}\n");
+
+            return str.ToString();
+        }
+
+        // ======================================
+
         // Consts Cache =========================
 
         static Dictionary<string, int> _consts = new();

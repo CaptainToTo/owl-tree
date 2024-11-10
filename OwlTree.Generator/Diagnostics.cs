@@ -37,7 +37,8 @@ namespace OwlTree.Generator
             BadRpcIdAssignment,
             DuplicateRpcIds,
             MultipleIdRegistries,
-            NonStaticRegistry
+            NonStaticRegistry,
+            NonEncodableRpcParam
         }
 
         public static string GetId(Ids id)
@@ -169,6 +170,23 @@ namespace OwlTree.Generator
                     isEnabledByDefault: true),
                 c.GetLocation(),
                 Helpers.GetFullName(c.Identifier.ValueText, c));
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        public static void NonEncodableRpcParam(SourceProductionContext context, MethodDeclarationSyntax m, ParameterSyntax p)
+        {
+            
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.NonEncodableRpcParam),
+                    "RPC Parameter Is Not Encodable",
+                    "RPC method '{0}' has a non-encodable parameter '{1}' of type '{2}'. RPC parameters must all be encodable.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                p.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText, p.Type.ToString());
 
             context.ReportDiagnostic(diagnostic);
         }

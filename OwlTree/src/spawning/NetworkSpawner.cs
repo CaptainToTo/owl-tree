@@ -9,12 +9,8 @@ namespace OwlTree
     /// </summary>
     public class NetworkSpawner
     {
-        // map NetworkObject sub-types to specific encodings
-        private static Dictionary<Type, byte> _typeToIds = new Dictionary<Type, byte>();
-        private static Dictionary<byte, Type> _idsToType = new Dictionary<byte, Type>();
-
         /// <summary>
-        /// The id reserved for signifying the bae NetworkObject type.
+        /// The id reserved for signifying the base NetworkObject type.
         /// </summary>
         public const byte NETWORK_BASE_TYPE_ID = 1;
         /// <summary>
@@ -22,37 +18,36 @@ namespace OwlTree
         /// </summary>
         public const byte FIRST_NETWORK_TYPE_ID = 2;
 
-        private static bool _initialized = false;
-
         /// <summary>
         /// Initialize spawner, requires a NetworkBuffer for sending spawn and destroy messages.
         /// </summary>
-        public NetworkSpawner(Connection connection)
+        public NetworkSpawner(Connection connection, ProxyFactory proxyFactory)
         {
-            if (!_initialized)
-            {
-                byte id = 1;
-                _typeToIds.Add(typeof(NetworkObject), id);
-                _idsToType.Add(id, typeof(NetworkObject));
+            // if (!_initialized)
+            // {
+            //     byte id = 1;
+            //     _typeToIds.Add(typeof(NetworkObject), id);
+            //     _idsToType.Add(id, typeof(NetworkObject));
 
-                id += 1;
+            //     id += 1;
 
-                var subClasses = NetworkObject.GetNetworkObjectTypes().ToArray()
-                    .OrderBy(t => (t.CustomAttributes.Any(a => a.AttributeType == typeof(AssignTypeIdAttribute)) ? "0" : "1") + t.Name);
+            //     var subClasses = NetworkObject.GetNetworkObjectTypes().ToArray()
+            //         .OrderBy(t => (t.CustomAttributes.Any(a => a.AttributeType == typeof(AssignTypeIdAttribute)) ? "0" : "1") + t.Name);
 
-                foreach (var subClass in subClasses)
-                {
-                    if (_typeToIds.ContainsKey(subClass)) continue;
-                    var assignedId = (AssignTypeIdAttribute[])subClass.GetCustomAttributes(typeof(AssignTypeIdAttribute), false);
-                    if (assignedId != null)
-                        id = assignedId[0].Id;
-                    _typeToIds.Add(subClass, id);
-                    _idsToType.Add(id, subClass);
-                    id++;
-                }
-            }
+            //     foreach (var subClass in subClasses)
+            //     {
+            //         if (_typeToIds.ContainsKey(subClass)) continue;
+            //         var assignedId = (AssignTypeIdAttribute[])subClass.GetCustomAttributes(typeof(AssignTypeIdAttribute), false);
+            //         if (assignedId != null)
+            //             id = assignedId[0].Id;
+            //         _typeToIds.Add(subClass, id);
+            //         _idsToType.Add(id, subClass);
+            //         id++;
+            //     }
+            // }
 
             _connection = connection;
+            _proxyFactory = proxyFactory;
         }
 
         // all active network objects
@@ -77,6 +72,7 @@ namespace OwlTree
         }
 
         private Connection _connection;
+        private ProxyFactory _proxyFactory;
 
         /// <summary>
         /// Invoked when a new object is spawned. Provides the spawned object. 
@@ -95,7 +91,7 @@ namespace OwlTree
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
-            var newObj = new T();
+            var newObj = _proxyFactory.CreateProxy(new T());
             newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
@@ -112,10 +108,10 @@ namespace OwlTree
         /// </summary>
         public NetworkObject Spawn(Type t)
         {
-            if (!_typeToIds.ContainsKey(t))
+            if (!_proxyFactory.HasTypeId(t))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
             
-            var newObj = (NetworkObject)Activator.CreateInstance(t);
+            var newObj = _proxyFactory.CreateProxy((NetworkObject)Activator.CreateInstance(t));
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -145,13 +141,13 @@ namespace OwlTree
         // run spawn on client
         private void ReceiveSpawn(Type t, NetworkId id)
         {
-            if (!_typeToIds.ContainsKey(t))
+            if (!_proxyFactory.HasTypeId(t))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
 
             if (_netObjects.ContainsKey(id))
                 return;
             
-            var newObj = (NetworkObject)Activator.CreateInstance(t);
+            var newObj = _proxyFactory.CreateProxy((NetworkObject)Activator.CreateInstance(t));
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -168,7 +164,7 @@ namespace OwlTree
         internal static int SpawnByteLength { get { return RpcId.MaxLength() + 1 + NetworkId.MaxLength(); } }
 
         // encodes spawn into byte array for send
-        internal static void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
+        internal void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
         {
             int ind = 0;
 
@@ -177,14 +173,14 @@ namespace OwlTree
             rpcId.InsertBytes(rpcSpan);
             ind += rpcId.ByteLength();
 
-            bytes[rpcId.ByteLength()] = _typeToIds[objType];
+            bytes[rpcId.ByteLength()] = _proxyFactory.TypeId(objType);
             ind += 1;
 
             var idSpan = bytes.Slice(ind, id.ByteLength());
             id.InsertBytes(idSpan);
         }
 
-        internal static string SpawnEncodingSummary(Type objType, NetworkId id)
+        internal string SpawnEncodingSummary(Type objType, NetworkId id)
         {
             string title = "Spawn Network Object of type <" + objType.Name + "> w/ Id " + id.ToString() + ":\n";
             byte[] bytes = new byte[SpawnByteLength];
@@ -264,7 +260,7 @@ namespace OwlTree
             switch(rpcId.Id)
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
-                    var objType = _idsToType[(byte)args[0]];
+                    var objType = _proxyFactory.TypeFromId((byte)args[0]);
                     var id = (NetworkId)args[1];
                     ReceiveSpawn(objType, id);
                     break;

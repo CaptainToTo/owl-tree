@@ -189,7 +189,7 @@ namespace OwlTree
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
 
-            _spawner = new NetworkSpawner(this);
+            _spawner = new NetworkSpawner(this, (ProxyFactory)Activator.CreateInstance(ProxyFactory.AssignedProxyFactory));
 
             _spawner.OnObjectSpawn = (obj) => {
                 _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
@@ -416,9 +416,9 @@ namespace OwlTree
             if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
             {
                 message.bytes = new byte[NetworkSpawner.SpawnByteLength];
-                NetworkSpawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
                 if (_logger.IncludesVerbose)
-                    _logger.Write(Logger.LogRule.Verbose, NetworkSpawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                    _logger.Write(Logger.LogRule.Verbose, _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
             {

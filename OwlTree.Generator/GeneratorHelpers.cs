@@ -18,9 +18,28 @@ namespace OwlTree.Generator
         // * tokens
 
         // classes and namespaces
-        public const string Tk_OwlTreeNamespace = "OwlTree";
+        public const string Tk_OwlTree = "OwlTree";
         public const string Tk_NetworkObject = "NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";
+        public const string Tk_IEncodable = "IEncodable";
+        public const string Tk_IVariable = "IVariable";
+
+        public const string Tk_RpcId = "RpcId";
+        public const string Tk_ClientId = "ClientId";
+        public const string Tk_AppId = "AppId";
+        public const string Tk_NetworkId = "NetworkId";
+
+        public const string Tk_NetworkBitSet = "NetworkBitSet";
+        public const string Tk_NetworkDict = "NetworkDict";
+        public const string Tk_NetworkList = "NetworkList";
+        public const string Tk_NetworkString = "NetworkString";
+        public const string Tk_NetworkVec2 = "NetworkVec2";
+        public const string Tk_NetworkVec3 = "NetworkVec3";
+        public const string Tk_NetworkVec4 = "NetworkVec4";
+
+        // owl tree accessors
+        public const string Tk_Connection = "Connection";
+        public const string Tk_LocalId = "LocalId";
 
         // first rpc id tokens
         public const string Tk_FirstId = "FIRST_RPC_ID";
@@ -33,6 +52,7 @@ namespace OwlTree.Generator
         public const string AttrTk_RpcIdRegistry = "RpcIdRegistry";
         public const string AttrTk_RpcCaller = "RpcCaller";
         public const string AttrTk_RpcCallee = "RpcCallee";
+        public const string AttrTk_AssignTypeId = "AssignTypeId";
 
         // int types
         public const string Tk_Byte = "byte";
@@ -48,6 +68,10 @@ namespace OwlTree.Generator
         public const string Tk_UInt64 = "UInt64";
         public const string Tk_Long = "long";
         public const string Tk_Int64 = "Int64";
+
+        public const string Tk_Float = "float";
+        public const string Tk_Double = "double";
+        public const string Tk_String = "string";
 
         // * helpers
         
@@ -68,9 +92,9 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
-        /// Checks if the given bass class name is in the given class declaration's base list.
+        /// Checks if the given base class name is in the given class declaration's base list.
         /// </summary>
-        public static bool InheritsFrom(ClassDeclarationSyntax c, string baseClass)
+        public static bool InheritsFrom(TypeDeclarationSyntax c, string baseClass)
         {
             return c.BaseList?.Types.Any(t => t.Type is IdentifierNameSyntax idn && idn.Identifier.ValueText == baseClass) ?? false;
         }
@@ -305,6 +329,30 @@ namespace OwlTree.Generator
             if (found == SyntaxKind.None)
                 return SyntaxKind.PrivateKeyword;
             return found;
+        }
+
+        public static string RemoveTemplateType(string tStr)
+        {
+            var ind = tStr.IndexOf('<');
+            return tStr.Substring(0, ind == -1 ? tStr.Length : ind);
+        }
+
+        /// <summary>
+        /// Checks if all the parameters of a method have an encodable type.
+        /// If a parameter is found that isn't encodable, returns that parameter in the err argument.
+        /// </summary>
+        public static bool IsEncodable(ParameterListSyntax paramList, out ParameterSyntax err)
+        {
+            foreach (var p in paramList.Parameters)
+            {
+                if (!GeneratorState.HasEncodable(RemoveTemplateType(p.Type.ToString())))
+                {
+                    err = p;
+                    return false;
+                }
+            }
+            err = null;
+            return true;
         }
     }
 }
