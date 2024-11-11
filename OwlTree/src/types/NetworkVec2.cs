@@ -62,11 +62,10 @@ namespace OwlTree
             y = BitConverter.ToSingle(bytes.Slice(4));
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             BitConverter.TryWriteBytes(bytes, x);
             BitConverter.TryWriteBytes(bytes.Slice(4), y);
-            return true;
         }
 
         // operators

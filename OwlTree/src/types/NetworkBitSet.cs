@@ -140,13 +140,12 @@ namespace OwlTree
             }
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             for (int i = 0; i < bytes.Length; i++)
             {
                 bytes[i] = _set[i];
             }
-            return true;
         }
 
         public override string ToString()

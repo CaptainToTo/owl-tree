@@ -92,14 +92,12 @@ namespace OwlTree
 
         /// <summary>
         /// Inserts id as bytes into the given span.
-        /// Returns true if insertion was successful, false if there wasn't enough space in the span.
         /// </summary>
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             if (bytes.Length < 4)
-                return false;
+                return;
             BitConverter.TryWriteBytes(bytes, _id);
-            return true;
         }
 
         public int ByteLength() { return 4; }

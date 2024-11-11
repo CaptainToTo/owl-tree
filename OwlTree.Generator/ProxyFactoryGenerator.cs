@@ -7,8 +7,9 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 namespace OwlTree.Generator
 {
     /// <summary>
-    /// Creates the project's proxy factory file. Incrementally feed this class network object proxies to
-    /// add then to the factory.
+    /// Creates the project's proxy factory file. Incrementally feed this class network object class declarations to
+    /// add them to the factory with <c>AddClass()</c>. 
+    /// Once all network objects are added to the factory, generate the full factory class with <c>GetFactory()</c>.
     /// </summary>
     public static class ProxyFactoryGenerator
     {

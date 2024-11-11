@@ -56,10 +56,9 @@ namespace OwlTree
             _str = _str.Substring(0, Math.Min(_str.Length, Capacity));
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             Encoding.UTF8.GetBytes(_str, bytes);
-            return true;
         }
 
         public int MaxLength()

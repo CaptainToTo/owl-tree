@@ -157,7 +157,7 @@ namespace OwlTree
             }
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             BitConverter.TryWriteBytes(bytes, Count);
 
@@ -173,8 +173,6 @@ namespace OwlTree
                 RpcProtocol.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
                 ind += valLen;
             }
-
-            return true;
         }
 
         public int MaxLength()

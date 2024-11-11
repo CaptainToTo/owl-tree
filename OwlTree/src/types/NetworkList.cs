@@ -7,7 +7,7 @@ namespace OwlTree
     /// <summary>
     /// A variable length list of IEncodable objects. NetworkLists have a fixed capacity.
     /// </summary>
-    public class NetworkList<C, T> : IEncodable, IVariableLength, IEnumerable<T> where C : ICapacity
+    public class NetworkList<C, T> : IEncodable, IVariableLength, IEnumerable<T> where C : ICapacity, new()
     {
         private List<T> _list;
 
@@ -27,7 +27,7 @@ namespace OwlTree
 
         public NetworkList()
         {
-            int capacity = ((ICapacity)Activator.CreateInstance(typeof(C))).Capacity();
+            int capacity = new C().Capacity();
             if (capacity <= 0)
                 throw new ArgumentException("NetworkList capacity must be greater than 0.");
             Capacity = capacity;
@@ -129,7 +129,7 @@ namespace OwlTree
             }
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
             BitConverter.TryWriteBytes(bytes, Count);
 
@@ -140,8 +140,6 @@ namespace OwlTree
                 RpcProtocol.InsertBytes(bytes.Slice(ind, len), elem);
                 ind += len;
             }
-
-            return true;
         }
 
         public int MaxLength()

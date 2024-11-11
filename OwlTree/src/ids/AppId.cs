@@ -50,10 +50,9 @@ namespace OwlTree
             _id = Encoding.ASCII.GetString(bytes);
         }
 
-        public bool InsertBytes(Span<byte> bytes)
+        public void InsertBytes(Span<byte> bytes)
         {
-            Encoding.ASCII.GetBytes(_id, bytes);
-            return true;
+            Encoding.ASCII.GetBytes(_id, bytes);;
         }
 
         public static bool operator ==(AppId a, AppId b)
