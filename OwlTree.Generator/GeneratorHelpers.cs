@@ -14,6 +14,7 @@ namespace OwlTree.Generator
     {
         // generator consts
         public const uint FIRST_RPC_ID = 10; // ! needs to match RpcId.FIRST_RPC_ID
+        public const byte FIRST_NETWORK_TYPE_ID = 2; // ! needs to match NetworkSpawner.FIRST_NETWORK_TYPE_ID
 
         // * tokens
 
@@ -49,7 +50,7 @@ namespace OwlTree.Generator
         // attributes
         public const string AttrTk_Rpc = "Rpc";
         public const string AttrTk_AssignRpcId = "AssignRpcId";
-        public const string AttrTk_RpcIdRegistry = "RpcIdRegistry";
+        public const string AttrTk_IdRegistry = "IdRegistry";
         public const string AttrTk_RpcCaller = "RpcCaller";
         public const string AttrTk_RpcCallee = "RpcCallee";
         public const string AttrTk_AssignTypeId = "AssignTypeId";
@@ -262,9 +263,9 @@ namespace OwlTree.Generator
 
         /// <summary>
         /// Tries to get an assigned RPC id value from the given attribute.
-        /// This attribute should be an AssignRpcIdAttribute.
+        /// This attribute should be an AssignRpcIdAttribute or AssignTypeIdAttribute.
         /// </summary>
-        public static int GetAssignedRpcId(AttributeSyntax attr)
+        public static int GetAssignedId(AttributeSyntax attr)
         {
             var arg = attr.ArgumentList.Arguments.FirstOrDefault();
 

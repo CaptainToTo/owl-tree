@@ -189,7 +189,7 @@ namespace OwlTree
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
 
-            _spawner = new NetworkSpawner(this, (ProxyFactory)Activator.CreateInstance(ProxyFactory.AssignedProxyFactory));
+            _spawner = new NetworkSpawner(this, ProxyFactory.GetProjectImplementation());
 
             _spawner.OnObjectSpawn = (obj) => {
                 _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);

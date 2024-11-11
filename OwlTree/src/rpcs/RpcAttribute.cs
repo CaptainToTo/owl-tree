@@ -61,7 +61,7 @@ namespace OwlTree
     /// There should only ever be 1 RpcIdRegistry per project.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class RpcIdRegistryAttribute : Attribute { }
+    public class IdRegistryAttribute : Attribute { }
 
     /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.

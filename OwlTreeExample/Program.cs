@@ -1,6 +1,6 @@
 ﻿using OwlTree;
 
-[RpcIdRegistry]
+[IdRegistry]
 static class IdRegistry
 {
     public const int FirstRpcId = 30;
@@ -17,24 +17,6 @@ static class IdRegistry
     }
 }
 
-public class TestEncodable : IEncodable
-{
-    public int ByteLength()
-    {
-        throw new NotImplementedException();
-    }
-
-    public void FromBytes(ReadOnlySpan<byte> bytes)
-    {
-        throw new NotImplementedException();
-    }
-
-    public bool InsertBytes(Span<byte> bytes)
-    {
-        throw new NotImplementedException();
-    }
-}
-
 class Program
 {
     static Radio? radio = null;
@@ -43,7 +25,7 @@ class Program
 
     public class ClassA : NetworkObject
     {
-        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId((int)IdRegistry.ExampleRpcIds.C)]
+        [Rpc(RpcCaller.Any, InvokeOnCaller = true, RpcProtocol = Protocol.Tcp), AssignRpcId((int)IdRegistry.ExampleRpcIds.B)]
         public virtual void Test() {
             Console.WriteLine("instance");
         }

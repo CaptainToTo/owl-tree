@@ -34,6 +34,8 @@ namespace OwlTree.Generator
             NonVoidRpc,
             StaticRpc,
             BadRpcIdConst,
+            BadTypeIdAssignment,
+            DuplicateTypeIds,
             BadRpcIdAssignment,
             DuplicateRpcIds,
             MultipleIdRegistries,
@@ -106,6 +108,38 @@ namespace OwlTree.Generator
                     isEnabledByDefault: true),
                 field.GetLocation(),
                 Helpers.GetFieldName(field));
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        public static void BadTypeIdAssignment(SourceProductionContext context, ClassDeclarationSyntax c, AttributeSyntax attr)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.BadTypeIdAssignment),
+                    "Invalid Assign Type Id Value",
+                    "NetworkObject type '{0}' can only have its type id assigned with a literal integer, or a constant or enum value from an id registry.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                attr.GetLocation(),
+                Helpers.GetFullName(c.Identifier.ValueText, c));
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        public static void DuplicateTypeIds(SourceProductionContext context, ClassDeclarationSyntax c, byte id)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.DuplicateTypeIds),
+                    "Duplicate Type Ids",
+                    "NetworkObject type '{0}' cannot have the same id '{1}' as another NetworkObject type.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                c.GetLocation(),
+                Helpers.GetFullName(c.Identifier.ValueText, c), id);
 
             context.ReportDiagnostic(diagnostic);
         }

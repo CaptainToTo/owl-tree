@@ -23,29 +23,6 @@ namespace OwlTree
         /// </summary>
         public NetworkSpawner(Connection connection, ProxyFactory proxyFactory)
         {
-            // if (!_initialized)
-            // {
-            //     byte id = 1;
-            //     _typeToIds.Add(typeof(NetworkObject), id);
-            //     _idsToType.Add(id, typeof(NetworkObject));
-
-            //     id += 1;
-
-            //     var subClasses = NetworkObject.GetNetworkObjectTypes().ToArray()
-            //         .OrderBy(t => (t.CustomAttributes.Any(a => a.AttributeType == typeof(AssignTypeIdAttribute)) ? "0" : "1") + t.Name);
-
-            //     foreach (var subClass in subClasses)
-            //     {
-            //         if (_typeToIds.ContainsKey(subClass)) continue;
-            //         var assignedId = (AssignTypeIdAttribute[])subClass.GetCustomAttributes(typeof(AssignTypeIdAttribute), false);
-            //         if (assignedId != null)
-            //             id = assignedId[0].Id;
-            //         _typeToIds.Add(subClass, id);
-            //         _idsToType.Add(id, subClass);
-            //         id++;
-            //     }
-            // }
-
             _connection = connection;
             _proxyFactory = proxyFactory;
         }

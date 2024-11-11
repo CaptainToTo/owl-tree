@@ -112,6 +112,36 @@ namespace OwlTree.Generator
             return false;
         }
 
+        // Network Object Type Cache =============
+
+        static Dictionary<string, byte> _typeIds = new();
+
+        public static void ClearTypeIds() => _typeIds.Clear();
+
+        public static void AddTypeId(string k, byte v) => _typeIds.Add(k, v);
+
+        public static bool HasType(string k) => _typeIds.ContainsKey(k);
+
+        public static bool HasTypeId(byte v) => _typeIds.ContainsValue(v);
+
+        public static byte GetTypeId(string k) => _typeIds[k];
+
+        public static string GetType(byte v) => _rpcIds.Where(p => p.Value == v).FirstOrDefault().Key;
+
+        public static Dictionary<string, byte>.Enumerator GetTypeIds() => _typeIds.GetEnumerator();
+
+        public static string GetTypeIdsString()
+        {
+            var str = new StringBuilder();
+
+            foreach (var pair in _typeIds)
+                str.Append($"{pair.Key} : {pair.Value}\n");
+
+            return str.ToString();
+        }
+
+        // =======================================
+
         // Rpc Id Cache ==========================
         
         static Dictionary<string, uint> _rpcIds = new();
