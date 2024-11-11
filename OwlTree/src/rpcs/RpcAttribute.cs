@@ -57,8 +57,8 @@ namespace OwlTree
     }
 
     /// <summary>
-    /// Mark a static class as a registry for RPC ids, using consts and enums.
-    /// There should only ever be 1 RpcIdRegistry per project.
+    /// Mark a static class as a registry for RPC and type ids, using consts and enums.
+    /// There should only ever be 1 IdRegistry per project.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class IdRegistryAttribute : Attribute { }
