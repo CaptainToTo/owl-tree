@@ -222,7 +222,7 @@ namespace OwlTree.Generator
                         CaseSwitchLabel(
                             LiteralExpression(
                                 SyntaxKind.NumericLiteralExpression,
-                                Literal(3)))))
+                                Literal(id)))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
