@@ -10,6 +10,16 @@ namespace OwlTree
     /// </summary>
     public class NetworkObject
     {
+
+        /// <summary>
+        /// The id reserved for signifying the base NetworkObject type.
+        /// </summary>
+        internal const byte NETWORK_BASE_TYPE_ID = 1;
+        /// <summary>
+        /// The first valid id for derived network object types.
+        /// </summary>
+        public const byte FIRST_TYPE_ID = 2;
+
         // collect all sub-types
         internal static IEnumerable<Type> GetNetworkObjectTypes()
         {

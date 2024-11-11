@@ -15,6 +15,13 @@ static class IdRegistry
         E,
         F
     }
+
+    public enum TypeIds
+    {
+        A = NetworkObject.FIRST_TYPE_ID,
+        B,
+        C
+    }
 }
 
 public class TestA : NetworkObject {}

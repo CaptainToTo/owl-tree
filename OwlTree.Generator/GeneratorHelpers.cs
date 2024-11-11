@@ -14,6 +14,7 @@ namespace OwlTree.Generator
     {
         // generator consts
         public const uint FIRST_RPC_ID = 10; // ! needs to match RpcId.FIRST_RPC_ID
+        public const uint FIRST_TYPE_ID = 2; // ! needs to match NetworkObject.FIRST_TYPE_ID
         public const byte FIRST_NETWORK_TYPE_ID = 2; // ! needs to match NetworkSpawner.FIRST_NETWORK_TYPE_ID
 
         // * tokens
@@ -45,10 +46,14 @@ namespace OwlTree.Generator
         public const string Tk_Connection = "Connection";
         public const string Tk_LocalId = "LocalId";
 
-        // first rpc id tokens
-        public const string Tk_FirstId = "FIRST_RPC_ID";
-        public const string Tk_FirstIdWithClass = "RpcId.FIRST_RPC_ID";
-        public const string Tk_FirstIdWithNamespace = "OwlTree.RpcId.FIRST_RPC_ID";
+        // first id tokens
+        public const string Tk_FirstRpcId = "FIRST_RPC_ID";
+        public const string Tk_FirstRpcIdWithClass = "RpcId.FIRST_RPC_ID";
+        public const string Tk_FirstRpcIdWithNamespace = "OwlTree.RpcId.FIRST_RPC_ID";
+
+        public const string Tk_FirstTypeId = "FIRST_TYPE_ID";
+        public const string Tk_FirstTypeIdWithClass = "NetworkObject.FIRST_TYPE_ID";
+        public const string Tk_FirstTypeIdWithNamespace = "OwlTree.NetworkObject.FIRST_TYPE_ID";
 
         // attributes
         public const string AttrTk_Rpc = "Rpc";

@@ -10,15 +10,6 @@ namespace OwlTree
     public class NetworkSpawner
     {
         /// <summary>
-        /// The id reserved for signifying the base NetworkObject type.
-        /// </summary>
-        public const byte NETWORK_BASE_TYPE_ID = 1;
-        /// <summary>
-        /// The first valid id for derived network object types.
-        /// </summary>
-        public const byte FIRST_NETWORK_TYPE_ID = 2;
-
-        /// <summary>
         /// Initialize spawner, requires a NetworkBuffer for sending spawn and destroy messages.
         /// </summary>
         public NetworkSpawner(Connection connection, ProxyFactory proxyFactory)
