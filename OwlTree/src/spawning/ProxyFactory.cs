@@ -22,9 +22,9 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Creates a new proxy that wraps the given NetworkObject instance.
+        /// Creates a new proxy for the given user defined NetworkObject type.
         /// </summary>
-        public abstract T CreateProxy<T>(T instance) where T : NetworkObject;
+        public abstract NetworkObject CreateProxy(Type t);
 
         /// <summary>
         /// Gets the id of the network object type.

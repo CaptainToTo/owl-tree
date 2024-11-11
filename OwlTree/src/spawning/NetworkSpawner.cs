@@ -68,7 +68,7 @@ namespace OwlTree
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
-            var newObj = _proxyFactory.CreateProxy(new T());
+            var newObj = (T)_proxyFactory.CreateProxy(typeof(T));
             newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
@@ -88,7 +88,7 @@ namespace OwlTree
             if (!_proxyFactory.HasTypeId(t))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
             
-            var newObj = _proxyFactory.CreateProxy((NetworkObject)Activator.CreateInstance(t));
+            var newObj = _proxyFactory.CreateProxy(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -124,7 +124,7 @@ namespace OwlTree
             if (_netObjects.ContainsKey(id))
                 return;
             
-            var newObj = _proxyFactory.CreateProxy((NetworkObject)Activator.CreateInstance(t));
+            var newObj = _proxyFactory.CreateProxy(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");

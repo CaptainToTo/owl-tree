@@ -17,6 +17,13 @@ static class IdRegistry
     }
 }
 
+public class TestA : NetworkObject {}
+public class TestB : NetworkObject {}
+public class TestC : NetworkObject {}
+public class TestD : NetworkObject {}
+public class TestE : NetworkObject {}
+public class TestF : NetworkObject {}
+
 class Program
 {
     static Radio? radio = null;

@@ -67,12 +67,18 @@ namespace OwlTree.Generator
 
             CacheAnalyzer.AssignTypeIds(context, list);
             CacheAnalyzer.AssignRpcIds(context, list);
+
+            ProxyFactoryGenerator.Reset();
             
             foreach (var c in list)
             {
                 var proxy = ProxyGenerator.CreateProxy(c);
+                ProxyFactoryGenerator.AddClass(c);
                 File.WriteAllText(EnvConsts.ProjectPath + ProxyGenerator.GetProxyName(c) + Helpers.Tk_CsFile, proxy.ToString());
             }
+
+            var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
+            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_FactoryName + Helpers.Tk_CsFile, factory.ToString());
         }
 
         

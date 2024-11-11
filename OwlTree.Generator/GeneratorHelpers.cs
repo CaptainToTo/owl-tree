@@ -25,6 +25,8 @@ namespace OwlTree.Generator
         public const string Tk_CsFile = ".g.cs";
         public const string Tk_IEncodable = "IEncodable";
         public const string Tk_IVariable = "IVariable";
+        public const string Tk_ProxyFactory = "ProxyFactory";
+        public const string Tk_FactoryName = "ProjectProxyFactory";
 
         public const string Tk_RpcId = "RpcId";
         public const string Tk_ClientId = "ClientId";

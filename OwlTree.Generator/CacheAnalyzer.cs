@@ -233,11 +233,12 @@ namespace OwlTree.Generator
                         continue;
                     }
 
-                    GeneratorState.AddTypeId(Helpers.GetFullName(c.Identifier.ValueText, c), curId);
-
-                    if (_curId <= curId)
-                        _curId = (byte)(curId + 1);
                 }
+                
+                GeneratorState.AddTypeId(Helpers.GetFullName(c.Identifier.ValueText, c), curId);
+
+                if (_curId <= curId)
+                    _curId = (byte)(curId + 1);
             }
 
             File.WriteAllText(EnvConsts.ProjectPath + "types-out.txt", GeneratorState.GetTypeIdsString());
