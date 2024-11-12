@@ -40,7 +40,9 @@ namespace OwlTree.Generator
             DuplicateRpcIds,
             MultipleIdRegistries,
             NonStaticRegistry,
-            NonEncodableRpcParam
+            NonEncodableRpcParam,
+            NonClientIdRpcCallee,
+            NonClientIdRpcCaller
         }
 
         public static string GetId(Ids id)
@@ -221,6 +223,38 @@ namespace OwlTree.Generator
                     isEnabledByDefault: true),
                 p.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText, p.Type.ToString());
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        public static void NonClientIdRpcCallee(SourceProductionContext context, MethodDeclarationSyntax m, ParameterSyntax p)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.NonEncodableRpcParam),
+                    "RpcCallee RPC Parameter Is Not ClientId",
+                    "RPC method '{0}' has a RpcCallee parameter '{1}' which is not of type 'ClientId'. All RpCallee parameters must be of type 'ClientId'.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                p.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText);
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        public static void NonClientIdRpcCaller(SourceProductionContext context, MethodDeclarationSyntax m, ParameterSyntax p)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.NonEncodableRpcParam),
+                    "RpcCaller RPC Parameter Is Not ClientId",
+                    "RPC method '{0}' has a RpcCaller parameter '{1}' which is not of type 'ClientId'. All RpCaller parameters must be of type 'ClientId'.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                p.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText);
 
             context.ReportDiagnostic(diagnostic);
         }

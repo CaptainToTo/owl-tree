@@ -224,6 +224,15 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
+        /// Gets the full name of the class the given method is a member of.
+        /// </summary>
+        public static string GetParentClassName(MethodDeclarationSyntax m)
+        {
+            var parent = m.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+            return GetFullName(parent.Identifier.ValueText, parent);
+        }
+
+        /// <summary>
         /// Returns the namespace this node is declared under, or null.
         /// </summary>
         public static NamespaceDeclarationSyntax GetNamespace(SyntaxNode node)
@@ -383,19 +392,42 @@ namespace OwlTree.Generator
         /// <summary>
         /// Checks if all the parameters of a method have an encodable type.
         /// If a parameter is found that isn't encodable, returns that parameter in the err argument.
+        /// err = 0 for success, err = 1 for non-encodable, err = 2 for non-ClientId RpcCallee, err = 3 for non-ClientId RpcCaller.
         /// </summary>
-        public static bool IsEncodable(ParameterListSyntax paramList, out ParameterSyntax err)
+        public static bool IsEncodable(ParameterListSyntax paramList, out int err, out ParameterSyntax pErr)
         {
             foreach (var p in paramList.Parameters)
             {
                 if (!GeneratorState.HasEncodable(RemoveTemplateType(p.Type.ToString())))
                 {
-                    err = p;
+                    pErr = p;
+                    err = 1;
+                    return false;
+                }
+                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCallee) && !IsClientId(p))
+                {
+                    pErr = p;
+                    err = 2;
+                    return false;
+                }
+                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCaller) && !IsClientId(p))
+                {
+                    pErr = p;
+                    err = 3;
                     return false;
                 }
             }
-            err = null;
+            pErr = null;
+            err = 0;
             return true;
+        }
+
+        /// <summary>
+        /// Checks if the given parameter is a client id.
+        /// </summary>
+        public static bool IsClientId(ParameterSyntax p)
+        {
+            return p.Type.ToString() == Tk_ClientId || p.Type.ToString() == Tk_OwlTree + "." + Tk_ClientId;
         }
     }
 }

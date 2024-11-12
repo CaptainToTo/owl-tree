@@ -91,9 +91,14 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                if (!Helpers.IsEncodable(m.ParameterList, out var err))
+                if (!Helpers.IsEncodable(m.ParameterList, out var err, out var pErr))
                 {
-                    Diagnostics.NonEncodableRpcParam(context, m, err);
+                    if (err == 1)
+                        Diagnostics.NonEncodableRpcParam(context, m, pErr);
+                    else if (err == 2)
+                        Diagnostics.NonClientIdRpcCallee(context, m, pErr);
+                    else if (err == 3)
+                        Diagnostics.NonClientIdRpcCaller(context, m, pErr);
                     continue;
                 }
 
@@ -119,13 +124,38 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                GeneratorState.AddRpcId(Helpers.GetFullName(m.Identifier.ValueText, m), curId);
+                var rpcData = new GeneratorState.RpcData()
+                {
+                    id = curId,
+                    name = Helpers.GetFullName(m.Identifier.ValueText, m),
+                    parentClass = Helpers.GetParentClassName(m),
+                    paramData = CreateParamData(m)
+                };
+
+                GeneratorState.AddRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), rpcData);
 
                 if (_curId <= curId)
                     _curId = curId + 1;
             }
 
             File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", GeneratorState.GetRpcIdsString());
+        }
+
+        private static GeneratorState.ParamData[] CreateParamData(MethodDeclarationSyntax m)
+        {
+            var data = new GeneratorState.ParamData[m.ParameterList.Parameters.Count];
+
+            var paramList = m.ParameterList.Parameters;
+            for (int i = 0; i < paramList.Count; i++)
+            {
+                var param = paramList[i];
+                data[i].name = param.Identifier.ValueText;
+                data[i].type = param.Type.ToString();
+                data[i].isRpcCallee = Helpers.HasAttribute(param.AttributeLists, Helpers.AttrTk_RpcCallee);
+                data[i].isRpcCaller = Helpers.HasAttribute(param.AttributeLists, Helpers.AttrTk_RpcCaller);
+            }
+
+            return data;
         }
     }
 }

@@ -24,7 +24,7 @@ namespace OwlTree.Generator
             GeneratorState.ClearConsts();
             GeneratorState.ClearEnums();
             GeneratorState.ClearTypeIds();
-            GeneratorState.ClearRpcIds();
+            GeneratorState.ClearRpcData();
             // refill encodables with built in encodable types
             IEncodableAnalyzer.AddPrimitives();
             IEncodableAnalyzer.AddBuiltIns();

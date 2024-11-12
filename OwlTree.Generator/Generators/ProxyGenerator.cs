@@ -72,7 +72,7 @@ namespace OwlTree.Generator
 
             foreach (var m in methods)
             {
-                if (!GeneratorState.TryGetRpcId(Helpers.GetFullName(m.Identifier.ValueText, m), out var id))
+                if (!GeneratorState.TryGetRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), out var data))
                 {
                     continue;
                 }
@@ -88,7 +88,7 @@ namespace OwlTree.Generator
                                 Token(SyntaxKind.OverrideKeyword)
                             }))
                     .WithParameterList(m.ParameterList)
-                    .WithBody(m.ParameterList.Parameters.Count == 0 ? CreateProxyBodyNoParams(m, id) : CreateProxyBody(m, id));
+                    .WithBody(m.ParameterList.Parameters.Count == 0 ? CreateProxyBodyNoParams(m, data.id) : CreateProxyBody(m, data.id));
                 
                 proxyBuilderStage.Add(proxy);
             }

@@ -126,7 +126,7 @@ namespace OwlTree.Generator
 
         public static byte GetTypeId(string k) => _typeIds[k];
 
-        public static string GetType(byte v) => _rpcIds.Where(p => p.Value == v).FirstOrDefault().Key;
+        public static string GetType(byte v) => _typeIds.Where(p => p.Value == v).FirstOrDefault().Key;
 
         public static Dictionary<string, byte>.Enumerator GetTypeIds() => _typeIds.GetEnumerator();
 
@@ -144,23 +144,57 @@ namespace OwlTree.Generator
 
         // Rpc Id Cache ==========================
         
-        static Dictionary<string, uint> _rpcIds = new();
+        public struct ParamData
+        {
+            public string name;
+            public string type;
+            public bool isRpcCallee;
+            public bool isRpcCaller;
 
-        public static void ClearRpcIds() => _rpcIds.Clear();
+            public override string ToString()
+            {
+                return $"{type} {name} " + (isRpcCallee ? "[RpcCallee]" : "") + (isRpcCaller ? "[RpcCaller]" : "");
+            }
+        }
 
-        public static void AddRpcId(string k, uint v) => _rpcIds.Add(k, v);
+        public class RpcData
+        {
+            public uint id;
+            public string name;
+            public string parentClass;
+            public ParamData[] paramData;
+
+            public override string ToString()
+            {
+                var str = "";
+                foreach (var p in paramData)
+                    str += "        " + p.ToString() + "\n";
+                return $@"
+    id: {id}
+    name: {name}
+    class: {parentClass}
+    params: 
+{str}";
+            }
+        }
+        
+        static Dictionary<string, RpcData> _rpcIds = new();
+
+        public static void ClearRpcData() => _rpcIds.Clear();
+
+        public static void AddRpcData(string k, RpcData v) => _rpcIds.Add(k, v);
 
         public static bool HasRpc(string k) => _rpcIds.ContainsKey(k);
 
-        public static bool HasRpcId(uint v) => _rpcIds.ContainsValue(v);
+        public static bool HasRpcId(uint id) => _rpcIds.Any(p => p.Value.id == id);
 
-        public static uint GetRpcId(string k) => _rpcIds[k];
+        public static RpcData GetRpcData(string k) => _rpcIds[k];
 
-        public static string GetRpc(uint v) => _rpcIds.Where(p => p.Value == v).FirstOrDefault().Key;
+        public static string GetRpc(RpcData v) => _rpcIds.Where(p => p.Value.id == v.id).FirstOrDefault().Key;
 
-        public static bool TryGetRpcId(string k, out uint v) => _rpcIds.TryGetValue(k, out v);
+        public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
-        public static Dictionary<string, uint>.Enumerator GetRpcIds() => _rpcIds.GetEnumerator();
+        public static Dictionary<string, RpcData>.Enumerator GetRpcEnumerator() => _rpcIds.GetEnumerator();
 
         public static string GetRpcIdsString()
         {
