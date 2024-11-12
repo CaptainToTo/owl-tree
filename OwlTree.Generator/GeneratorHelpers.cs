@@ -448,6 +448,9 @@ namespace OwlTree.Generator
             return p.Type.ToString() == Tk_ClientId || p.Type.ToString() == Tk_OwlTree + "." + Tk_ClientId;
         }
 
+        /// <summary>
+        /// Parses the arguments given for the RPC attribute.
+        /// </summary>
         public static void GetRpcAttrArgs(AttributeSyntax a, out GeneratorState.RpcCaller caller, out bool invokeOnCaller, out bool useTcp)
         {
             invokeOnCaller = RPC_INVOKE_ON_CALLER_DEFAULT;
@@ -502,6 +505,19 @@ namespace OwlTree.Generator
                 default: 
                     return GeneratorState.RpcCaller.Any;
             }
+        }
+
+        /// <summary>
+        /// Gets all of the using directives that are in the file this node originates from.
+        /// </summary>
+        public static SyntaxList<UsingDirectiveSyntax> GetAllUsings(SyntaxNode node)
+        {
+            return node.Ancestors().OfType<CompilationUnitSyntax>().FirstOrDefault().Usings;
+        }
+
+        public static bool IsUsing(SyntaxList<UsingDirectiveSyntax> usings, string directive)
+        {
+            return usings.Any(u => u.Name.ToString() == directive);
         }
     }
 }

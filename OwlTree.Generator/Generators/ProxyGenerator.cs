@@ -44,20 +44,14 @@ namespace OwlTree.Generator
         private static SyntaxList<UsingDirectiveSyntax> GetUsings(ClassDeclarationSyntax c)
         {
             var name = Helpers.GetNamespaceName(c);
+            var usings = Helpers.GetAllUsings(c);
             if (name != null)
-            {
-                return List<UsingDirectiveSyntax>(
-                    new UsingDirectiveSyntax[]{
-                        UsingDirective(
-                            IdentifierName(Helpers.Tk_OwlTree)),
-                        UsingDirective(
-                            IdentifierName(name))});
-            }
+                usings.Add(UsingDirective(IdentifierName(name)));
             
-            return SingletonList<UsingDirectiveSyntax>(
-                    UsingDirective(
-                        IdentifierName(Helpers.Tk_OwlTree)));
-
+            if (!Helpers.IsUsing(usings, Helpers.Tk_OwlTree))
+                usings.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
+            
+            return usings;
         }
 
         static List<MethodDeclarationSyntax> proxyBuilderStage = new();
