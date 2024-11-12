@@ -16,7 +16,7 @@ namespace OwlTree
         /// Encodes an RPC call into the given span of bytes. This span must have enough space, which can be verified
         /// using <c>GetExpectedRpcLength()</c>.
         /// </summary>
-        public static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[] args)
+        internal static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[] args)
         {
             int start = 0;
             int end = id.ByteLength();
@@ -43,7 +43,7 @@ namespace OwlTree
         /// as an array of objects, and outputs the decoded RpcId, and the NetworkId of the NetworkObject the 
         /// RPC was called from.
         /// </summary>
-        public static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, Type[] paramTypes, out RpcId id, out NetworkId target)
+        internal static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, Type[] paramTypes, out RpcId id, out NetworkId target)
         {
             id = new RpcId(bytes);
             int ind = id.ByteLength();
@@ -74,7 +74,7 @@ namespace OwlTree
         /// and the number of bytes that were read. If the given type isn't encodable, then len will be set to -1,
         /// and an empty object will be returned.
         /// </summary>
-        internal static object DecodeObject(ReadOnlySpan<byte> bytes, Type t, out int len)
+        public static object DecodeObject(ReadOnlySpan<byte> bytes, Type t, out int len)
         {
             if (t == typeof(string))
             {
@@ -169,6 +169,80 @@ namespace OwlTree
             return result;
         }
 
+        public static int DecodeInt32(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 4;
+            return BitConverter.ToInt32(bytes);
+        }
+
+        public static uint DecodeUInt32(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 4;
+            return BitConverter.ToUInt32(bytes);
+        }
+
+        public static float DecodeFloat(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 4;
+            return BitConverter.ToSingle(bytes);
+        }
+
+        public static long DecodeInt64(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 8;
+            return BitConverter.ToInt64(bytes);
+        }
+
+        public static ulong DecodeUInt64(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 8;
+            return BitConverter.ToUInt64(bytes);
+        }
+
+        public static double DecodeDouble(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 8;
+            return BitConverter.ToDouble(bytes);
+        }
+
+        public static short DecodeInt16(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 2;
+            return BitConverter.ToInt16(bytes);
+        }
+
+        public static ushort DecodeUInt16(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 2;
+            return BitConverter.ToUInt16(bytes);
+        }
+
+        public static bool DecodeBool(ReadOnlySpan<byte> bytes, out int len)
+        {
+            len = 1;
+            return bytes[0] == 1;
+        }
+
+        public static string DecodeString(ReadOnlySpan<byte> bytes, out int len)
+        {
+            var length = bytes[0];
+            var str = Encoding.UTF8.GetString(bytes.ToArray(), 1, length);
+            len = length + 1;
+            return str;
+        }
+
+        public static T DecodeEncodable<T>(ReadOnlySpan<byte> bytes, out int len) where T : IEncodable, new()
+        {
+            T result = new T();
+            var isVariable = result is IVariableLength;
+
+            len = isVariable ? IVariableLength.GetLength(bytes) : result.ByteLength();
+            result.FromBytes(bytes.Slice(isVariable ? IVariableLength.LENGTH_ENCODING : 0, len));
+            len += isVariable ? IVariableLength.LENGTH_ENCODING : 0;
+
+            return result;
+        }
+
         /// <summary>
         /// Encodes the given encodable object into the given span of bytes.
         /// Verify the object is encodable with <c>IsEncodableParam()</c>.
@@ -256,6 +330,40 @@ namespace OwlTree
                     ((IEncodable)arg).InsertBytes(bytes);
                 }
             }
+        }
+
+        public static void InsertBytes(Span<byte> bytes, int arg) => BitConverter.TryWriteBytes(bytes, arg);
+        public static void InsertBytes(Span<byte> bytes, uint arg) => BitConverter.TryWriteBytes(bytes, arg);
+        public static void InsertBytes(Span<byte> bytes, float arg) => BitConverter.TryWriteBytes(bytes, arg);
+
+        public static void InsertBytes(Span<byte> bytes, long arg) => BitConverter.TryWriteBytes(bytes, arg);
+        public static void InsertBytes(Span<byte> bytes, ulong arg) => BitConverter.TryWriteBytes(bytes, arg);
+        public static void InsertBytes(Span<byte> bytes, double arg) => BitConverter.TryWriteBytes(bytes, arg);
+
+        public static void InsertBytes(Span<byte> bytes, short arg) => BitConverter.TryWriteBytes(bytes, arg);
+        public static void InsertBytes(Span<byte> bytes, ushort arg) => BitConverter.TryWriteBytes(bytes, arg);
+
+        public static void InsertBytes(Span<byte> bytes, byte arg) => bytes[0] = arg;
+        public static void InsertBytes(Span<byte> bytes, bool arg) => bytes[0] = (byte)(arg ? 1 : 0);
+
+        public static void InsertBytes(Span<byte> bytes, string arg)
+        {
+            var encoding = Encoding.UTF8.GetBytes(arg);
+            if (encoding.Length > 255)
+                throw new InvalidOperationException("strings cannot require more than 255 bytes to encode.");
+            bytes[0] = (byte)encoding.Length;
+            for (int i = 0; i < encoding.Length; i++)
+                bytes[i + 1] = encoding[i];
+        }
+
+        public static void InsertBytes(Span<byte> bytes, IEncodable arg)
+        {
+            if (arg is IVariableLength)
+            {
+                IVariableLength.InsertLength(bytes, arg.ByteLength());
+                bytes = bytes.Slice(IVariableLength.LENGTH_ENCODING);
+            }
+            arg.InsertBytes(bytes);
         }
 
         /// <summary>
@@ -349,6 +457,29 @@ namespace OwlTree
                 }
                 return len;
             }
+        }
+
+        public static int GetExpectedLength(int arg) => 4;
+        public static int GetExpectedLength(uint arg) => 4;
+        public static int GetExpectedLength(float arg) => 4;
+
+        public static int GetExpectedLength(long arg) => 8;
+        public static int GetExpectedLength(ulong arg) => 8;
+        public static int GetExpectedLength(double arg) => 8;
+
+        public static int GetExpectedLength(short arg) => 2;
+        public static int GetExpectedLength(ushort arg) => 2;
+
+        public static int GetExpectedLength(byte arg) => 1;
+        public static int GetExpectedLength(bool arg) => 1;
+
+        public static int GetExpectedLength(string arg) => 1 + Encoding.UTF8.GetByteCount(arg);
+
+        public static int GetExpectedLength(IEncodable arg)
+        {
+            if (arg is IVariableLength)
+                return arg.ByteLength() + IVariableLength.LENGTH_ENCODING;
+            return arg.ByteLength();
         }
 
         /// <summary>
