@@ -224,6 +224,40 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
+        /// Returns the namespace this node is declared under, or null.
+        /// </summary>
+        public static NamespaceDeclarationSyntax GetNamespace(SyntaxNode node)
+        {
+            return node.Ancestors().OfType<NamespaceDeclarationSyntax>().FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Returns the namespace this node is declared under, or null.
+        /// </summary>
+        public static FileScopedNamespaceDeclarationSyntax GetFileNamespace(SyntaxNode node)
+        {
+            return node.Ancestors().OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
+        }
+
+        public static string GetNamespaceName(SyntaxNode node)
+        {
+            var space = GetNamespace(node);
+            if (space != null)
+            {
+                return space.Name.ToString();
+            }
+            else
+            {
+                var fileSpace = GetFileNamespace(node);
+                if (fileSpace != null)
+                {
+                    return fileSpace.Name.ToString();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Gets the literal value from an integer variable definition.
         /// Verify this field is an integer first with <c>IsInt()</c>.
         /// </summary>

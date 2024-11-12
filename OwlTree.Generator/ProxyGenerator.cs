@@ -24,11 +24,9 @@ namespace OwlTree.Generator
 
         public static CompilationUnitSyntax CreateProxy(ClassDeclarationSyntax c)
         {
+
             return CompilationUnit()
-            .WithUsings(
-                SingletonList<UsingDirectiveSyntax>(
-                    UsingDirective(
-                        IdentifierName("OwlTree"))))
+            .WithUsings(GetUsings(c))
             .WithMembers(
                 SingletonList<MemberDeclarationSyntax>(
                     ClassDeclaration(GetProxyName(c))
@@ -41,6 +39,25 @@ namespace OwlTree.Generator
                     .WithMembers(
                         CreateRpcProxies(c))))
             .NormalizeWhitespace();
+        }
+
+        private static SyntaxList<UsingDirectiveSyntax> GetUsings(ClassDeclarationSyntax c)
+        {
+            var name = Helpers.GetNamespaceName(c);
+            if (name != null)
+            {
+                return List<UsingDirectiveSyntax>(
+                    new UsingDirectiveSyntax[]{
+                        UsingDirective(
+                            IdentifierName(Helpers.Tk_OwlTree)),
+                        UsingDirective(
+                            IdentifierName(name))});
+            }
+            
+            return SingletonList<UsingDirectiveSyntax>(
+                    UsingDirective(
+                        IdentifierName(Helpers.Tk_OwlTree)));
+
         }
 
         static List<MethodDeclarationSyntax> proxyBuilderStage = new();
