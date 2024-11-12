@@ -418,7 +418,7 @@ namespace OwlTree
         /// Returns whether or not the given type represents an encodable object,
         /// which can be used an RPC parameter.
         /// </summary>
-        public static bool IsEncodableParam(Type t)
+        public static bool IsEncodable(Type t)
         {
             if (
                 t == typeof(int) ||
