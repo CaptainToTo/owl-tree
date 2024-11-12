@@ -17,6 +17,11 @@ namespace OwlTree.Generator
         public const uint FIRST_TYPE_ID = 2; // ! needs to match NetworkObject.FIRST_TYPE_ID
         public const byte FIRST_NETWORK_TYPE_ID = 2; // ! needs to match NetworkSpawner.FIRST_NETWORK_TYPE_ID
 
+        // ! must match defaults on RpcAttribute
+        public const GeneratorState.RpcCaller RPC_CALLER_DEFAULT = GeneratorState.RpcCaller.Any;
+        public const bool RPC_INVOKE_ON_CALLER_DEFAULT = true;
+        public const bool RPC_USE_TCP_DEFAULT = true;
+
         // * tokens
 
         // classes and namespaces
@@ -62,6 +67,19 @@ namespace OwlTree.Generator
         public const string AttrTk_RpcCaller = "RpcCaller";
         public const string AttrTk_RpcCallee = "RpcCallee";
         public const string AttrTk_AssignTypeId = "AssignTypeId";
+
+        // rpc attr args
+        public const string Tk_RpcCaller = "RpcCaller";
+        public const string Tk_ServerCaller = "Server";
+        public const string Tk_ClientCaller = "Client";
+        public const string Tk_AnyCaller = "Any";
+
+        public const string Tk_InvokeOnCaller = "InvokeOnCaller";
+
+        public const string Tk_RpcProtocol = "RpcProtocol";
+        public const string Tk_Protocol = "Protocol";
+        public const string Tk_TcpProtocol = "Tcp";
+        public const string Tk_UdpProtocol = "Udp";
 
         // int types
         public const string Tk_Byte = "byte";
@@ -428,6 +446,62 @@ namespace OwlTree.Generator
         public static bool IsClientId(ParameterSyntax p)
         {
             return p.Type.ToString() == Tk_ClientId || p.Type.ToString() == Tk_OwlTree + "." + Tk_ClientId;
+        }
+
+        public static void GetRpcAttrArgs(AttributeSyntax a, out GeneratorState.RpcCaller caller, out bool invokeOnCaller, out bool useTcp)
+        {
+            invokeOnCaller = RPC_INVOKE_ON_CALLER_DEFAULT;
+            useTcp = RPC_USE_TCP_DEFAULT;
+
+            if (a.ArgumentList == null)
+            {
+                caller = RPC_CALLER_DEFAULT;
+                return;
+            }
+
+            var args = a.ArgumentList.Arguments;
+
+            if (args.Count == 0)
+            {
+                caller = RPC_CALLER_DEFAULT;
+                return;
+            }
+
+            caller = GetCallerArg(args[0]);
+
+            if (args.Count == 1)
+            {
+                return;
+            }
+
+            foreach (var arg in args)
+            {
+                if (arg.NameEquals == null) continue;
+
+                if (arg.NameEquals.Name.Identifier.ValueText == Tk_InvokeOnCaller)
+                {
+                    if (arg.Expression is LiteralExpressionSyntax literal)
+                        invokeOnCaller = literal.Token.IsKind(SyntaxKind.TrueLiteralExpression);
+                }
+                else if (arg.NameEquals.Name.Identifier.ValueText == Tk_RpcProtocol)
+                {
+                    if (arg.Expression is MemberAccessExpressionSyntax access)
+                        useTcp = access.Name.ToString() == Tk_TcpProtocol;
+                }
+            }
+        }
+
+        public static GeneratorState.RpcCaller GetCallerArg(AttributeArgumentSyntax arg)
+        {
+            var access = (MemberAccessExpressionSyntax)arg.Expression;
+            switch (access.Name.ToString())
+            {
+                case Tk_ServerCaller: return GeneratorState.RpcCaller.Server;
+                case Tk_ClientCaller: return GeneratorState.RpcCaller.Client;
+                case Tk_AnyCaller: 
+                default: 
+                    return GeneratorState.RpcCaller.Any;
+            }
         }
     }
 }

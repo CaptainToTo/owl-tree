@@ -9,7 +9,7 @@ namespace OwlTree.Generator
     /// Generator state cache. Use to manage any state that needs to be shared across 
     /// generator steps, or between compilations.
     /// </summary>
-    internal static class GeneratorState
+    public static class GeneratorState
     {
         // IEncodable Cache =====================
         
@@ -157,11 +157,21 @@ namespace OwlTree.Generator
             }
         }
 
+        public enum RpcCaller
+        {
+            Server,
+            Client,
+            Any
+        }
+
         public class RpcData
         {
             public uint id;
             public string name;
             public string parentClass;
+            public RpcCaller caller;
+            public bool invokeOnCaller;
+            public bool useTcp;
             public ParamData[] paramData;
 
             public override string ToString()

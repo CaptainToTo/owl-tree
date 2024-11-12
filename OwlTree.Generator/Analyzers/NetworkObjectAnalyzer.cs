@@ -124,10 +124,17 @@ namespace OwlTree.Generator
                     continue;
                 }
 
+                Helpers.GetRpcAttrArgs(Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_Rpc),
+                    out var caller, out var invokeOnCaller, out var useTcp
+                );
+
                 var rpcData = new GeneratorState.RpcData()
                 {
                     id = curId,
                     name = Helpers.GetFullName(m.Identifier.ValueText, m),
+                    caller = caller,
+                    invokeOnCaller = invokeOnCaller,
+                    useTcp = useTcp,
                     parentClass = Helpers.GetParentClassName(m),
                     paramData = CreateParamData(m)
                 };
