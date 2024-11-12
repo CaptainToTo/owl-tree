@@ -139,7 +139,7 @@ namespace OwlTree.Generator
                     paramData = CreateParamData(m)
                 };
 
-                GeneratorState.AddRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), rpcData);
+                GeneratorState.AddRpcData(rpcData.name, rpcData);
 
                 if (_curId <= curId)
                     _curId = curId + 1;

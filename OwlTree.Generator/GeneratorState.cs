@@ -183,6 +183,9 @@ namespace OwlTree.Generator
     id: {id}
     name: {name}
     class: {parentClass}
+    caller: {caller}
+    invoke on caller: {invokeOnCaller}
+    protocol: {(useTcp ? "TCP" : "UDP")}
     params: 
 {str}";
             }
