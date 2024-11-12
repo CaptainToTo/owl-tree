@@ -32,14 +32,14 @@ namespace OwlTree
                 throw new ArgumentException("NetworkList capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcProtocol.IsEncodableParam(typeof(T)))
+            if (!RpcEncoding.IsEncodable(typeof(T)))
             {
                 throw new ArgumentException("NetworkList must have an encodable type.");
             }
 
             _list = new List<T>(capacity);
 
-            _maxLen = 4 + (Capacity * RpcProtocol.GetMaxLength(typeof(T)));
+            _maxLen = 4 + (Capacity * RpcEncoding.GetMaxLength(typeof(T)));
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace OwlTree
             int total = 4;
             foreach (var elem in this)
             {
-                total +=  RpcProtocol.GetExpectedLength(elem);
+                total +=  RpcEncoding.GetExpectedLength(elem);
             }
             return total;
         }
@@ -121,9 +121,11 @@ namespace OwlTree
             Clear();
 
             int ind = 4;
+            int len = 0;
             while (count > 0)
             {
-                var nextElem = (T)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(T));
+                var nextElem = (T)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(T), out len);
+                ind += len;
                 Add(nextElem);
                 count -= 1;
             }
@@ -136,8 +138,8 @@ namespace OwlTree
             int ind = 4;
             foreach (var elem in this)
             {
-                int len = RpcProtocol.GetExpectedLength(elem);
-                RpcProtocol.InsertBytes(bytes.Slice(ind, len), elem);
+                int len = RpcEncoding.GetExpectedLength(elem);
+                RpcEncoding.InsertBytes(bytes.Slice(ind, len), elem);
                 ind += len;
             }
         }

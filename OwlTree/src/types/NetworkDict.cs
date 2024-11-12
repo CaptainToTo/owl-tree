@@ -34,19 +34,19 @@ namespace OwlTree
                 throw new ArgumentException("NetworkDict capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcProtocol.IsEncodableParam(typeof(K)))
+            if (!RpcEncoding.IsEncodable(typeof(K)))
             {
                 throw new ArgumentException("NetworkDict keys must be an encodable type.");
             }
 
-            if (!RpcProtocol.IsEncodableParam(typeof(V)))
+            if (!RpcEncoding.IsEncodable(typeof(V)))
             {
                 throw new ArgumentException("NetworkDict values must be an encodable type.");
             }
 
             _dict = new Dictionary<K, V>(capacity);
 
-            _maxLen = 4 + (Capacity * (RpcProtocol.GetMaxLength(typeof(K)) + RpcProtocol.GetMaxLength(typeof(V))));
+            _maxLen = 4 + (Capacity * (RpcEncoding.GetMaxLength(typeof(K)) + RpcEncoding.GetMaxLength(typeof(V))));
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace OwlTree
             int total = 4;
             foreach (var elem in this)
             {
-                total += RpcProtocol.GetExpectedLength(elem.Key) + RpcProtocol.GetExpectedLength(elem.Value);
+                total += RpcEncoding.GetExpectedLength(elem.Key) + RpcEncoding.GetExpectedLength(elem.Value);
             }
             return total;
         }
@@ -147,10 +147,13 @@ namespace OwlTree
             Clear();
 
             int ind = 4;
+            int len = 0;
             while (count > 0)
             {
-                var nextKey = (K)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(K));
-                var nextValue = (V)RpcProtocol.DecodeObject(bytes.Slice(ind), ref ind, typeof(V));
+                var nextKey = (K)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(K), out len);
+                ind += len;
+                var nextValue = (V)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(V), out len);
+                ind += len;
 
                 Add(nextKey, nextValue);
                 count -= 1;
@@ -164,13 +167,13 @@ namespace OwlTree
             int ind = 4;
             foreach (var elem in this)
             {
-                int keyLen = RpcProtocol.GetExpectedLength(elem.Key);
-                int valLen = RpcProtocol.GetExpectedLength(elem.Value);
+                int keyLen = RpcEncoding.GetExpectedLength(elem.Key);
+                int valLen = RpcEncoding.GetExpectedLength(elem.Value);
 
-                RpcProtocol.InsertBytes(bytes.Slice(ind, keyLen), elem.Key);
+                RpcEncoding.InsertBytes(bytes.Slice(ind, keyLen), elem.Key);
                 ind += keyLen;
 
-                RpcProtocol.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
+                RpcEncoding.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
                 ind += valLen;
             }
         }

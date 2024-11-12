@@ -20,14 +20,6 @@ namespace OwlTree
         /// </summary>
         public const byte FIRST_TYPE_ID = 2;
 
-        // collect all sub-types
-        internal static IEnumerable<Type> GetNetworkObjectTypes()
-        {
-            return AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract && typeof(NetworkObject).IsAssignableFrom(t));
-        }
-
         /// <summary>
         /// Basic function signature for passing NetworkObjects.
         /// </summary>

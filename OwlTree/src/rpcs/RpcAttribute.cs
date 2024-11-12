@@ -1,8 +1,5 @@
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace OwlTree
 {
@@ -89,154 +86,54 @@ namespace OwlTree
             this.caller = caller;
         }
 
-        private static Dictionary<MethodInfo, RpcProtocol> _protocolsByMethod = new Dictionary<MethodInfo, RpcProtocol>();
-        private static Dictionary<RpcId, RpcProtocol> _protocolsById = new Dictionary<RpcId, RpcProtocol>();
+        // TODO: remove everything below
 
-        private static bool _initialized = false;
+        // public static bool OnInvoke(MethodInfo method, NetworkObject netObj, object[] argsList)
+        // {
+        //     if (!netObj.IsActive)
+        //         throw new InvalidOperationException("RPCs can only be called on active network objects.");
 
-        static Type netObjType = typeof(NetworkObject);
+        //     if (netObj.Connection == null)
+        //         throw new InvalidOperationException("RPCs can only be called on an active connection.");
 
-        public static void GenerateRpcProtocols(Logger logger)
-        {
-            if (_initialized) return;
-            _initialized = true;
-
-            logger.Write(Logger.LogRule.Verbose, "Generating RPC Protocols =====\n");
-
-            IEnumerable<Type> types = NetworkObject.GetNetworkObjectTypes();
-
-            foreach (var t in types)
-            {
-                var rpcs = t.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                            .Where(m => m.GetCustomAttribute<RpcAttribute>() != null).ToArray()
-                            .OrderBy(m => (m.GetCustomAttribute<AssignRpcIdAttribute>() != null ? "0" : "1") + m.Name);
-                
-                foreach (var rpc in rpcs)
-                {
-                    if (rpc.ReturnType != typeof(void))
-                        throw new InvalidOperationException("RPC return types must be void.");
-
-                    var args = rpc.GetParameters();
-                    Type[] paramTypes = new Type[args.Length];
-
-                    for (int i = 0; i < args.Length; i++)
-                    {
-                        var arg = args[i];
-
-                        if (!OwlTree.RpcProtocol.IsEncodableParam(arg.ParameterType))
-                            throw new ArgumentException("All arguments must be convertible to a byte array.");
-                        
-                        paramTypes[i] = arg.ParameterType;
-                    }
-
-                    var assignedId = rpc.GetCustomAttribute<AssignRpcIdAttribute>();
-
-                    if (assignedId != null)
-                    {
-                        var protocol = new RpcProtocol(t, rpc, paramTypes, assignedId.Id);
-                        _protocolsByMethod.Add(rpc, protocol);
-                        _protocolsById.Add(protocol.Id, protocol);
-                        if (logger.IncludesVerbose)
-                            logger.Write(Logger.LogRule.Verbose, protocol.ToString());
-                    }
-                    else
-                    {
-                        var protocol = new RpcProtocol(t, rpc, paramTypes);
-                        _protocolsByMethod.Add(rpc, protocol);
-                        _protocolsById.Add(protocol.Id, protocol);
-                        if (logger.IncludesVerbose)
-                            logger.Write(Logger.LogRule.Verbose, protocol.ToString());
-                    }
-                }
-            }
-
-            logger.Write(Logger.LogRule.Verbose, "Completed RPC Protocols ======");
-        }
-
-        public static bool IsRpc(MethodInfo method)
-        {
-            return _protocolsByMethod.ContainsKey(method);
-        }
-
-        public static bool OnInvoke(MethodInfo method, NetworkObject netObj, object[] argsList)
-        {
-            if (!netObj.IsActive)
-                throw new InvalidOperationException("RPCs can only be called on active network objects.");
-
-            if (netObj.Connection == null)
-                throw new InvalidOperationException("RPCs can only be called on an active connection.");
-
-            var attr = method.GetCustomAttribute<RpcAttribute>();
+        //     var attr = method.GetCustomAttribute<RpcAttribute>();
             
-            if (
-                (attr.caller == (RpcCaller)netObj.Connection.NetRole) ||
-                (attr.caller == RpcCaller.Any && !netObj.IsReceivingRpc)
-            )
-            {
-                if (method == null)
-                    throw new InvalidOperationException("RPC does not exist");
+        //     if (
+        //         (attr.caller == (RpcCaller)netObj.Connection.NetRole) ||
+        //         (attr.caller == RpcCaller.Any && !netObj.IsReceivingRpc)
+        //     )
+        //     {
+        //         if (method == null)
+        //             throw new InvalidOperationException("RPC does not exist");
 
-                if (!_protocolsByMethod.TryGetValue(method, out var protocol))
-                    throw new InvalidOperationException("RPC protocol does not exist.");
+        //         if (!_protocolsByMethod.TryGetValue(method, out var protocol))
+        //             throw new InvalidOperationException("RPC protocol does not exist.");
                 
-                var paramList = method.GetParameters();
-                ClientId callee = ClientId.None;
+        //         var paramList = method.GetParameters();
+        //         ClientId callee = ClientId.None;
 
-                for (int i = 0; i < paramList.Length; i++)
-                {
-                    if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
-                        argsList[i] = netObj.Connection.LocalId;
-                    else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
-                        callee = (ClientId)argsList[i];
-                }
+        //         for (int i = 0; i < paramList.Length; i++)
+        //         {
+        //             if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+        //                 argsList[i] = netObj.Connection.LocalId;
+        //             else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
+        //                 callee = (ClientId)argsList[i];
+        //         }
                 
-                netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, attr.RpcProtocol, argsList);
+        //         netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, attr.RpcProtocol, argsList);
 
-                if (attr.InvokeOnCaller)
-                    return true;
-                return false;
-            }
-            else if (netObj.IsReceivingRpc)
-            {
-                return true;
-            }
-            else
-            {
-                throw new InvalidOperationException("This connection does not have the permission to call this RPC.");
-            }
-        }
-
-        public static int RpcExpectedLength(RpcId id, object[] args)
-        {
-            return _protocolsById[id].ExpectedLength(args);
-        }
-
-        public static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[] args)
-        {
-            _protocolsById[id].Encode(bytes, source, args);
-        }
-
-        public static bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[] args)
-        {
-            rpcId = new RpcId(bytes);
-            if (_protocolsById.ContainsKey(rpcId))
-            {
-                args = _protocolsById[rpcId].Decode(source, bytes, out target);
-                return true;
-            }
-            target = NetworkId.None;
-            args = new object[0];
-            return false;
-        }
-
-        public static void InvokeRpc(RpcId id, NetworkObject target, object[] args)
-        {
-            _protocolsById[id].Invoke(target, args);
-        }
-
-        public static string GetEncodingSummary(RpcId id, NetworkId target, object[] args, ClientId localId)
-        {
-            return _protocolsById[id].GetEncodingSummary(target, args, localId);
-        }
+        //         if (attr.InvokeOnCaller)
+        //             return true;
+        //         return false;
+        //     }
+        //     else if (netObj.IsReceivingRpc)
+        //     {
+        //         return true;
+        //     }
+        //     else
+        //     {
+        //         throw new InvalidOperationException("This connection does not have the permission to call this RPC.");
+        //     }
+        // }
     }
 }

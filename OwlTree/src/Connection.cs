@@ -158,7 +158,7 @@ namespace OwlTree
         {
             _logger = new Logger(args.printer, args.verbosity);
 
-            RpcAttribute.GenerateRpcProtocols(_logger);
+            Protocols = RpcProtocols.GetProjectImplementation();
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -192,11 +192,11 @@ namespace OwlTree
             _spawner = new NetworkSpawner(this, ProxyFactory.GetProjectImplementation());
 
             _spawner.OnObjectSpawn = (obj) => {
-                _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
+                _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
                 OnObjectSpawn?.Invoke(obj);
             };
             _spawner.OnObjectDespawn = (obj) => {
-                _logger.Write(Logger.LogRule.Events, "Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().Name);
+                _logger.Write(Logger.LogRule.Events, "Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
                 OnObjectDespawn?.Invoke(obj);
             };
 
@@ -230,6 +230,11 @@ namespace OwlTree
                 _bufferThread.Start();
             }
         }
+        
+        /// <summary>
+        /// Access metadata about RPC encodings and generated protocols.
+        /// </summary>
+        public RpcProtocols Protocols { get; private set; }
 
         private Logger _logger;
 
@@ -379,7 +384,7 @@ namespace OwlTree
                 }
                 else if (TryGetObject(message.target, out var target))
                 {
-                    RpcAttribute.InvokeRpc(message.rpcId, target, message.args);
+                    Protocols.InvokeRpc(message.caller, message.callee, message.rpcId, target, message.args);
                 }
             }
         }
@@ -392,7 +397,7 @@ namespace OwlTree
                 message = new NetworkBuffer.Message(LocalId, rpcId, args);
                 return true;
             }
-            else if (RpcAttribute.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
+            else if (Protocols.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
             {
                 message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, Protocol.Tcp, args);
                 return true;
@@ -429,10 +434,10 @@ namespace OwlTree
             }
             else
             {
-                message.bytes = new byte[RpcAttribute.RpcExpectedLength(message.rpcId, message.args)];
-                RpcAttribute.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
+                message.bytes = new byte[RpcEncoding.GetExpectedRpcLength(message.args)];
+                RpcEncoding.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
                 if (_logger.IncludesVerbose)
-                    _logger.Write(Logger.LogRule.Verbose, RpcAttribute.GetEncodingSummary(rpcId, target, args, LocalId));
+                    _logger.Write(Logger.LogRule.Verbose, Protocols.GetEncodingSummary(LocalId, rpcId, target, args));
             }
 
             _buffer.AddMessage(message);

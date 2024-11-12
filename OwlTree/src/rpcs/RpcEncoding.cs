@@ -40,13 +40,12 @@ namespace OwlTree
 
         /// <summary>
         /// Decodes an RPC encoding using the given span and parameter types. Returns the decoded arguments
-        /// as an array of objects, and outputs the decoded RpcId, and the NetworkId of the NetworkObject the 
+        /// as an array of objects, and outputs the decoded NetworkId of the NetworkObject the 
         /// RPC was called from.
         /// </summary>
-        internal static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, Type[] paramTypes, out RpcId id, out NetworkId target)
+        internal static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, Type[] paramTypes, int callerInd, out NetworkId target)
         {
-            id = new RpcId(bytes);
-            int ind = id.ByteLength();
+            int ind = RpcId.MaxLength();
 
             target = new NetworkId(bytes.Slice(ind, NetworkId.MaxLength()));
             ind += target.ByteLength();
@@ -55,7 +54,7 @@ namespace OwlTree
 
             for (int i = 0; i < paramTypes.Length; i++)
             {
-                if (paramTypes[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
+                if (i == callerInd)
                 {
                     args[i] = source;
                 }

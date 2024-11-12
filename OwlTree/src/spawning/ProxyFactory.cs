@@ -13,7 +13,7 @@ namespace OwlTree
         /// <summary>
         /// Gets the specific project implementation.
         /// </summary>
-        public static ProxyFactory GetProjectImplementation()
+        internal static ProxyFactory GetProjectImplementation()
         {
             return (ProxyFactory)Activator.CreateInstance(
                 AppDomain.CurrentDomain.GetAssemblies()

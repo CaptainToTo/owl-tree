@@ -108,9 +108,8 @@ public class RpcEncodingTests
         Assert.True(bytes.Length == 28, "bytes not correct length");
 
         RpcEncoding.EncodeRpc(bytes, id, target, args);
-        var output = RpcEncoding.DecodeRpc(ClientId.None, bytes, paramTypes, out var outId, out var outTarget);
+        var output = RpcEncoding.DecodeRpc(ClientId.None, bytes, paramTypes, -1, out var outTarget);
 
-        Assert.True(id == outId, "rpc id mismatch");
         Assert.True(target == outTarget, "target id mismatch");
         Assert.True((int)output[0] == (int)args[0], "int not matching: " + args[0] + " -> " + output[0]);
         Assert.True((uint)output[3] == (uint)args[3], "uint not matching" + args[3] + " -> " + output[3]);
