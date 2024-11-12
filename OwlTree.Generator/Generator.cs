@@ -26,8 +26,8 @@ namespace OwlTree.Generator
             GeneratorState.ClearTypeIds();
             GeneratorState.ClearRpcIds();
             // refill encodables with built in encodable types
-            CacheAnalyzer.AddPrimitives();
-            CacheAnalyzer.AddBuiltIns();
+            IEncodableAnalyzer.AddPrimitives();
+            IEncodableAnalyzer.AddBuiltIns();
 
             // cache IEncodable types
             var encodableProvider = context.SyntaxProvider.CreateSyntaxProvider(
@@ -37,7 +37,7 @@ namespace OwlTree.Generator
 
             var encodableCompilation = context.CompilationProvider.Combine(encodableProvider.Collect());
 
-            context.RegisterSourceOutput(encodableCompilation, CacheAnalyzer.CacheEncodables);
+            context.RegisterSourceOutput(encodableCompilation, IEncodableAnalyzer.CacheEncodables);
             File.WriteAllText(EnvConsts.ProjectPath + "encodable-out.txt", GeneratorState.GetEncodablesString());
 
             // pre-solve const and enum values
@@ -48,7 +48,7 @@ namespace OwlTree.Generator
 
             var registryCompilation = context.CompilationProvider.Combine(registryProvider.Collect());
 
-            context.RegisterSourceOutput(registryCompilation, CacheAnalyzer.SolveConstAndEnumValues);
+            context.RegisterSourceOutput(registryCompilation, ConstAndEnumAnalyzer.SolveConstAndEnumValues);
 
             // generate network object proxies
             var provider = context.SyntaxProvider.CreateSyntaxProvider(
@@ -65,8 +65,8 @@ namespace OwlTree.Generator
         {
             var (compilation, list) = tuple;
 
-            CacheAnalyzer.AssignTypeIds(context, list);
-            CacheAnalyzer.AssignRpcIds(context, list);
+            NetworkObjectAnalyzer.AssignTypeIds(context, list);
+            NetworkObjectAnalyzer.AssignRpcIds(context, list);
 
             ProxyFactoryGenerator.Reset();
             
