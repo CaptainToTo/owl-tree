@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OwlTree.Generator
 {
@@ -207,7 +210,7 @@ namespace OwlTree.Generator
 
         public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
-        public static Dictionary<string, RpcData>.Enumerator GetRpcEnumerator() => _rpcIds.GetEnumerator();
+        public static Dictionary<string, RpcData> GetRpcs() => _rpcIds;
 
         public static string GetRpcIdsString()
         {
@@ -217,6 +220,43 @@ namespace OwlTree.Generator
                 str.Append($"{pair.Key} : {pair.Value}\n");
 
             return str.ToString();
+        }
+
+        // =======================================
+
+        // Usings Cache ==========================
+        // used to make sure generated RPC protocols are using the namespaces for all the rpc args
+
+        static Dictionary<string, bool> _usings = new();
+
+        public static void ClearUsings() 
+        {
+            _usings.Clear();
+            _usings.Add(Helpers.Tk_OwlTree, true);
+        }
+
+        public static void AddUsings(SyntaxList<UsingDirectiveSyntax> usings)
+        {
+            foreach (var u in usings)
+            {
+                var name = u.Name.ToString();
+                if (!_usings.ContainsKey(name))
+                {
+                    _usings.Add(name, true);
+                }
+            }
+        }
+
+        public static UsingDirectiveSyntax[] GetUsings()
+        {
+            var usings = new UsingDirectiveSyntax[_usings.Count];
+            int i = 0;
+            foreach (var u in _usings.Keys)
+            {
+                usings[i] = UsingDirective(IdentifierName(u));
+                i++;
+            }
+            return usings;
         }
 
         // =======================================

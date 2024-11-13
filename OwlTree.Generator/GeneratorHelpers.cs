@@ -32,7 +32,9 @@ namespace OwlTree.Generator
         public const string Tk_IEncodable = "IEncodable";
         public const string Tk_IVariable = "IVariable";
         public const string Tk_ProxyFactory = "ProxyFactory";
-        public const string Tk_FactoryName = "ProjectProxyFactory";
+        public const string Tk_ProjectProxies = "ProjectProxyFactory";
+        public const string Tk_RpcProtocols = "RpcProtocols";
+        public const string Tk_ProjectProtocols = "ProjectRpcProtocols";
 
         public const string Tk_RpcId = "RpcId";
         public const string Tk_ClientId = "ClientId";
@@ -46,6 +48,23 @@ namespace OwlTree.Generator
         public const string Tk_NetworkVec2 = "NetworkVec2";
         public const string Tk_NetworkVec3 = "NetworkVec3";
         public const string Tk_NetworkVec4 = "NetworkVec4";
+
+        // rpc protocols tokens
+        // ! must match members of RpcProtocols abstract class
+        public const string Tk_GetProtocol = "GetProtocol";
+        public const string Tk_GetRpcCalleeParam = "GetRpcCalleeParam";
+        public const string Tk_GetRpcCaller = "GetRpcCaller";
+        public const string Tk_GetRpcCallerParam = "GetRpcCallerParam";
+        public const string Tk_GetRpcName = "GetRpcName";
+        public const string Tk_GetRpcParamName = "GetRpcParamName";
+        public const string Tk_GetSendProtocol = "GetSendProtocol";
+        public const string Tk_IsInvokeOnCaller = "IsInvokeOnCaller";
+        public const string Tk_InvokeRpc = "InvokeRpc";
+
+        public const string ArgTk_RpcId = "rpcId";
+        public const string ArgTk_ParamInd = "paramInd";
+        public const string ArgTk_Target = "target";
+        public const string ArgTk_Args = "args";
 
         // owl tree accessors
         public const string Tk_Connection = "Connection";

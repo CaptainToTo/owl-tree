@@ -25,6 +25,7 @@ namespace OwlTree.Generator
             GeneratorState.ClearEnums();
             GeneratorState.ClearTypeIds();
             GeneratorState.ClearRpcData();
+            GeneratorState.ClearUsings();
             // refill encodables with built in encodable types
             IEncodableAnalyzer.AddPrimitives();
             IEncodableAnalyzer.AddBuiltIns();
@@ -78,7 +79,17 @@ namespace OwlTree.Generator
             }
 
             var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
-            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_FactoryName + Helpers.Tk_CsFile, factory.ToString());
+            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
+
+            RpcProtocolsGenerator.Reset();
+
+            foreach (var pair in GeneratorState.GetRpcs())
+            {
+                RpcProtocolsGenerator.AddRpc(pair.Value);
+            }
+
+            var protocols = RpcProtocolsGenerator.GetRpcProtocols();
+            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
         }
 
         

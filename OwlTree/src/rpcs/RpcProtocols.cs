@@ -30,13 +30,13 @@ namespace OwlTree
         /// Returns the parameter types associated with the given RPC id value.
         /// Returns null if no such RPC exists.
         /// </summary>
-        public abstract Type[] GetProtocol(uint id);
+        public abstract Type[] GetProtocol(uint rpcId);
 
         /// <summary>
         /// Returns the name of the method associated with the given RPC id value.
         /// Returns an empty string if no such RPC exists.
         /// </summary>
-        public abstract string GetRpcName(uint id);
+        public abstract string GetRpcName(uint rpcId);
 
         /// <summary>
         /// Returns the name of the method parameter at the given paramInd, 
@@ -55,18 +55,6 @@ namespace OwlTree
         /// a RpcCaller parameter, returns -1.
         /// </summary>
         public abstract int GetRpcCallerParam(uint rpcId);
-
-        /// <summary>
-        /// Checks if the parameter at the given index, for the given RPC, is a
-        /// <c>RpcCallee</c> parameter.
-        /// </summary>
-        public abstract bool IsRpcCalleeParam(uint rpcId, int paramInd);
-
-        /// <summary>
-        /// Checks if the parameter at the given index, for the given RPC, is a
-        /// <c>RpcCaller</c> parameter.
-        /// </summary>
-        public abstract bool IsRpcCallerParam(uint rpcId, int paramInd);
 
         /// <summary>
         /// Returns who is allowed to call the given RPC.
@@ -89,6 +77,26 @@ namespace OwlTree
         protected abstract void InvokeRpc(uint rpcId, NetworkObject target, object[] args);
 
         // ======================================
+
+        /// <summary>
+        /// Checks if the parameter at the given index, for the given RPC, is a
+        /// <c>RpcCallee</c> parameter.
+        /// </summary>
+        public bool IsRpcCalleeParam(uint rpcId, int paramInd)
+        {
+            var ind = GetRpcCalleeParam(rpcId);
+            return ind != -1 && ind == paramInd;
+        }
+
+        /// <summary>
+        /// Checks if the parameter at the given index, for the given RPC, is a
+        /// <c>RpcCaller</c> parameter.
+        /// </summary>
+        public bool IsRpcCallerParam(uint rpcId, int paramInd)
+        {
+            var ind = GetRpcCallerParam(rpcId);
+            return ind != -1 && ind == paramInd;
+        }
 
         public bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[] args)
         {

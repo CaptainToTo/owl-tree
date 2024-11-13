@@ -48,6 +48,8 @@ namespace OwlTree.Generator
 
                 GeneratorState.AddTypeId(Helpers.GetFullName(c.Identifier.ValueText, c), curId);
 
+                GeneratorState.AddUsings(Helpers.GetAllUsings(c));
+
                 if (_curId <= curId)
                     _curId = (byte)(curId + 1);
             }
@@ -131,7 +133,7 @@ namespace OwlTree.Generator
                 var rpcData = new GeneratorState.RpcData()
                 {
                     id = curId,
-                    name = Helpers.GetFullName(m.Identifier.ValueText, m),
+                    name = m.Identifier.ValueText,
                     caller = caller,
                     invokeOnCaller = invokeOnCaller,
                     useTcp = useTcp,
@@ -139,7 +141,7 @@ namespace OwlTree.Generator
                     paramData = CreateParamData(m)
                 };
 
-                GeneratorState.AddRpcData(rpcData.name, rpcData);
+                GeneratorState.AddRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), rpcData);
 
                 if (_curId <= curId)
                     _curId = curId + 1;

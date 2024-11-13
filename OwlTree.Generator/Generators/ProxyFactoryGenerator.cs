@@ -1,5 +1,6 @@
 
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
@@ -37,7 +38,7 @@ namespace OwlTree.Generator
             .WithUsings(List<UsingDirectiveSyntax>(_namespaces))
             .WithMembers(
                 SingletonList<MemberDeclarationSyntax>(
-                    ClassDeclaration(Helpers.Tk_FactoryName)
+                    ClassDeclaration(Helpers.Tk_ProjectProxies)
                         .WithModifiers(
                             TokenList(
                                 Token(SyntaxKind.PublicKeyword)))
@@ -180,7 +181,7 @@ namespace OwlTree.Generator
             byte id = GeneratorState.GetTypeId(Helpers.GetFullName(c.Identifier.ValueText, c));
 
             var space = Helpers.GetNamespaceName(c);
-            if (space != null)
+            if (space != null && !_namespaces.Any(u => u.Name.ToString() == space))
             {
                 _namespaces.Add(UsingDirective(IdentifierName(space)));
             }
