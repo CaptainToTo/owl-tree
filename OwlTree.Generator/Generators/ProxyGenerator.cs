@@ -272,7 +272,7 @@ namespace OwlTree.Generator
                                                     Argument(
                                                         LiteralExpression(
                                                             SyntaxKind.NumericLiteralExpression,
-                                                            Literal(id))))))))))))),
+                                                            Literal(id))))))))))),
                         // i_OnRpcCall.Invoke(
                         //     calleeArg == -1 ? ClientId.None : (ClientId)args[calleeArg],
                         //     new RpcId(RpcId),
@@ -380,7 +380,7 @@ namespace OwlTree.Generator
                                             IdentifierName(m.Identifier.ValueText)))
                                     .WithArgumentList(
                                         ArgumentList(
-                                            SeparatedList<ArgumentSyntax>(CreateParamArray(m))))))
+                                            SeparatedList<ArgumentSyntax>(CreateParamArray(m))))))))
                 // else if (i_IsReceivingRpc)
                 //     base.RpcName(args...); <- rpc caller not replaced
                 .WithElse(

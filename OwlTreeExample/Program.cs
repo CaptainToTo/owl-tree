@@ -78,11 +78,6 @@ class Program
 
     static void Main(string[] args)
     {
-        radio = new Radio();
-
-        radio.RPC_Test();
-        return;
-
         list.Add(2);
         list.Add(10);
         list.Add(8);
