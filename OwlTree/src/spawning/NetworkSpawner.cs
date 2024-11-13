@@ -63,7 +63,7 @@ namespace OwlTree
             newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
-            newObj.OnRpcCall = _connection.AddRpc;
+            newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
             _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{typeof(T), newObj.Id});
             newObj.OnSpawn();
@@ -87,7 +87,7 @@ namespace OwlTree
             newObj.SetIdInternal(NetworkId.New());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
-            newObj.OnRpcCall = _connection.AddRpc;
+            newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
 
             _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{t, newObj.Id});
@@ -123,7 +123,7 @@ namespace OwlTree
             newObj.SetIdInternal(id);
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
-            newObj.OnRpcCall = _connection.AddRpc;
+            newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);

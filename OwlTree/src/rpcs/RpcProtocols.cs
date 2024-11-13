@@ -127,9 +127,9 @@ namespace OwlTree
             if (ind != -1)
                 args[ind] = callee;
 
-            target.IsReceivingRpc = true;
+            target.i_IsReceivingRpc = true;
             InvokeRpc(id.Id, target, args);
-            target.IsReceivingRpc = false;
+            target.i_IsReceivingRpc = false;
         }
 
         /// <summary>

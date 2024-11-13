@@ -25,7 +25,11 @@ namespace OwlTree
         /// </summary>
         public delegate void Delegate(NetworkObject obj);
 
-        internal Action<ClientId, RpcId, NetworkId, Protocol, object[]> OnRpcCall;
+        /// <summary>
+        /// FOR INTERNAL USE ONLY. Broadcast an RPC call from this NetworkObject.
+        /// <c>(callee id, rpc id, this network id, tcp or udp, args[])</c>
+        /// </summary>
+        public Action<ClientId, RpcId, NetworkId, Protocol, object[]> i_OnRpcCall { get; internal set; }
 
         /// <summary>
         /// The object's network id. This is synchronized across clients.
@@ -46,7 +50,7 @@ namespace OwlTree
         /// <summary>
         /// FOR INTERNAL USE ONLY. Used to flag an object as receiving an RPC call from a remote source.
         /// </summary>
-        internal bool IsReceivingRpc = false;
+        public bool i_IsReceivingRpc {get; internal set; } = false;
 
         /// <summary>
         /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.

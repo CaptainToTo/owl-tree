@@ -85,55 +85,5 @@ namespace OwlTree
         {
             this.caller = caller;
         }
-
-        // TODO: remove everything below
-
-        // public static bool OnInvoke(MethodInfo method, NetworkObject netObj, object[] argsList)
-        // {
-        //     if (!netObj.IsActive)
-        //         throw new InvalidOperationException("RPCs can only be called on active network objects.");
-
-        //     if (netObj.Connection == null)
-        //         throw new InvalidOperationException("RPCs can only be called on an active connection.");
-
-        //     var attr = method.GetCustomAttribute<RpcAttribute>();
-            
-        //     if (
-        //         (attr.caller == (RpcCaller)netObj.Connection.NetRole) ||
-        //         (attr.caller == RpcCaller.Any && !netObj.IsReceivingRpc)
-        //     )
-        //     {
-        //         if (method == null)
-        //             throw new InvalidOperationException("RPC does not exist");
-
-        //         if (!_protocolsByMethod.TryGetValue(method, out var protocol))
-        //             throw new InvalidOperationException("RPC protocol does not exist.");
-                
-        //         var paramList = method.GetParameters();
-        //         ClientId callee = ClientId.None;
-
-        //         for (int i = 0; i < paramList.Length; i++)
-        //         {
-        //             if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCallerAttribute)))
-        //                 argsList[i] = netObj.Connection.LocalId;
-        //             else if (paramList[i].CustomAttributes.Any(a => a.AttributeType == typeof(RpcCalleeAttribute)))
-        //                 callee = (ClientId)argsList[i];
-        //         }
-                
-        //         netObj.OnRpcCall?.Invoke(callee, protocol.Id, netObj.Id, attr.RpcProtocol, argsList);
-
-        //         if (attr.InvokeOnCaller)
-        //             return true;
-        //         return false;
-        //     }
-        //     else if (netObj.IsReceivingRpc)
-        //     {
-        //         return true;
-        //     }
-        //     else
-        //     {
-        //         throw new InvalidOperationException("This connection does not have the permission to call this RPC.");
-        //     }
-        // }
     }
 }

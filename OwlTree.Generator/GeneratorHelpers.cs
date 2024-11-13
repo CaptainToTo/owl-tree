@@ -66,9 +66,16 @@ namespace OwlTree.Generator
         public const string ArgTk_Target = "target";
         public const string ArgTk_Args = "args";
 
-        // owl tree accessors
-        public const string Tk_Connection = "Connection";
-        public const string Tk_LocalId = "LocalId";
+        // owl tree member accessors
+        public const string MTk_Connection = "Connection";
+        public const string MTk_LocalId = "LocalId";
+        public const string MTk_ConnectionProtocols = "Protocols";
+        public const string MTk_Id = "Id";
+        public const string MTk_IsActive = "IsActive";
+        public const string MTk_NetRole = "NetRole";
+        public const string MTk_IsReceivingRpc = "i_IsReceivingRpc";
+        public const string MTk_OnRpcCall = "i_OnRpcCall";
+        public const string MTk_None = "None";
 
         // first id tokens
         public const string Tk_FirstRpcId = "FIRST_RPC_ID";
