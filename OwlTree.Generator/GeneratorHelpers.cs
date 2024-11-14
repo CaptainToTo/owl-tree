@@ -35,6 +35,7 @@ namespace OwlTree.Generator
         public const string Tk_ProjectProxies = "ProjectProxyFactory";
         public const string Tk_RpcProtocols = "RpcProtocols";
         public const string Tk_ProjectProtocols = "ProjectRpcProtocols";
+        public const string Tk_NetworkSpawner = "NetworkSpawner";
 
         public const string Tk_RpcId = "RpcId";
         public const string Tk_ClientId = "ClientId";
@@ -76,6 +77,8 @@ namespace OwlTree.Generator
         public const string MTk_IsReceivingRpc = "i_IsReceivingRpc";
         public const string MTk_OnRpcCall = "i_OnRpcCall";
         public const string MTk_None = "None";
+
+        public const string MTk_NetworkBaseTypeId = "NETWORK_BASE_TYPE_ID";
 
         // first id tokens
         public const string Tk_FirstRpcId = "FIRST_RPC_ID";

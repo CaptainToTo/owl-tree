@@ -14,7 +14,7 @@ namespace OwlTree
         /// <summary>
         /// The id reserved for signifying the base NetworkObject type.
         /// </summary>
-        internal const byte NETWORK_BASE_TYPE_ID = 1;
+        public const byte NETWORK_BASE_TYPE_ID = 1;
         /// <summary>
         /// The first valid id for derived network object types.
         /// </summary>

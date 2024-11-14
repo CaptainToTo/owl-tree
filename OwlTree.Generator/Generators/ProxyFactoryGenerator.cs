@@ -201,7 +201,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(c.Identifier.ValueText)))))))
+                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
@@ -225,7 +225,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(c.Identifier.ValueText)))))))
+                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
@@ -243,7 +243,7 @@ namespace OwlTree.Generator
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
                             TypeOfExpression(
-                                IdentifierName(c.Identifier.ValueText))))));
+                                IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c)))))));
             _typeId.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(
@@ -259,7 +259,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(c.Identifier.ValueText)))))))
+                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
@@ -333,8 +333,8 @@ namespace OwlTree.Generator
                         ReturnStatement(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName("NetworkSpawner"),
-                                IdentifierName("NETWORK_BASE_TYPE_ID"))))));
+                                IdentifierName(Helpers.Tk_NetworkObject),
+                                IdentifierName(Helpers.MTk_NetworkBaseTypeId))))));
         }
     }
 }

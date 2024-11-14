@@ -34,7 +34,7 @@ namespace OwlTree.Generator
                         BaseList(
                             SingletonSeparatedList<BaseTypeSyntax>(
                                 SimpleBaseType(
-                                    IdentifierName(c.Identifier.ValueText)
+                                    IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))
                                 ))))
                     .WithMembers(
                         CreateRpcProxies(c))))
