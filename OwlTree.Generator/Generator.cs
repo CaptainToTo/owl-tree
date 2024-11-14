@@ -81,7 +81,7 @@ namespace OwlTree.Generator
 
             var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
             context.AddSource(Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
-            // File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
+            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
 
             RpcProtocolsGenerator.Reset();
 
@@ -92,7 +92,7 @@ namespace OwlTree.Generator
 
             var protocols = RpcProtocolsGenerator.GetRpcProtocols();
             context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
-            // File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
+            File.WriteAllText(EnvConsts.ProjectPath + Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
         }
 
         

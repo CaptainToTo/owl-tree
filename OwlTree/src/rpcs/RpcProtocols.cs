@@ -236,7 +236,7 @@ namespace OwlTree
                     argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}\n");
                 }
 
-                str.Append(argsStr);
+                str.Append("\n").Append(argsStr);
             }
 
             return str.ToString();

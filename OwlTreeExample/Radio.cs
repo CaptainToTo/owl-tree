@@ -60,7 +60,7 @@ public class Radio : NetworkObject
         RPC_PingServer("hello from client: " + pingNo);
     }
 
-    [Rpc(RpcCaller.Server), AssignRpcId((int)IdRegistry.ExampleRpcIds.Test2)]
+    [Rpc(RpcCaller.Server)]
     public virtual void RPC_PingClient([RpcCallee] ClientId callee, string message)
     {
         Console.WriteLine("Private message from server:\n   " + message);
@@ -74,7 +74,7 @@ public class Radio : NetworkObject
         Console.WriteLine($"   {i}, {x}, {z}, {j}");
     }
     
-    [Rpc, AssignRpcId((int)IdRegistry.ExampleRpcIds.D)]
+    [Rpc]
     public virtual void RPC_Test()
     {
         Console.WriteLine("Received RPC");
