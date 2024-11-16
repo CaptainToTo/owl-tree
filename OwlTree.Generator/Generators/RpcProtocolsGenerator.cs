@@ -20,6 +20,7 @@ namespace OwlTree.Generator
         private static List<SwitchSectionSyntax> _getSendProtocol = new();
         private static List<SwitchSectionSyntax> _isInvokeOnCaller = new();
         private static List<SwitchSectionSyntax> _invokeRpc = new();
+        private static List<ExpressionSyntax> _idArray = new();
 
         public static void Reset()
         {
@@ -32,6 +33,7 @@ namespace OwlTree.Generator
             _getSendProtocol.Clear();
             _isInvokeOnCaller.Clear();
             _invokeRpc.Clear();
+            _idArray.Clear();
         }
 
         private static void AddDefaults()
@@ -148,6 +150,38 @@ namespace OwlTree.Generator
                     .WithMembers(
                         List<MemberDeclarationSyntax>(
                             new MemberDeclarationSyntax[]{
+                                MethodDeclaration(
+                                    ArrayType(
+                                        PredefinedType(
+                                            Token(SyntaxKind.UIntKeyword)))
+                                    .WithRankSpecifiers(
+                                        SingletonList<ArrayRankSpecifierSyntax>(
+                                            ArrayRankSpecifier(
+                                                SingletonSeparatedList<ExpressionSyntax>(
+                                                    OmittedArraySizeExpression())))),
+                                    Identifier(Helpers.Tk_GetRpcIds))
+                                .WithModifiers(
+                                    TokenList(
+                                        new []{
+                                            Token(SyntaxKind.PublicKeyword),
+                                            Token(SyntaxKind.OverrideKeyword)}))
+                                .WithBody(
+                                    Block(
+                                        SingletonList<StatementSyntax>(
+                                            ReturnStatement(
+                                                ArrayCreationExpression(
+                                                    ArrayType(
+                                                        PredefinedType(
+                                                            Token(SyntaxKind.UIntKeyword)))
+                                                    .WithRankSpecifiers(
+                                                        SingletonList<ArrayRankSpecifierSyntax>(
+                                                            ArrayRankSpecifier(
+                                                                SingletonSeparatedList<ExpressionSyntax>(
+                                                                    OmittedArraySizeExpression())))))
+                                                .WithInitializer(
+                                                    InitializerExpression(
+                                                        SyntaxKind.ArrayInitializerExpression,
+                                                        SeparatedList<ExpressionSyntax>(_idArray))))))),
                                 // =======================================
                                 MethodDeclaration(
                                     ArrayType(
@@ -397,6 +431,10 @@ namespace OwlTree.Generator
 
         public static void AddRpc(GeneratorState.RpcData data)
         {
+            _idArray.Add(LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression,
+                    Literal(data.id)));
+
             _getProtocol.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(

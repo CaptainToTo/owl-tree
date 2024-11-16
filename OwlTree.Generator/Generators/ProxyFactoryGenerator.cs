@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
@@ -51,8 +52,41 @@ namespace OwlTree.Generator
                             List<MemberDeclarationSyntax>(
                                 new MemberDeclarationSyntax[]{
                                     MethodDeclaration(
+                                        ArrayType(
+                                            PredefinedType(
+                                                Token(SyntaxKind.ByteKeyword)))
+                                        .WithRankSpecifiers(
+                                            SingletonList<ArrayRankSpecifierSyntax>(
+                                                ArrayRankSpecifier(
+                                                    SingletonSeparatedList<ExpressionSyntax>(
+                                                        OmittedArraySizeExpression())))),
+                                        Identifier(Helpers.Tk_GetTypeIds))
+                                    .WithModifiers(
+                                        TokenList(
+                                            new []{
+                                                Token(SyntaxKind.PublicKeyword),
+                                                Token(SyntaxKind.OverrideKeyword)}))
+                                    .WithBody(
+                                        Block(
+                                            SingletonList<StatementSyntax>(
+                                                ReturnStatement(
+                                                    ArrayCreationExpression(
+                                                        ArrayType(
+                                                            PredefinedType(
+                                                                Token(SyntaxKind.ByteKeyword)))
+                                                        .WithRankSpecifiers(
+                                                            SingletonList<ArrayRankSpecifierSyntax>(
+                                                                ArrayRankSpecifier(
+                                                                    SingletonSeparatedList<ExpressionSyntax>(
+                                                                        OmittedArraySizeExpression())))))
+                                                    .WithInitializer(
+                                                        InitializerExpression(
+                                                            SyntaxKind.ArrayInitializerExpression,
+                                                            SeparatedList<ExpressionSyntax>(
+                                                                CreateIdArray()))))))),
+                                    MethodDeclaration(
                                         IdentifierName(Helpers.Tk_NetworkObject),
-                                        Identifier("CreateProxy"))
+                                        Identifier(Helpers.Tk_CreateProxy))
                                     .WithModifiers(
                                         TokenList(
                                             new []{
@@ -86,7 +120,7 @@ namespace OwlTree.Generator
                                     MethodDeclaration(
                                         PredefinedType(
                                             Token(SyntaxKind.BoolKeyword)),
-                                        Identifier("HasTypeId"))
+                                        Identifier(Helpers.Tk_HasTypeId))
                                     .WithModifiers(
                                         TokenList(
                                             new []{
@@ -119,7 +153,7 @@ namespace OwlTree.Generator
                                                     List<SwitchSectionSyntax>( _hasTypeId ))))),
                                     MethodDeclaration(
                                         IdentifierName("Type"),
-                                        Identifier("TypeFromId"))
+                                        Identifier(Helpers.Tk_TypeFromId))
                                     .WithModifiers(
                                         TokenList(
                                             new []{
@@ -143,7 +177,7 @@ namespace OwlTree.Generator
                                     MethodDeclaration(
                                         PredefinedType(
                                             Token(SyntaxKind.ByteKeyword)),
-                                        Identifier("TypeId"))
+                                        Identifier(Helpers.Tk_TypeId))
                                     .WithModifiers(
                                         TokenList(
                                             new []{
@@ -174,6 +208,21 @@ namespace OwlTree.Generator
                                                             TriviaList())))
                                                 .WithSections(
                                                     List<SwitchSectionSyntax>( _typeId )))))}))));
+        }
+
+        private static ExpressionSyntax[] CreateIdArray()
+        {
+            var ids = new ExpressionSyntax[GeneratorState.GetTypeIds().Count];
+
+            int i  = 0;
+            foreach (var pair in GeneratorState.GetTypeIds())
+            {
+                ids[i] = LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression,
+                    Literal(pair.Value));
+            }
+
+            return ids;
         }
 
         public static void AddClass(ClassDeclarationSyntax c)

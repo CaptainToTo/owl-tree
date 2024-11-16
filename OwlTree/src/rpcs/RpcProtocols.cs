@@ -27,6 +27,11 @@ namespace OwlTree
         // overrides generated at compile time ==
 
         /// <summary>
+        /// Returns an array containing all of RPC id values for user created RPCs.
+        /// </summary>
+        public abstract uint[] GetRpcIds();
+
+        /// <summary>
         /// Returns the parameter types associated with the given RPC id value.
         /// Returns null if no such RPC exists.
         /// </summary>

@@ -131,7 +131,7 @@ namespace OwlTree.Generator
 
         public static string GetType(byte v) => _typeIds.Where(p => p.Value == v).FirstOrDefault().Key;
 
-        public static Dictionary<string, byte>.Enumerator GetTypeIds() => _typeIds.GetEnumerator();
+        public static Dictionary<string, byte> GetTypeIds() => _typeIds;
 
         public static string GetTypeIdsString()
         {

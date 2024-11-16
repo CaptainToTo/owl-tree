@@ -65,9 +65,9 @@ namespace OwlTree
             newObj.SetConnectionInternal(_connection);
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{typeof(T), newObj.Id});
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
+            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{typeof(T), newObj.Id});
             return newObj;
         }
 
@@ -150,7 +150,7 @@ namespace OwlTree
 
         internal string SpawnEncodingSummary(Type objType, NetworkId id)
         {
-            string title = "Spawn Network Object of type <" + objType.Name + "> w/ Id " + id.ToString() + ":\n";
+            string title = "Spawn Network Object of type <" + objType.ToString() + "> w/ Id " + id.ToString() + ":\n";
             byte[] bytes = new byte[SpawnByteLength];
             SpawnEncode(bytes.AsSpan(), objType, id);
             string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";

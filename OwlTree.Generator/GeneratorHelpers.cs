@@ -25,6 +25,7 @@ namespace OwlTree.Generator
         // * tokens
 
         // classes and namespaces
+        public const string Tk_CompilerServices = "System.Runtime.CompilerServices"; // for the compiler generated attribute
         public const string Tk_OwlTree = "OwlTree";
         public const string Tk_NetworkObject = "NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";
@@ -61,11 +62,20 @@ namespace OwlTree.Generator
         public const string Tk_GetSendProtocol = "GetSendProtocol";
         public const string Tk_IsInvokeOnCaller = "IsInvokeOnCaller";
         public const string Tk_InvokeRpc = "InvokeRpc";
+        public const string Tk_GetRpcIds = "GetRpcIds";
 
         public const string ArgTk_RpcId = "rpcId";
         public const string ArgTk_ParamInd = "paramInd";
         public const string ArgTk_Target = "target";
         public const string ArgTk_Args = "args";
+
+        // proxy factory tokens
+        // ! must match members of ProxyFactory abstract class
+        public const string Tk_GetTypeIds = "GetTypeIds";
+        public const string Tk_CreateProxy = "CreateProxy";
+        public const string Tk_HasTypeId = "HasTypeId";
+        public const string Tk_TypeFromId = "TypeFromId";
+        public const string Tk_TypeId = "TypeId";
 
         // owl tree member accessors
         public const string MTk_Connection = "Connection";
@@ -96,6 +106,8 @@ namespace OwlTree.Generator
         public const string AttrTk_RpcCaller = "RpcCaller";
         public const string AttrTk_RpcCallee = "RpcCallee";
         public const string AttrTk_AssignTypeId = "AssignTypeId";
+
+        public const string AttrTk_CompilerGenerated = "CompilerGenerated";
 
         // rpc attr args
         public const string Tk_RpcCaller = "RpcCaller";

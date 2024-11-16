@@ -23,6 +23,7 @@ namespace OwlTree.Generator
             return c.Identifier.ValueText + Helpers.Tk_ProxySuffix;
         }
 
+        
         public static CompilationUnitSyntax CreateProxy(ClassDeclarationSyntax c)
         {
 
@@ -39,6 +40,12 @@ namespace OwlTree.Generator
                                 ))))
                     .WithMembers(
                         CreateRpcProxies(c))))
+                    .WithAttributeLists(
+                        SingletonList<AttributeListSyntax>(
+                            AttributeList(
+                                SingletonSeparatedList<AttributeSyntax>(
+                                    Attribute(
+                                        IdentifierName(Helpers.AttrTk_CompilerGenerated))))))
             .NormalizeWhitespace();
         }
 
@@ -47,10 +54,13 @@ namespace OwlTree.Generator
             var name = Helpers.GetNamespaceName(c);
             var usings = Helpers.GetAllUsings(c);
             if (name != null)
-                usings.Add(UsingDirective(IdentifierName(name)));
+                usings = usings.Add(UsingDirective(IdentifierName(name)));
             
             if (!Helpers.IsUsing(usings, Helpers.Tk_OwlTree))
-                usings.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
+                usings = usings.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
+            
+            if (!Helpers.IsUsing(usings, Helpers.Tk_CompilerServices))
+                usings = usings.Add(UsingDirective(IdentifierName(Helpers.Tk_CompilerServices)));
             
             return usings;
         }

@@ -23,6 +23,11 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// Returns an array of type id values for all of the user created NetworkObject types.
+        /// </summary>
+        public abstract byte[] GetTypeIds();
+
+        /// <summary>
         /// Creates a new proxy for the given user defined NetworkObject type.
         /// </summary>
         public abstract NetworkObject CreateProxy(Type t);
