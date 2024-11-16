@@ -64,6 +64,9 @@ namespace OwlTree
             /// </summary>
             public object[] args;
 
+            /// <summary>
+            /// The byte encoding of the message.
+            /// </summary>
             public byte[] bytes;
 
             /// <summary>
@@ -119,6 +122,8 @@ namespace OwlTree
 
             public Decoder decoder;
             public Encoder encoder;
+
+            public Logger logger;
         }
 
         /// <summary>
@@ -141,6 +146,8 @@ namespace OwlTree
         public ushort AppVersion { get; private set; }
         public ushort MinAppVersion { get; private set; }
         public AppId ApplicationId { get; private set; }
+
+        protected Logger Logger { get; private set; }
 
         public NetworkBuffer(Args args)
         {

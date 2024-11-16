@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace OwlTree
 {
@@ -356,8 +357,37 @@ namespace OwlTree
                 if (!client.tcpPacket.IsEmpty)
                 {
                     client.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                    if (Logger.includes.tcpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"Pre-Transform TCP packet sent to {client.id} at {DateTime.UtcNow}:\n");
+                        var packet = client.tcpPacket.GetPacket();
+                        for (int i = 0; i < packet.Length; i++)
+                        {
+                            packetStr.Append(packet[i].ToString("X2"));
+                            if (i < packet.Length - 1)
+                                packetStr.Append('-');
+                        }
+
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     ApplySendSteps(client.tcpPacket);
                     var bytes = client.tcpPacket.GetPacket();
+
+                    if (Logger.includes.tcpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"Post-Transform TCP packet sent to {client.id} at {DateTime.UtcNow}:\n");
+                        for (int i = 0; i < bytes.Length; i++)
+                        {
+                            packetStr.Append(bytes[i].ToString("X2"));
+                            if (i < bytes.Length - 1)
+                                packetStr.Append('-');
+                        }
+
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     client.tpcSocket.Send(bytes);
                     client.tcpPacket.Reset();
                 }
@@ -365,8 +395,37 @@ namespace OwlTree
                 if (!client.udpPacket.IsEmpty)
                 {
                     client.udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                    if (Logger.includes.tcpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"Pre-Transform UDP packet sent to {client.id} at {DateTime.UtcNow}:\n");
+                        var packet = client.udpPacket.GetPacket();
+                        for (int i = 0; i < packet.Length; i++)
+                        {
+                            packetStr.Append(packet[i].ToString("X2"));
+                            if (i < packet.Length - 1)
+                                packetStr.Append('-');
+                        }
+
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     ApplySendSteps(client.udpPacket);
                     var bytes = client.udpPacket.GetPacket();
+
+                    if (Logger.includes.tcpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"Post-Transform UDP packet sent to {client.id} at {DateTime.UtcNow}:\n");
+                        for (int i = 0; i < bytes.Length; i++)
+                        {
+                            packetStr.Append(bytes[i].ToString("X2"));
+                            if (i < bytes.Length - 1)
+                                packetStr.Append('-');
+                        }
+
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
                     client.udpPacket.Reset();
                 }

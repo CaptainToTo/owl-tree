@@ -142,10 +142,9 @@ namespace OwlTree
             public Logger.Printer printer = Console.WriteLine;
 
             /// <summary>
-            /// Select a verbosity for logs from the connection. This will determine how many logs will be output.
-            /// <b>Default = LogRule.Events</b>
+            /// Specify what information will get logged. <b>Default = None</b>
             /// </summary>
-            public Logger.LogRule verbosity = Logger.LogRule.Events;
+            public Logger.IncludeRules verbosity = Logger.Includes();
 
             public Args() { }
         }
@@ -192,11 +191,13 @@ namespace OwlTree
             _spawner = new NetworkSpawner(this, ProxyFactory.GetProjectImplementation());
 
             _spawner.OnObjectSpawn = (obj) => {
-                _logger.Write(Logger.LogRule.Events, "Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
+                if (_logger.includes.spawnEvents)
+                    _logger.Write("Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
                 OnObjectSpawn?.Invoke(obj);
             };
             _spawner.OnObjectDespawn = (obj) => {
-                _logger.Write(Logger.LogRule.Events, "Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
+                if (_logger.includes.spawnEvents)
+                    _logger.Write("Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
                 OnObjectDespawn?.Invoke(obj);
             };
 
@@ -333,30 +334,34 @@ namespace OwlTree
                 switch (result.t)
                 {
                     case ConnectionEventType.OnConnect:
-                        _logger.Write(Logger.LogRule.Events, "New client connected: " + result.id.ToString());
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("New client connected: " + result.id.ToString());
                         if (NetRole == Role.Server)
                         {
                             _spawner.SendNetworkObjects(result.id);
                         }
-                        
+
                         OnClientConnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnDisconnect:
                         if (result.id == LocalId)
                         {
-                            _logger.Write(Logger.LogRule.Events, "Local client disconnected.");
+                            if (_logger.includes.clientEvents)
+                                _logger.Write("Local client disconnected.");
                             IsActive = false;
                             _spawner.DespawnAll();
                         }
                         else
                         {
-                            _logger.Write(Logger.LogRule.Events, "Remote client disconnected: " + result.id.ToString());
+                            if (_logger.includes.clientEvents)
+                                _logger.Write("Remote client disconnected: " + result.id.ToString());
                         }
                         OnClientDisconnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnReady:
                         IsActive = true;
-                        _logger.Write(Logger.LogRule.Events, "Connection is ready. Local client id is: " + result.id.ToString());
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Connection is ready. Local client id is: " + result.id.ToString());
                         OnReady?.Invoke(result.id);
                         break;
                 }
@@ -422,22 +427,27 @@ namespace OwlTree
             {
                 message.bytes = new byte[NetworkSpawner.SpawnByteLength];
                 _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
-                if (_logger.IncludesVerbose)
-                    _logger.Write(Logger.LogRule.Verbose, _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                if (_logger.includes.rpcCallEncodings)
+                    _logger.Write(_spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
             {
                 message.bytes = new byte[NetworkSpawner.DespawnByteLength];
                 NetworkSpawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
-                if (_logger.IncludesVerbose)
-                    _logger.Write(Logger.LogRule.Verbose, NetworkSpawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                if (_logger.includes.rpcCallEncodings)
+                    _logger.Write(NetworkSpawner.DespawnEncodingSummary((NetworkId)message.args[0]));
             }
             else
             {
                 message.bytes = new byte[RpcEncoding.GetExpectedRpcLength(message.args)];
                 RpcEncoding.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
-                if (_logger.IncludesVerbose)
-                    _logger.Write(Logger.LogRule.Verbose, Protocols.GetEncodingSummary(LocalId, rpcId, target, args));
+                if (_logger.includes.rpcCalls)
+                {
+                    var output = $"{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                    if (_logger.includes.rpcCallEncodings)
+                        output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
+                    _logger.Write(output);
+                }
             }
 
             _buffer.AddMessage(message);

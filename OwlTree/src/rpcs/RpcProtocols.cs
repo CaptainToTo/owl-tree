@@ -219,8 +219,7 @@ namespace OwlTree
 
             RpcEncoding.EncodeRpc(bytes, id, target, args);
 
-            var str = new StringBuilder($"{GetRpcName(id.Id)} {id}, Called on Object {target}:\n");
-            str.Append($"     Bytes: {BitConverter.ToString(bytes)}\n");
+            var str = new StringBuilder($"     Bytes: {BitConverter.ToString(bytes)}\n");
             str.Append("  Encoding: |__RpcId__| |__NetId__|");
 
             if (args != null && args.Length > 0)
