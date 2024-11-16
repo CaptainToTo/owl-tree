@@ -104,6 +104,23 @@ namespace OwlTree
         /// Invoked when this object is destroyed.
         /// </summary>
         public virtual void OnDespawn() { }
+
+        /// <summary>
+        /// Returns the type of the user created NetworkObject subclass.
+        /// To get the actual proxy object type, use <c>GetProxyType()</c>.
+        /// </summary>
+        public new virtual Type GetType() 
+        { 
+            return typeof(NetworkObject);
+        }
+
+        /// <summary>
+        /// Returns the actual type of this proxy object.
+        /// </summary>
+        public virtual Type GetProxyType() 
+        { 
+            return typeof(NetworkObject);
+        }
     }
 
     /// <summary>

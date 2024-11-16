@@ -23,6 +23,7 @@ class Program
                 if (radio == null)
                     radio = server.Spawn<Radio>();
             };
+            // radio = server.Spawn<Radio>();
             Loop(server);
         }
         else if (args[0] == "c")

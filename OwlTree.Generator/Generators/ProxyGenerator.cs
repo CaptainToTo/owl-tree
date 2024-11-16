@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using System;
 
 namespace OwlTree.Generator
 {
@@ -87,9 +88,48 @@ namespace OwlTree.Generator
                 proxyBuilderStage.Add(proxy);
             }
 
+            proxyBuilderStage.Add(CreateGetType(c));
+            proxyBuilderStage.Add(CreateGetProxyType(c));
+
             var proxyList = List<MemberDeclarationSyntax>(proxyBuilderStage);
 
             return proxyList;
+        }
+
+        private static MethodDeclarationSyntax CreateGetProxyType(ClassDeclarationSyntax c)
+        {
+            return MethodDeclaration(
+                IdentifierName("Type"),
+                Identifier("GetProxyType"))
+            .WithModifiers(
+                TokenList(
+                    new []{
+                        Token(SyntaxKind.PublicKeyword),
+                        Token(SyntaxKind.OverrideKeyword)}))
+            .WithBody(
+                Block(
+                    SingletonList<StatementSyntax>(
+                        ReturnStatement(
+                            TypeOfExpression(
+                                IdentifierName(GetProxyName(c)))))));
+        }
+
+        private static MethodDeclarationSyntax CreateGetType(ClassDeclarationSyntax c)
+        {
+            return MethodDeclaration(
+                IdentifierName("Type"),
+                Identifier("GetType"))
+            .WithModifiers(
+                TokenList(
+                    new []{
+                        Token(SyntaxKind.PublicKeyword),
+                        Token(SyntaxKind.OverrideKeyword)}))
+            .WithBody(
+                Block(
+                    SingletonList<StatementSyntax>(
+                        ReturnStatement(
+                            TypeOfExpression(
+                                IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c)))))));
         }
 
         private static BlockSyntax CreateProxyBody(MethodDeclarationSyntax m, uint id)
