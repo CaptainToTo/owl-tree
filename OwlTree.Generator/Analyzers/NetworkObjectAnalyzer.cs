@@ -14,6 +14,8 @@ namespace OwlTree.Generator
         /// </summary>
         public static void AssignTypeIds(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
         {
+            if (list.Length == 0) return;
+
             var ordered = list.OrderBy(c => (
                 Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId) ? "0" : "1"
                 ) + c.Identifier.ValueText);
@@ -58,8 +60,6 @@ namespace OwlTree.Generator
                 if (_curId <= curId)
                     _curId = (byte)(curId + 1);
             }
-
-            File.WriteAllText(EnvConsts.ProjectPath + "types-out.txt", GeneratorState.GetTypeIdsString());
         }
 
         /// <summary>
@@ -67,6 +67,7 @@ namespace OwlTree.Generator
         /// </summary>
         public static void AssignRpcIds(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
         {
+            if (list.Length == 0) return;
 
             // select all methods, filter for rpcs, and sort rpcs with assigned ids first
             var methods = list.SelectMany(c => c.Members.OfType<MethodDeclarationSyntax>())
@@ -156,8 +157,6 @@ namespace OwlTree.Generator
                 if (_curId <= curId)
                     _curId = curId + 1;
             }
-
-            File.WriteAllText(EnvConsts.ProjectPath + "rpc-out.txt", GeneratorState.GetRpcIdsString());
         }
 
         private static GeneratorState.ParamData[] CreateParamData(MethodDeclarationSyntax m)

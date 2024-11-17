@@ -30,6 +30,7 @@ namespace OwlTree.Generator
         public const string Tk_NetworkObject = "NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";
         public const string Tk_CsFile = ".g.cs";
+        public const string Tk_DebugFile = ".g.cs.debug";
         public const string Tk_IEncodable = "IEncodable";
         public const string Tk_IVariable = "IVariable";
         public const string Tk_ProxyFactory = "ProxyFactory";

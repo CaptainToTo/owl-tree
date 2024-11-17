@@ -68,8 +68,6 @@ namespace OwlTree.Generator
                     Diagnostics.BadRpcIdConst(context, field);
                 }
             }
-
-            File.WriteAllText(EnvConsts.ProjectPath + "const-out.txt", GeneratorState.GetConstsString());
         }
 
         private static void SolveEnumValues(SourceProductionContext context, IEnumerable<EnumDeclarationSyntax> enums)
@@ -117,8 +115,6 @@ namespace OwlTree.Generator
                     i++;
                 }
             }
-
-            File.WriteAllText(EnvConsts.ProjectPath + "enum-out.txt", GeneratorState.GetEnumsString());
         }
     }
 }
