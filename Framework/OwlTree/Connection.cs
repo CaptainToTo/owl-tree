@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace OwlTree
@@ -288,6 +289,13 @@ namespace OwlTree
 
         private ConcurrentQueue<ClientId> _disconnectRequests = new ConcurrentQueue<ClientId>();
 
+        private List<ClientId> _clients = new List<ClientId>();
+
+        /// <summary>
+        /// Iterable of all connected clients.
+        /// </summary>
+        public IEnumerable<ClientId> Clients { get { return _clients; } }
+
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
         /// </summary>
@@ -352,6 +360,7 @@ namespace OwlTree
                             _spawner.SendNetworkObjects(result.id);
                         }
 
+                        _clients.Add(result.id);
                         OnClientConnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnDisconnect:
@@ -367,6 +376,7 @@ namespace OwlTree
                             if (_logger.includes.clientEvents)
                                 _logger.Write("Remote client disconnected: " + result.id.ToString());
                         }
+                        _clients.Remove(result.id);
                         OnClientDisconnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnReady:
