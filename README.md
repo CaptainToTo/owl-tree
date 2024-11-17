@@ -43,6 +43,7 @@ class Program
             // Open server on localhost
             var server = new Connection(new Connection.Args
             {
+                appId = "MyOwlTreeApp", // max 64 byte identifier for your app
                 role = Connection.Role.Server,
                 serverAddr = "127.0.0.1",
                 tcpPort = 8080
@@ -55,6 +56,7 @@ class Program
             // create a client
             var client = new Connection(new Connection.Args
             {
+                appId = "MyOwlTreeApp", // if app id doesn't match server's id, connection will be rejected
                 role = Connection.Role.Client,
                 serverAddr = "127.0.0.1",
                 tcpPort = 8080
