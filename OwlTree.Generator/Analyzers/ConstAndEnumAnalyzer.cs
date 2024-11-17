@@ -52,6 +52,8 @@ namespace OwlTree.Generator
             var names = new List<string>();
             foreach (var field in fields)
             {
+                if (GeneratorState.HasConst(Helpers.GetFullName(Helpers.GetFieldName(field), field)))
+                    continue;
 
                 if (Helpers.IsConst(field) && Helpers.IsInt(field))
                 {
@@ -72,11 +74,12 @@ namespace OwlTree.Generator
 
         private static void SolveEnumValues(SourceProductionContext context, IEnumerable<EnumDeclarationSyntax> enums)
         {
-
-            GeneratorState.ClearEnums();
             var names = new List<string>();
             foreach (var e in enums)
             {
+                if (GeneratorState.HasEnum(Helpers.GetFullName(e.Identifier.ValueText, e)))
+                    continue;
+
                 names.Clear();
                 Helpers.GetAllNames(e.Identifier.ValueText, e, names);
 

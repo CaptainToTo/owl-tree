@@ -60,7 +60,7 @@ namespace OwlTree.Generator
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                m.GetLocation(),
+                m.Identifier.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m));
 
             context.ReportDiagnostic(diagnostic);
@@ -76,7 +76,7 @@ namespace OwlTree.Generator
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                m.GetLocation(),
+                m.Identifier.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m));
 
             context.ReportDiagnostic(diagnostic);
@@ -92,7 +92,7 @@ namespace OwlTree.Generator
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                m.GetLocation(),
+                m.Identifier.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m));
 
             context.ReportDiagnostic(diagnostic);
@@ -130,18 +130,18 @@ namespace OwlTree.Generator
             context.ReportDiagnostic(diagnostic);
         }
 
-        public static void DuplicateTypeIds(SourceProductionContext context, ClassDeclarationSyntax c, byte id)
+        public static void DuplicateTypeIds(SourceProductionContext context, ClassDeclarationSyntax c, byte id, string collision)
         {
             var diagnostic = Diagnostic.Create(
                 new DiagnosticDescriptor(
                     GetId(Ids.DuplicateTypeIds),
                     "Duplicate Type Ids",
-                    "NetworkObject type '{0}' cannot have the same id '{1}' as another NetworkObject type.",
+                    "NetworkObject type '{0}' cannot have the same id '{1}' as another NetworkObject type, '{2}'.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                c.GetLocation(),
-                Helpers.GetFullName(c.Identifier.ValueText, c), id);
+                c.Identifier.GetLocation(),
+                Helpers.GetFullName(c.Identifier.ValueText, c), id, collision);
 
             context.ReportDiagnostic(diagnostic);
         }
@@ -162,18 +162,18 @@ namespace OwlTree.Generator
             context.ReportDiagnostic(diagnostic);
         }
 
-        public static void DuplicateRpcIds(SourceProductionContext context, MethodDeclarationSyntax m, uint id)
+        public static void DuplicateRpcIds(SourceProductionContext context, MethodDeclarationSyntax m, uint id, string collision)
         {
             var diagnostic = Diagnostic.Create(
                 new DiagnosticDescriptor(
                     GetId(Ids.DuplicateRpcIds),
                     "Duplicate RPC Ids",
-                    "RPC method '{0}' cannot have the same id '{1}' as another RPC.",
+                    "RPC method '{0}' cannot have the same id '{1}' as another RPC, '{2}'.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                m.GetLocation(),
-                Helpers.GetFullName(m.Identifier.ValueText, m), id);
+                m.Identifier.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m), id, collision);
 
             context.ReportDiagnostic(diagnostic);
         }
@@ -188,7 +188,7 @@ namespace OwlTree.Generator
                     Cat_Usage,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                c.GetLocation(),
+                c.Identifier.GetLocation(),
                 Helpers.GetFullName(c.Identifier.ValueText, c));
 
             context.ReportDiagnostic(diagnostic);
@@ -204,7 +204,7 @@ namespace OwlTree.Generator
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                c.GetLocation(),
+                c.Identifier.GetLocation(),
                 Helpers.GetFullName(c.Identifier.ValueText, c));
 
             context.ReportDiagnostic(diagnostic);

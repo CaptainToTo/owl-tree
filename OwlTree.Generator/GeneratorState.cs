@@ -208,6 +208,8 @@ namespace OwlTree.Generator
 
         public static string GetRpc(RpcData v) => _rpcIds.Where(p => p.Value.id == v.id).FirstOrDefault().Key;
 
+        public static string GetRpc(uint id) => _rpcIds.Where(p => p.Value.id == id).FirstOrDefault().Key;
+
         public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
         public static Dictionary<string, RpcData> GetRpcs() => _rpcIds;

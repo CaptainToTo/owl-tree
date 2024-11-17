@@ -23,6 +23,10 @@ namespace OwlTree.Generator
 
             foreach (ClassDeclarationSyntax c in ordered)
             {
+                var fullName = Helpers.GetFullName(c.Identifier.ValueText, c);
+                if (GeneratorState.HasType(fullName))
+                    continue;
+
                 curId = _curId;
                 var attr = Helpers.GetAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId);
                 if (attr != null)
@@ -40,13 +44,14 @@ namespace OwlTree.Generator
 
                     if (GeneratorState.HasTypeId(curId))
                     {
-                        Diagnostics.DuplicateTypeIds(context, c, curId);
+                        var collision = GeneratorState.GetType(curId);
+                        Diagnostics.DuplicateTypeIds(context, c, curId, collision);
                         continue;
                     }
 
                 }
 
-                GeneratorState.AddTypeId(Helpers.GetFullName(c.Identifier.ValueText, c), curId);
+                GeneratorState.AddTypeId(fullName, curId);
 
                 GeneratorState.AddUsings(Helpers.GetAllUsings(c));
 
@@ -75,6 +80,10 @@ namespace OwlTree.Generator
 
             foreach (MethodDeclarationSyntax m in methods)
             {
+                var fullName = Helpers.GetFullName(m.Identifier.ValueText, m);
+                if (GeneratorState.HasRpc(fullName))
+                    continue;
+
                 if (!Helpers.IsVirtual(m))
                 {
                     Diagnostics.NonVirtualRpc(context, m);
@@ -122,7 +131,8 @@ namespace OwlTree.Generator
 
                 if (GeneratorState.HasRpcId(curId))
                 {
-                    Diagnostics.DuplicateRpcIds(context, m, curId);
+                    var collision = GeneratorState.GetRpc(curId);
+                    Diagnostics.DuplicateRpcIds(context, m, curId, collision);
                     continue;
                 }
 
@@ -141,7 +151,7 @@ namespace OwlTree.Generator
                     paramData = CreateParamData(m)
                 };
 
-                GeneratorState.AddRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), rpcData);
+                GeneratorState.AddRpcData(fullName, rpcData);
 
                 if (_curId <= curId)
                     _curId = curId + 1;
