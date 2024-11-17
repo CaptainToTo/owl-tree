@@ -158,6 +158,11 @@ namespace OwlTree
             return title + bytesStr + encoding;
         }
 
+        internal string SpawnEncodingSummary(byte objType, NetworkId id)
+        {
+            return SpawnEncodingSummary(_proxyFactory.TypeFromId(objType), id);
+        }
+
         /// <summary>
         /// Destroy the given NetworkObject across all clients.
         /// </summary>
@@ -195,7 +200,7 @@ namespace OwlTree
         internal static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
 
         // encodes destroy into byte array for send
-        internal static void DespawnEncode(Span<byte> bytes, NetworkId id)
+        internal void DespawnEncode(Span<byte> bytes, NetworkId id)
         {
             var ind = 0;
 
@@ -208,7 +213,7 @@ namespace OwlTree
             id.InsertBytes(idSpan);
         }
 
-        internal static string DespawnEncodingSummary(NetworkId id)
+        internal string DespawnEncodingSummary(NetworkId id)
         {
             string title = "Despawn Network Object " + id.ToString() + ":\n";
             byte[] bytes = new byte[DespawnByteLength];

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text;
 
 namespace OwlTree
 {
@@ -46,5 +47,16 @@ namespace OwlTree
         /// Gets the network object type from the given id.
         /// </summary>
         public abstract Type TypeFromId(byte id);
+
+        internal string GetAllIdAssignments()
+        {
+            var ids = GetTypeIds();
+            var str = new StringBuilder("All Network Type Ids:\n");
+            foreach (var id in ids)
+            {
+                str.Append($"{id}: {TypeFromId(id)}\n");
+            }
+            return str.ToString();
+        }
     }
 }

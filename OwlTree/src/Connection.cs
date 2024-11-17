@@ -159,6 +159,11 @@ namespace OwlTree
 
             Protocols = RpcProtocols.GetProjectImplementation();
 
+            if (_logger.includes.allRpcProtocols)
+            {
+                _logger.Write(Protocols.GetAllProtocolSummaries());
+            }
+
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
                 minOwlTreeVer = args.minOwlTreeVersion,
@@ -171,7 +176,8 @@ namespace OwlTree
                 clientUdpPort = args.clientUdpPort,
                 bufferSize = args.bufferSize,
                 encoder = EncodeRpc,
-                decoder = TryDecodeRpc
+                decoder = TryDecodeRpc,
+                logger = _logger
             };
 
             if (args.role == Role.Client)
@@ -188,7 +194,12 @@ namespace OwlTree
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
 
-            _spawner = new NetworkSpawner(this, ProxyFactory.GetProjectImplementation());
+            var factory = ProxyFactory.GetProjectImplementation();
+
+            if (_logger.includes.allTypeIds)
+                _logger.Write(factory.GetAllIdAssignments());
+
+            _spawner = new NetworkSpawner(this, factory);
 
             _spawner.OnObjectSpawn = (obj) => {
                 if (_logger.includes.spawnEvents)
@@ -400,11 +411,25 @@ namespace OwlTree
             if (NetworkSpawner.TryDecode(bytes, out var rpcId, out var args) && NetRole == Role.Client)
             {
                 message = new NetworkBuffer.Message(LocalId, rpcId, args);
+                if (_logger.includes.rpcReceiveEncodings)
+                {
+                    if (rpcId.Id == RpcId.NETWORK_OBJECT_SPAWN)
+                        _logger.Write("RECEIVING:\n" + _spawner.SpawnEncodingSummary((byte)message.args[0], (NetworkId)message.args[1]));
+                    else
+                        _logger.Write("RECEIVING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
+                }
                 return true;
             }
             else if (Protocols.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
             {
                 message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, Protocol.Tcp, args);
+                if (_logger.includes.rpcReceives)
+                {
+                    var output = $"RECEIVING: {Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                    if (_logger.includes.rpcReceiveEncodings)
+                        output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
+                    _logger.Write(output);
+                }
                 return true;
             }
             return false;
@@ -428,14 +453,14 @@ namespace OwlTree
                 message.bytes = new byte[NetworkSpawner.SpawnByteLength];
                 _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
                 if (_logger.includes.rpcCallEncodings)
-                    _logger.Write(_spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                    _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
             {
                 message.bytes = new byte[NetworkSpawner.DespawnByteLength];
-                NetworkSpawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
+                _spawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
                 if (_logger.includes.rpcCallEncodings)
-                    _logger.Write(NetworkSpawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                    _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
             }
             else
             {
@@ -443,7 +468,7 @@ namespace OwlTree
                 RpcEncoding.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
                 if (_logger.includes.rpcCalls)
                 {
-                    var output = $"{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                    var output = $"SENDING: {Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcCallEncodings)
                         output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
                     _logger.Write(output);

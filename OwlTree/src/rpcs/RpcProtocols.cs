@@ -162,6 +162,17 @@ namespace OwlTree
             return true;
         }
 
+        public string GetAllProtocolSummaries()
+        {
+            var ids = GetRpcIds();
+            var str = new StringBuilder("All RPC Protocols:\n");
+            foreach (var id in ids)
+            {
+                str.Append(GetProtocolSummary(new RpcId(id))).Append("\n====\n");
+            }
+            return str.ToString();
+        }
+
         /// <summary>
         /// Builds a string representation of the given RPC's protocol.
         /// This shows how arguments are laid out in the RPC's byte encoding.

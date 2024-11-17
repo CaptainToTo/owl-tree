@@ -17,7 +17,7 @@ class Program
             var server = new Connection(new Connection.Args
             {
                 role = Connection.Role.Server,
-                verbosity = Logger.Includes().AllTypeIds().AllRpcProtocols()
+                verbosity = Logger.Includes().All()
             });
             server.OnClientConnected += (ClientId id) => {
                 if (radio == null)
@@ -31,7 +31,7 @@ class Program
             var client = new Connection(new Connection.Args
             {
                 role = Connection.Role.Client,
-                verbosity = Logger.Includes().AllTypeIds().AllRpcProtocols()
+                verbosity = Logger.Includes().All()
             });
             client.OnObjectSpawn += (obj) => {
                 radio = (Radio)obj;

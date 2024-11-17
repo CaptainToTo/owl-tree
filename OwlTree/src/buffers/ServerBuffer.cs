@@ -226,6 +226,7 @@ namespace OwlTree
                     // try to verify a new client connection
                     if (client == ClientData.None)
                     {
+                        var accepted = false;
                         ReadPacket.StartMessageRead();
                         if (ReadPacket.TryGetNextMessage(out var bytes))
                         {
@@ -235,7 +236,7 @@ namespace OwlTree
 
                                 // connection request verified, send client confirmation
                                 _connectionRequests.Add((IPEndPoint)source);
-                                Console.WriteLine("request confirmed");
+                                accepted = true;
 
                                 ReadPacket.Clear();
                                 ReadPacket.header.owlTreeVer = OwlTreeVersion;
@@ -247,10 +248,29 @@ namespace OwlTree
                                 _udpServer.SendTo(confirmation.ToArray(), source);
                             }
                         }
+
+                        if (Logger.includes.connectionAttempts)
+                        {
+                            Logger.Write("Connection attempt from " + ((IPEndPoint)source).Address.ToString() + (accepted ? " accepted, awaiting TCP handshake..." : " rejected."));
+                        }
                         continue;
                     }
 
+                    if (Logger.includes.udpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"Pre-Transform UDP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(ReadPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     ApplyReadSteps(ReadPacket);
+
+                    if (Logger.includes.udpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"Post-Transform UDP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(ReadPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
 
                     ReadPacket.StartMessageRead();
                     while (ReadPacket.TryGetNextMessage(out var bytes))
@@ -283,9 +303,23 @@ namespace OwlTree
                     }
                     catch { }
 
+                    var client = FindClientData(socket);
+
+                    if (Logger.includes.tcpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"Pre-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(ReadPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
                     ApplyReadSteps(ReadPacket);
 
-                    var client = FindClientData(socket);
+                    if (Logger.includes.tcpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"Post-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(ReadPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
 
                     // disconnect if receive fails
                     if (dataLen <= 0)
@@ -361,14 +395,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPreTransform)
                     {
                         var packetStr = new StringBuilder($"Pre-Transform TCP packet sent to {client.id} at {DateTime.UtcNow}:\n");
-                        var packet = client.tcpPacket.GetPacket();
-                        for (int i = 0; i < packet.Length; i++)
-                        {
-                            packetStr.Append(packet[i].ToString("X2"));
-                            if (i < packet.Length - 1)
-                                packetStr.Append('-');
-                        }
-
+                        PacketToString(client.tcpPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -378,13 +405,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPostTransform)
                     {
                         var packetStr = new StringBuilder($"Post-Transform TCP packet sent to {client.id} at {DateTime.UtcNow}:\n");
-                        for (int i = 0; i < bytes.Length; i++)
-                        {
-                            packetStr.Append(bytes[i].ToString("X2"));
-                            if (i < bytes.Length - 1)
-                                packetStr.Append('-');
-                        }
-
+                        PacketToString(client.tcpPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -399,14 +420,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPreTransform)
                     {
                         var packetStr = new StringBuilder($"Pre-Transform UDP packet sent to {client.id} at {DateTime.UtcNow}:\n");
-                        var packet = client.udpPacket.GetPacket();
-                        for (int i = 0; i < packet.Length; i++)
-                        {
-                            packetStr.Append(packet[i].ToString("X2"));
-                            if (i < packet.Length - 1)
-                                packetStr.Append('-');
-                        }
-
+                        PacketToString(client.udpPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -416,13 +430,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPostTransform)
                     {
                         var packetStr = new StringBuilder($"Post-Transform UDP packet sent to {client.id} at {DateTime.UtcNow}:\n");
-                        for (int i = 0; i < bytes.Length; i++)
-                        {
-                            packetStr.Append(bytes[i].ToString("X2"));
-                            if (i < bytes.Length - 1)
-                                packetStr.Append('-');
-                        }
-
+                        PacketToString(client.udpPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 

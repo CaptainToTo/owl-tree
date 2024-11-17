@@ -25,7 +25,30 @@ namespace OwlTree
         /// </summary>
         public struct IncludeRules
         {
-            public bool spawnEvents { get; private set; }
+            /// <summary>
+            /// Include all logger output options.
+            /// </summary>
+            public IncludeRules All()
+            {
+                spawnEvents = true;
+                clientEvents = true;
+                connectionAttempts = true;
+                allTypeIds = true;
+                allRpcProtocols = true;
+                rpcCalls = true;
+                rpcReceives = true;
+                rpcCallEncodings = true;
+                rpcReceiveEncodings = true;
+                tcpPreTransform = true;
+                tcpPostTransform = true;
+                udpPreTransform = true;
+                udpPostTransform = true;
+                logSeparators = true;
+                logTimestamp = true;
+                return this;
+            }
+
+            internal bool spawnEvents { get; private set; }
 
             /// <summary>
             /// Output when a NetworkObject is spawned or despawned.
@@ -36,7 +59,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool clientEvents { get; private set; }
+            internal bool clientEvents { get; private set; }
 
             /// <summary>
             /// Output when a client connects or disconnects.
@@ -47,10 +70,11 @@ namespace OwlTree
                 return this;
             }
 
-            public bool connectionAttempts { get; private set; }
+            internal bool connectionAttempts { get; private set; }
 
             /// <summary>
-            /// Output any connection attempts if this connection is a server.
+            /// Output any connection attempts received if this connection is a server.
+            /// Or any connection attempts made if this connection is a client.
             /// </summary>
             public IncludeRules ConnectionAttempts()
             {
@@ -58,7 +82,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool allTypeIds { get; private set; }
+            internal bool allTypeIds { get; private set; }
 
             /// <summary>
             /// On creating this connection, output all of the NetworkObject type ids it is aware of.
@@ -69,7 +93,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool allRpcProtocols { get; private set; }
+            internal bool allRpcProtocols { get; private set; }
 
             /// <summary>
             /// On creating this connection, output all of the RPC protocols it is aware of.
@@ -80,7 +104,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool rpcCalls { get; private set; }
+            internal bool rpcCalls { get; private set; }
 
             /// <summary>
             /// Output when an RPC is called on the local connection.
@@ -91,7 +115,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool rpcReceives { get; private set; }
+            internal bool rpcReceives { get; private set; }
 
             /// <summary>
             /// Output when an RPC call is received.
@@ -102,7 +126,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool rpcCallEncodings { get; private set; }
+            internal bool rpcCallEncodings { get; private set; }
 
             /// <summary>
             /// Output the argument byte encodings of called RPCs.
@@ -114,7 +138,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool rpcReceiveEncodings { get; private set; }
+            internal bool rpcReceiveEncodings { get; private set; }
 
             /// <summary>
             /// Output the argument byte encodings received on incoming RPC calls.
@@ -125,7 +149,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool tcpPreTransform { get; private set; }
+            internal bool tcpPreTransform { get; private set; }
             
             /// <summary>
             /// Output TCP packets in full, before any transformer steps are applied.
@@ -136,7 +160,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool tcpPostTransform { get; private set; }
+            internal bool tcpPostTransform { get; private set; }
 
             /// <summary>
             /// Output TCP packets in full, after all transformer steps are applied.
@@ -147,7 +171,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool udpPreTransform { get; private set; }
+            internal bool udpPreTransform { get; private set; }
 
             /// <summary>
             /// Output UDP packets in full, before any transformer steps are applied.
@@ -158,7 +182,7 @@ namespace OwlTree
                 return this;
             }
 
-            public bool udpPostTransform { get; private set; }
+            internal bool udpPostTransform { get; private set; }
 
             /// <summary>
             /// Output UDP packets in full, after all transformer steps are applied.
@@ -166,6 +190,28 @@ namespace OwlTree
             public IncludeRules UdpPostTransform()
             {
                 udpPostTransform = true;
+                return this;
+            }
+
+            internal bool logSeparators { get; private set; }
+
+            /// <summary>
+            /// Output bars "===" to visually separate logs.
+            /// </summary>
+            public IncludeRules LogSeparators()
+            {
+                logSeparators = true;
+                return this;
+            }
+
+            internal bool logTimestamp { get; private set; }
+
+            /// <summary>
+            /// Output a timestamp with each log message.
+            /// </summary>
+            public IncludeRules LogTimestamp()
+            {
+                logTimestamp = true;
                 return this;
             }
         }
@@ -191,6 +237,10 @@ namespace OwlTree
         public void Write(string text)
         {
             _lock.WaitOne();
+            if (includes.logTimestamp)
+                text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
+            if (includes.logSeparators)
+                text = "\n====================\n" + text + "\n====================";
             _printer.Invoke(text);
             _lock.ReleaseMutex();
         }

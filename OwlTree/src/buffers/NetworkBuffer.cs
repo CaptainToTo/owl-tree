@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 
 namespace OwlTree
 {
@@ -176,6 +177,21 @@ namespace OwlTree
             TryDecode = args.decoder;
             Encode = args.encoder;
             ReadPacket = new Packet(BufferSize);
+
+            Logger = args.logger;
+        }
+
+        protected void PacketToString(Packet p, StringBuilder str)
+        {
+            var packet = p.GetPacket();
+            for (int i = 0; i < packet.Length; i++)
+            {
+                str.Append(packet[i].ToString("X2"));
+                if (i < packet.Length - 1)
+                    str.Append('-');
+                if (i % 32 == 0 && i != 0)
+                    str.Append('\n');
+            }
         }
 
         /// <summary>
