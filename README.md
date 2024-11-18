@@ -1,16 +1,21 @@
 # Owl Tree (v0.1.0)
 A C# framework for server-client RPCs intended for games.
 
-View the full documentation here: (under construction)
+View the full documentation on the wiki. - under construction
+
+Or check out example projects here:
+- [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club) - under construction
+- Farming With Friends (Unity multiplayer farming game) - under construction
+- DrawDot (Godot relayed peer-to-peer drawing app) - under construction
 
 # C# 
 
-Owl Tree uses .net standard 2.1, and is design to be as engine/framework agnostic as possible.\
+Owl Tree uses .net standard 2.1, with the goal of being as engine/runtime agnostic as possible.\
 Feel free to use it in anything you like. :)
 
 # Setting Up
 
-To start using Owl Tree, you can download the Framework folder from this repository (release to be made soon). The contains both the OwlTree project, and the Owl Tree source generator. Include both in your project's .csproj file:
+To start using Owl Tree, you can download the Framework folder from this repository (release to be made soon). This contains both the OwlTree project, and the Owl Tree source generator. Include both in your project's .csproj file:
 
 ```xml
 <ItemGroup>
@@ -19,13 +24,17 @@ To start using Owl Tree, you can download the Framework folder from this reposit
 </ItemGroup>
 ```
 
-as well as enable source generators:
+and enable source generators:
 
 ```xml
 <PropertyGroup>
     <EnableSourceGenerators>true</EnableSourceGenerators>
 </PropertyGroup>
 ```
+
+See specific set-up procedures for other environments:
+- Unity - under construction
+- Godot - under construction
 
 # Creating a Connection
 
@@ -50,6 +59,7 @@ class Program
             });
             server.OnClientConnected += (ClientId id) => 
                 Console.WriteLine("new client w/ id: " + id);
+            UpdateLoop(server);
         }
         else if (args[0] == "client")
         {
@@ -63,15 +73,24 @@ class Program
             });
             client.OnReady += (ClientId localId) => 
                 Console.WriteLine("connected to server, assigned id: " + localId);
+            UpdateLoop(client);
+        }
+    }
+
+    static void UpdateLoop(Connection connection)
+    {
+        while (connection.IsActive) // exit loop once connection is shut down
+        {
+            connection.ExecuteQueue(); // execute any incoming RPCs
+            Thread.Sleep(100);
         }
     }
 }
 ```
 
-Connections can be configured with the `Args` struct passed to the constructor. Connections each manage their state, and there can be multiple within the same program. The primary way Connections manage state is through `NetworkObject`s, which allow you to create
-remote procedure calls (RPCs).
+Connections can be configured with the `Args` struct passed to the constructor. There can be multiple connections running at the same in the same program, and will each manage their own state independently of each other. The primary way Connections manage state is through `NetworkObject`s, which allow you to create remote procedure calls (RPCs).
 
-In the below example, a Radio class can be used to repeatedly send a small message back-and-forth between a client and a server. RPCs must be virtual, and cannot have a return type. RPCs are marked using the `Rpc` attribute. Permissions can be set to specify what type of connections are allowed to call the RPC. Using the `RpcCaller` attribute exposes which client called the RPC. The `RpcCallee` attribute allows you to specify a single client to receive an RPC call, while the others do not.
+In the below example, a Radio class can be used to repeatedly send a small message back-and-forth between a client and a server. RPCs must be public, virtual, and cannot have a return type. RPCs are marked using the `Rpc` attribute. Optionally, the `Rpc` can be passed a `RpcCaller` argument that specifies what type of connections are allowed to call it. If no argument is given, or the `RpcCaller.Any` value is given, then either server or client can call it. Using the `RpcCaller` parameter attribute exposes which client called the RPC. The `RpcCallee` parameter attribute allows you to specify a single client to receive an RPC call, while the others do not.
 
 ```cs
 using OwlTree;
@@ -160,7 +179,7 @@ public class Radio : NetworkObject
 }
 ```
 
-To close the local connection, simply call `Disconnect`, and clean-up will be handled for you.
+To close the local connection call `Disconnect`.
 
 ```cs
 client.Disconnect(); // disconnect from server
