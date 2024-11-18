@@ -58,6 +58,12 @@ namespace OwlTree
             /// <b>Default = 5000 (5 sec)</b>
             /// </summary>
             public int connectionRequestRate = 5000;
+
+            /// <summary>
+            /// The number of connection attempts clients will make before ending the connection in failure. <b>Default = 10</b>
+            /// </summary>
+            public int connectionRequestLimit = 10;
+
             /// <summary>
             /// The byte length of read and write buffers.
             /// <b>Default = 2048</b>
@@ -183,17 +189,19 @@ namespace OwlTree
 
             if (args.role == Role.Client)
             {
-                _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate);
+                _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
+                IsReady = false;
             }
             else
             {
                 _buffer = new ServerBuffer(bufferArgs, args.maxClients);
-                IsActive = true;
+                IsReady = true;
             }
             NetRole = args.role;
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
+            IsActive = true;
 
             var factory = ProxyFactory.GetProjectImplementation();
 
@@ -318,12 +326,17 @@ namespace OwlTree
         public bool IsActive { get; private set; } = false;
 
         /// <summary>
+        /// Whether this connection has established a link to the server. This is true for clients once they've been assigned a local id.
+        /// </summary>
+        public bool IsReady { get; private set; } = false;
+
+        /// <summary>
         /// The client id assigned to this local instance. Servers will have a LocalId of <c>ClientId.None</c>
         /// </summary>
         public ClientId LocalId { get { return _buffer.LocalId; } }
 
         /// <summary>
-        /// Receive and execute any RPCs.
+        /// Receive any RPCs that have been sent to this connection. Execute them with <c>ExecuteQueue()</c>.
         /// </summary>
         public void Read()
         {
@@ -333,12 +346,18 @@ namespace OwlTree
                 _buffer.Read();
         }
 
+        /// <summary>
+        /// Block until the connection is ready.
+        /// </summary>
         public void AwaitConnection()
         {
             if (Threaded)
                 throw new InvalidOperationException("Cannot perform await connection operation on a threaded connection. This is handled for you in a dedicated thread.");
-            if (!_buffer.IsReady)
+            while (!_buffer.IsReady)
+            {
                 _buffer.Read();
+                Thread.Sleep(_threadUpdateDelta);
+            }
         }
 
         internal bool GetNextMessage(out NetworkBuffer.Message message)
@@ -346,6 +365,9 @@ namespace OwlTree
             return _buffer.GetNextMessage(out message);
         }
 
+        /// <summary>
+        /// Execute any RPCs that have been received in the last <c>Read()</c>.
+        /// </summary>
         public void ExecuteQueue()
         {
             while (_clientEvents.TryDequeue(out var result))
@@ -369,6 +391,7 @@ namespace OwlTree
                             if (_logger.includes.clientEvents)
                                 _logger.Write("Local client disconnected.");
                             IsActive = false;
+                            IsReady = false;
                             _spawner.DespawnAll();
                         }
                         else
@@ -380,7 +403,7 @@ namespace OwlTree
                         OnClientDisconnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnReady:
-                        IsActive = true;
+                        IsReady = true;
                         if (_logger.includes.clientEvents)
                             _logger.Write("Connection is ready. Local client id is: " + result.id.ToString());
                         OnReady?.Invoke(result.id);
@@ -517,6 +540,7 @@ namespace OwlTree
         {
             _buffer.Disconnect();
             IsActive = false;
+            IsReady = false;
             _spawner.DespawnAll();
         }
 

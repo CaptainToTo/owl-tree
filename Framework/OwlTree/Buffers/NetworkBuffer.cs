@@ -179,6 +179,7 @@ namespace OwlTree
             ReadPacket = new Packet(BufferSize);
 
             Logger = args.logger;
+            IsActive = true;
         }
 
         protected void PacketToString(Packet p, StringBuilder str)
@@ -225,6 +226,12 @@ namespace OwlTree
         /// For clients, this means the server has assigned it a ClientId.
         /// </summary>
         public bool IsReady { get; protected set; } = false;
+
+        /// <summary>
+        /// Whether or not the connection is still active. If a client has disconnected from the server,
+        /// or failed to connect to the server, IsActive will be set to false.
+        /// </summary>
+        public bool IsActive { get; protected set; } = false;
 
         /// <summary>
         /// The client id for the local instance. A server's local id will be <c>ClientId.None</c>

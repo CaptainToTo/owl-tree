@@ -15,7 +15,7 @@ namespace OwlTree
         /// Manages sending and receiving messages for a client instance.
         /// </summary>
         /// <param name="Args">NetworkBuffer parameters.</param>
-        public ClientBuffer(Args args, int requestRate) : base(args)
+        public ClientBuffer(Args args, int requestRate, int requestLimit) : base(args)
         {
             _tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _tcpEndPoint = new IPEndPoint(Address, TcpPort);
@@ -36,6 +36,7 @@ namespace OwlTree
             _udpPacket.header.appVer = AppVersion;
 
             _requestRate = requestRate;
+            _remainingRequests = requestLimit;
         }
 
         // client state
@@ -53,6 +54,7 @@ namespace OwlTree
         private bool _acceptedRequest = false;
         private int _requestRate;
         private long _lastRequest;
+        private int _remainingRequests;
 
         public void Connect()
         {
@@ -65,6 +67,7 @@ namespace OwlTree
                 _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                 _udpPacket.Clear();
                 _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _remainingRequests--;
 
                 if (Logger.includes.connectionAttempts)
                 {
@@ -114,9 +117,11 @@ namespace OwlTree
         /// </summary>
         public override void Read()
         {
-            if (!_acceptedRequest)
+            if (!_acceptedRequest && _remainingRequests > 0)
             {
                 Connect();
+                if (_remainingRequests <= 0)
+                    Disconnect();
                 return;
             }
 
@@ -150,8 +155,7 @@ namespace OwlTree
                     // disconnect if receive fails
                     if (dataLen <= 0)
                     {
-                        socket.Close();
-                        OnClientDisconnected?.Invoke(LocalId);
+                        Disconnect();
                         return;
                     }
 
@@ -331,6 +335,7 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
+            IsActive = false;
             _tcpClient.Close();
             _udpClient.Close();
             OnClientDisconnected?.Invoke(LocalId);

@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OwlTree\OwlTree.csproj" />
+    <ProjectReference Include="..\Framework\OwlTree\OwlTree.csproj" />
   </ItemGroup>
 
 </Project>

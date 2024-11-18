@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace OwlTree.Tests;
 
 public class HuffmanTests
