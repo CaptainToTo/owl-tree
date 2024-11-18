@@ -1,7 +1,7 @@
 # Owl Tree (v0.1.0)
 A C# framework for server-client RPCs intended for games.
 
-View the full documentation on the wiki. - under construction
+View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki). - under construction
 
 Or check out example projects here:
 - [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club) - under construction
@@ -88,7 +88,7 @@ class Program
 }
 ```
 
-Connections can be configured with the `Args` struct passed to the constructor. There can be multiple connections running at the same in the same program, and will each manage their own state independently of each other. The primary way Connections manage state is through `NetworkObject`s, which allow you to create remote procedure calls (RPCs).
+Connections can be configured with the `Args` struct passed to the constructor. There can be multiple connections running at the same time in the same program, and will each manage their own state independently of each other. The primary way Connections manage state is through `NetworkObject`s, which allow you to create remote procedure calls (RPCs).
 
 In the below example, a Radio class can be used to repeatedly send a small message back-and-forth between a client and a server. RPCs must be public, virtual, and cannot have a return type. RPCs are marked using the `Rpc` attribute. Optionally, the `Rpc` can be passed a `RpcCaller` argument that specifies what type of connections are allowed to call it. If no argument is given, or the `RpcCaller.Any` value is given, then either server or client can call it. Using the `RpcCaller` parameter attribute exposes which client called the RPC. The `RpcCallee` parameter attribute allows you to specify a single client to receive an RPC call, while the others do not.
 
