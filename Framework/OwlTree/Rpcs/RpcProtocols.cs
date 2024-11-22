@@ -245,7 +245,7 @@ namespace OwlTree
                     int strLen = (size * 2) + (size - 1);
                     string iStr = (i + 1).ToString();
                     int front = (strLen / 2) - 1;
-                    int back = (strLen / 2) - (1 + iStr.Length) + 1;
+                    int back = (strLen / 2) - (1 + iStr.Length) + (size % 2 == 0 ? 1 : 0);
 
                     str.Append($" |{new string('_', front)}{iStr}{new string('_', back)}|");
                     argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}\n");
