@@ -245,7 +245,7 @@ namespace OwlTree
 
             if (args.threaded)
             {
-                Threaded = false;
+                Threaded = true;
                 _threadUpdateDelta = args.threadUpdateDelta;
                 _bufferThread = new Thread(new ThreadStart(NetworkLoop));
                 _bufferThread.Start();
@@ -266,7 +266,11 @@ namespace OwlTree
 
         private void NetworkLoop()
         {
-            AwaitConnection();
+            while (!_buffer.IsReady)
+            {
+                _buffer.Read();
+                Thread.Sleep(_threadUpdateDelta);
+            }
             while (true)
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -528,7 +532,7 @@ namespace OwlTree
         {
             if (Threaded)
                 throw new InvalidOperationException("Cannot perform send operation on a threaded connection. This is handled for you in a dedicated thread.");
-            if (IsActive)
+            if (IsActive && _buffer.HasOutgoing)
                 _buffer.Send();
         }
 
