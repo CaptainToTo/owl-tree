@@ -293,21 +293,21 @@ namespace OwlTree
 
                         int iters = 0;
                         do {
-                            if (dataRemaining <= 0)
+                            try
                             {
-                                try
+                                if (dataRemaining <= 0)
                                 {
                                     dataLen = socket.Receive(ReadBuffer);
                                     dataRemaining = dataLen;
                                 }
-                                catch
-                                {
-                                    dataLen = -1;
-                                    break;
-                                }
+                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
+                                iters++;
                             }
-                            dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
-                            iters++;
+                            catch
+                            {
+                                dataLen = -1;
+                                break;
+                            }
                         } while (ReadPacket.Incomplete && iters < 10);
 
                         if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
