@@ -134,6 +134,9 @@ namespace OwlTree
                 length = BitConverter.ToInt32(bytes.Slice(ind));
                 ind += 4;
 
+                if (length <= 0)
+                    throw new ArgumentException("Packet length is less than the minimum, this is not a complete packet.");
+
                 sender = BitConverter.ToUInt32(bytes.Slice(ind));
                 ind += 4;
 
@@ -286,19 +289,19 @@ namespace OwlTree
         /// </summary>
         public bool Incomplete { get; private set; } = false;
 
-        internal void FromBytes(byte[] bytes)
+        internal int FromBytes(byte[] bytes, int start)
         {
-            int i = 0;
+            int i = start;
             if (!Incomplete)
             {
-                header.FromBytes(bytes);
+                header.FromBytes(bytes.AsSpan(i));
                 Incomplete = bytes.Length < header.length; 
 
                 if (header.length > _buffer.Length)
                     Array.Resize(ref _buffer, header.length + 1);
                 
                 _tail = Header.BYTE_LEN;
-                i = Header.BYTE_LEN;
+                i = start + Header.BYTE_LEN;
             }
 
             for (; (i < bytes.Length) && (_tail < header.length); i++)
@@ -311,6 +314,7 @@ namespace OwlTree
             {
                 Incomplete = false;
             }
+            return i;
         }
 
         /// <summary>

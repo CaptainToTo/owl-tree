@@ -91,7 +91,7 @@ namespace OwlTree
                     try
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
-                        ReadPacket.FromBytes(ReadBuffer);
+                        ReadPacket.FromBytes(ReadBuffer, 0);
                     }
                     catch { }
 
@@ -138,56 +138,67 @@ namespace OwlTree
                 if (socket == _tcpClient)
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
-                    ReadPacket.Clear();
-
+                    int dataRemaining = -1;
                     int dataLen = -1;
-                    try
-                    {
+
+                    do {
+                        ReadPacket.Clear();
+
                         int iters = 0;
                         do {
-                            dataLen = socket.Receive(ReadBuffer);
-                            ReadPacket.FromBytes(ReadBuffer);
+                            if (dataRemaining <= 0)
+                            {
+                                try
+                                {
+                                    dataLen = socket.Receive(ReadBuffer);
+                                    dataRemaining = dataLen;
+                                }
+                                catch
+                                {
+                                    dataLen = -1;
+                                    break;
+                                }
+                            }
+                            dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
                             iters++;
-                        } while (ReadPacket.Incomplete && iters < 5);
-                    }
-                    catch { }
+                        } while (ReadPacket.Incomplete && iters < 10);
 
-                    // disconnect if receive fails
-                    if (dataLen <= 0)
-                    {
-                        Disconnect();
-                        return;
-                    }
-
-                    if (Logger.includes.tcpPreTransform)
-                    {
-                        var packetStr = new StringBuilder($"Pre-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
-                        PacketToString(ReadPacket, packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
-
-                    ApplyReadSteps(ReadPacket);
-
-                    if (Logger.includes.tcpPostTransform)
-                    {
-                        var packetStr = new StringBuilder($"Post-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
-                        PacketToString(ReadPacket, packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
-                    
-                    ReadPacket.StartMessageRead();
-                    while (ReadPacket.TryGetNextMessage(out var bytes))
-                    {
-                        RpcId clientMessage = ClientMessageDecode(bytes, out var clientId, out var hash);
-                        if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
+                        if (dataLen <= 0)
                         {
-                            HandleClientConnectionMessage(clientMessage, clientId, hash);
+                            Disconnect();
+                            return;
                         }
-                        else if (TryDecode(ClientId.None, bytes, out var message))
+
+                        if (Logger.includes.tcpPreTransform)
                         {
-                            _incoming.Enqueue(message);
+                            var packetStr = new StringBuilder($"Pre-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
                         }
-                    }
+
+                        ApplyReadSteps(ReadPacket);
+
+                        if (Logger.includes.tcpPostTransform)
+                        {
+                            var packetStr = new StringBuilder($"Post-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
+                        }
+                        
+                        ReadPacket.StartMessageRead();
+                        while (ReadPacket.TryGetNextMessage(out var bytes))
+                        {
+                            RpcId clientMessage = ClientMessageDecode(bytes, out var clientId, out var hash);
+                            if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
+                            {
+                                HandleClientConnectionMessage(clientMessage, clientId, hash);
+                            }
+                            else if (TryDecode(ClientId.None, bytes, out var message))
+                            {
+                                _incoming.Enqueue(message);
+                            }
+                        }
+                    } while (dataRemaining > 0);
                 }
                 else if (socket == _udpClient)
                 {
@@ -199,7 +210,7 @@ namespace OwlTree
                     try
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
-                        ReadPacket.FromBytes(ReadBuffer);
+                        ReadPacket.FromBytes(ReadBuffer, 0);
                     }
                     catch { }
 

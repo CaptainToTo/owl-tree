@@ -207,7 +207,7 @@ namespace OwlTree
                     try
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
-                        ReadPacket.FromBytes(ReadBuffer);
+                        ReadPacket.FromBytes(ReadBuffer, 0);
 
                         if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
                         {
@@ -284,66 +284,80 @@ namespace OwlTree
                 else // receive client tcp messages
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
-                    ReadPacket.Clear();
-
+                    int dataRemaining = -1;
                     int dataLen = -1;
-                    try
-                    {
+                    ClientData client = ClientData.None;
+
+                    do {
+                        ReadPacket.Clear();
+
                         int iters = 0;
                         do {
-                            dataLen = socket.Receive(ReadBuffer);
-                            ReadPacket.FromBytes(ReadBuffer);
+                            if (dataRemaining <= 0)
+                            {
+                                try
+                                {
+                                    dataLen = socket.Receive(ReadBuffer);
+                                    dataRemaining = dataLen;
+                                }
+                                catch
+                                {
+                                    dataLen = -1;
+                                    break;
+                                }
+                            }
+                            dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
                             iters++;
                         } while (ReadPacket.Incomplete && iters < 10);
 
                         if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
                         {
-                            throw new InvalidOperationException("Cannot accept packets from outdated OwlTree or app versions.");
+                            dataLen = -1;
                         }
-                    }
-                    catch { }
 
-                    var client = FindClientData(socket);
+                        if (client == ClientData.None)
+                            client = FindClientData(socket);
 
-                    if (Logger.includes.tcpPreTransform)
-                    {
-                        var packetStr = new StringBuilder($"Pre-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
-                        PacketToString(ReadPacket, packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
-
-                    ApplyReadSteps(ReadPacket);
-
-                    if (Logger.includes.tcpPostTransform)
-                    {
-                        var packetStr = new StringBuilder($"Post-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
-                        PacketToString(ReadPacket, packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
-
-                    // disconnect if receive fails
-                    if (dataLen <= 0)
-                    {
-                        _clientData.Remove(client);
-                        socket.Close();
-                        OnClientDisconnected?.Invoke(client.id);
-
-                        foreach (var otherClient in _clientData)
+                        // disconnect if receive fails
+                        if (dataLen <= 0)
                         {
-                            var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                            ClientDisconnectEncode(span, client.id);
+                            _clientData.Remove(client);
+                            socket.Close();
+                            OnClientDisconnected?.Invoke(client.id);
+
+                            foreach (var otherClient in _clientData)
+                            {
+                                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
+                                ClientDisconnectEncode(span, client.id);
+                            }
+                            continue;
                         }
-                        continue;
-                    }
-                    
-                    ReadPacket.StartMessageRead();
-                    while (ReadPacket.TryGetNextMessage(out var bytes))
-                    {
-                        if (TryDecode(client.id, bytes, out var message))
+
+                        if (Logger.includes.tcpPreTransform)
                         {
-                            _incoming.Enqueue(message);
+                            var packetStr = new StringBuilder($"Pre-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
                         }
-                    }
+
+                        ApplyReadSteps(ReadPacket);
+
+                        if (Logger.includes.tcpPostTransform)
+                        {
+                            var packetStr = new StringBuilder($"Post-Transform TCP packet received from {client.id} at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
+                        }
+                        
+                        ReadPacket.StartMessageRead();
+                        while (ReadPacket.TryGetNextMessage(out var bytes))
+                        {
+                            if (TryDecode(client.id, bytes, out var message))
+                            {
+                                _incoming.Enqueue(message);
+                            }
+                        }
+                    } while (dataRemaining > 0);
                 }
             }
         }
