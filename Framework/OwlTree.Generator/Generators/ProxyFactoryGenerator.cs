@@ -220,6 +220,7 @@ namespace OwlTree.Generator
                 ids[i] = LiteralExpression(
                     SyntaxKind.NumericLiteralExpression,
                     Literal(pair.Value));
+                i++;
             }
 
             return ids;
