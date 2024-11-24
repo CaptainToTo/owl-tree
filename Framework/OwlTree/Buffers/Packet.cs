@@ -134,7 +134,7 @@ namespace OwlTree
                 length = BitConverter.ToInt32(bytes.Slice(ind));
                 ind += 4;
 
-                if (length <= 0)
+                if (length <= BYTE_LEN)
                     throw new ArgumentException("Packet length is less than the minimum, this is not a complete packet.");
 
                 sender = BitConverter.ToUInt32(bytes.Slice(ind));

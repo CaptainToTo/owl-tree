@@ -47,7 +47,7 @@ namespace OwlTree
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            _id = Encoding.ASCII.GetString(bytes);
+            _id = Encoding.ASCII.GetString(bytes.Slice(0, MaxLength()));
         }
 
         public void InsertBytes(Span<byte> bytes)

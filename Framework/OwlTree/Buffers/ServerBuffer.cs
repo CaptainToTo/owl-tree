@@ -117,7 +117,7 @@ namespace OwlTree
         private ClientData FindClientData(IPEndPoint endPoint)
         {
             foreach (var data in _clientData)
-                if (data.udpEndPoint.Address.Equals(endPoint.Address)) return data;
+                if (data.udpEndPoint.Address.Equals(endPoint.Address) && data.udpEndPoint.Port == endPoint.Port) return data;
             return ClientData.None;
         }
 

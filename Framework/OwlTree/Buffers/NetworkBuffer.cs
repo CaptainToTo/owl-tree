@@ -259,7 +259,7 @@ namespace OwlTree
         /// <summary>
         /// True if there are messages that are waiting to be sent.
         /// </summary>
-        public bool HasOutgoing { get { return _outgoing.Count > 0; } }
+        public bool HasOutgoing { get { return _outgoing.Count > 0 || HasClientEvent; } }
 
         protected bool HasClientEvent = false;
         

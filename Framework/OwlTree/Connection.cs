@@ -475,7 +475,7 @@ namespace OwlTree
                 {
                     var output = $"RECEIVING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcReceiveEncodings)
-                        output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
+                        output += ":\n" + Protocols.GetEncodingSummary(caller, rpcId, target, args);
                     _logger.Write(output);
                 }
                 return true;
