@@ -44,10 +44,6 @@ namespace OwlTree
             /// </summary>
             public int serverUdpPort = 9000;
             /// <summary>
-            /// The port the client will listen to for UDP packets. <b>Default = 9010</b>
-            /// </summary>
-            public int clientUdpPort = 9010;
-            /// <summary>
             /// The maximum number of clients the server will allow to be connected at once.
             /// <b>Default = 4</b>
             /// </summary>
@@ -180,7 +176,6 @@ namespace OwlTree
                 addr = args.serverAddr,
                 tcpPort = args.tcpPort,
                 serverUdpPort = args.serverUdpPort,
-                clientUdpPort = args.clientUdpPort,
                 bufferSize = args.bufferSize,
                 encoder = EncodeRpc,
                 decoder = TryDecodeRpc,
@@ -288,6 +283,16 @@ namespace OwlTree
         /// </summary>
         public Role NetRole { get; private set; }
 
+        /// <summary>
+        /// Returns true if this connection is configured to be a server.
+        /// </summary>
+        public bool IsServer { get => NetRole == Role.Server; }
+
+        /// <summary>
+        /// Returns true if this connection is configured to be a client.
+        /// </summary>
+        public bool IsClient { get => NetRole == Role.Client; }
+
         private NetworkBuffer _buffer;
 
         private enum ConnectionEventType
@@ -307,6 +312,11 @@ namespace OwlTree
         /// Iterable of all connected clients.
         /// </summary>
         public IEnumerable<ClientId> Clients { get { return _clients; } }
+
+        /// <summary>
+        /// Returns true if the given client id currently exists on this connection.
+        /// </summary>
+        public bool ContainsClient(ClientId id) => _clients.Contains(id);
 
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
@@ -410,6 +420,7 @@ namespace OwlTree
                         IsReady = true;
                         if (_logger.includes.clientEvents)
                             _logger.Write("Connection is ready. Local client id is: " + result.id.ToString());
+                        _clients.Add(result.id);
                         OnReady?.Invoke(result.id);
                         break;
                 }
@@ -462,7 +473,7 @@ namespace OwlTree
                 message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, Protocol.Tcp, args);
                 if (_logger.includes.rpcReceives)
                 {
-                    var output = $"RECEIVING: {Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                    var output = $"RECEIVING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcReceiveEncodings)
                         output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
                     _logger.Write(output);
@@ -505,7 +516,7 @@ namespace OwlTree
                 RpcEncoding.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
                 if (_logger.includes.rpcCalls)
                 {
-                    var output = $"SENDING: {Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                    var output = $"SENDING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcCallEncodings)
                         output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
                     _logger.Write(output);

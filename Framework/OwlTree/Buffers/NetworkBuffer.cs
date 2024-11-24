@@ -117,7 +117,6 @@ namespace OwlTree
             public string addr;
             public int tcpPort;
             public int serverUdpPort;
-            public int clientUdpPort;
 
             public int bufferSize;
 
@@ -171,7 +170,6 @@ namespace OwlTree
             Address = IPAddress.Parse(args.addr);
             TcpPort = args.tcpPort;
             ServerUdpPort = args.serverUdpPort;
-            ClientUdpPort = args.clientUdpPort;
             BufferSize = args.bufferSize;
             ReadBuffer = new byte[BufferSize];
             TryDecode = args.decoder;
@@ -193,6 +191,21 @@ namespace OwlTree
                 if (i % 32 == 0 && i != 0)
                     str.Append('\n');
             }
+        }
+
+        protected string PacketToString(Packet p)
+        {
+            var str = "";
+            var packet = p.GetPacket();
+            for (int i = 0; i < packet.Length; i++)
+            {
+                str += packet[i].ToString("X2");
+                if (i < packet.Length - 1)
+                    str += '-';
+                if (i % 32 == 0 && i != 0)
+                    str += '\n';
+            }
+            return str;
         }
 
         /// <summary>
@@ -247,6 +260,8 @@ namespace OwlTree
         /// True if there are messages that are waiting to be sent.
         /// </summary>
         public bool HasOutgoing { get { return _outgoing.Count > 0; } }
+
+        protected bool HasClientEvent = false;
         
         /// <summary>
         /// Get the next message in the read queue.

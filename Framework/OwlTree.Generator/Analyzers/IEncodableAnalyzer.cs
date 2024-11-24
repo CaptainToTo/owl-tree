@@ -41,6 +41,7 @@ namespace OwlTree.Generator
         public static void AddPrimitives()
         {
             GeneratorState.AddEncodable(Helpers.Tk_Byte, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Bool, false);
 
             GeneratorState.AddEncodable(Helpers.Tk_UShort, false);
             GeneratorState.AddEncodable(Helpers.Tk_Short, false);
@@ -68,6 +69,10 @@ namespace OwlTree.Generator
         public static void CacheEncodables(SourceProductionContext context, (Compilation Left, ImmutableArray<TypeDeclarationSyntax> Right) tuple)
         {
             var (compilation, list) = tuple;
+
+            GeneratorState.ClearEncodables();
+            AddPrimitives();
+            AddBuiltIns();
 
             if (list.Length == 0)
                 return;

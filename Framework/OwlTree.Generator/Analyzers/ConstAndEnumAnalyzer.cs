@@ -18,6 +18,9 @@ namespace OwlTree.Generator
         {
             var (compilation, list) = tuple;
 
+            GeneratorState.ClearConsts();
+            GeneratorState.ClearEnums();
+
             if (list.Length == 0)
                 return;
             

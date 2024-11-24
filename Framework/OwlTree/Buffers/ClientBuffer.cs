@@ -21,7 +21,7 @@ namespace OwlTree
             _tcpEndPoint = new IPEndPoint(Address, TcpPort);
 
             _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpClient.Bind(new IPEndPoint(Address, ClientUdpPort));
+            _udpClient.Bind(new IPEndPoint(Address, 0));
 
             _udpEndPoint = new IPEndPoint(Address, ServerUdpPort);
 
@@ -171,7 +171,7 @@ namespace OwlTree
 
                         if (Logger.includes.tcpPreTransform)
                         {
-                            var packetStr = new StringBuilder($"Pre-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: Pre-Transform TCP packet from server at {DateTime.UtcNow}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
@@ -180,7 +180,7 @@ namespace OwlTree
 
                         if (Logger.includes.tcpPostTransform)
                         {
-                            var packetStr = new StringBuilder($"Post-Transform TCP packet received from server at {DateTime.UtcNow}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: Post-Transform TCP packet from server at {DateTime.UtcNow}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
@@ -221,7 +221,7 @@ namespace OwlTree
 
                     if (Logger.includes.udpPreTransform)
                     {
-                        var packetStr = new StringBuilder($"Pre-Transform UDP packet received from server at {DateTime.UtcNow}:\n");
+                        var packetStr = new StringBuilder($"RECEIVED: Pre-Transform UDP packet from server at {DateTime.UtcNow}:\n");
                         PacketToString(ReadPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
@@ -230,7 +230,7 @@ namespace OwlTree
 
                     if (Logger.includes.udpPostTransform)
                     {
-                        var packetStr = new StringBuilder($"Post-Transform UDP packet received from server at {DateTime.UtcNow}:\n");
+                        var packetStr = new StringBuilder($"RECEIVED: Post-Transform UDP packet from server at {DateTime.UtcNow}:\n");
                         PacketToString(ReadPacket, packetStr);
                         Logger.Write(packetStr.ToString());
                     }
@@ -295,7 +295,7 @@ namespace OwlTree
 
                 if (Logger.includes.tcpPreTransform)
                 {
-                    var packetStr = new StringBuilder($"Pre-Transform TCP packet sent to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Pre-Transform TCP packet to server at {DateTime.UtcNow}:\n");
                     PacketToString(_tcpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }
@@ -304,7 +304,7 @@ namespace OwlTree
 
                 if (Logger.includes.tcpPostTransform)
                 {
-                    var packetStr = new StringBuilder($"Post-Transform TCP packet sent to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Post-Transform TCP packet to server at {DateTime.UtcNow}:\n");
                     PacketToString(_tcpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }
@@ -320,7 +320,7 @@ namespace OwlTree
 
                 if (Logger.includes.udpPreTransform)
                 {
-                    var packetStr = new StringBuilder($"Pre-Transform UDP packet sent to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to server at {DateTime.UtcNow}:\n");
                     PacketToString(_udpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }
@@ -329,7 +329,7 @@ namespace OwlTree
 
                 if (Logger.includes.udpPostTransform)
                 {
-                    var packetStr = new StringBuilder($"Post-Transform UDP packet sent to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to server at {DateTime.UtcNow}:\n");
                     PacketToString(_udpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OwlTree
 {
@@ -128,6 +129,10 @@ namespace OwlTree
         {
             return GetEnumerator();
         }
+
+        public IEnumerable<K> Keys { get => _dict.Select(p => p.Key); }
+
+        public IEnumerable<V> Values { get => _dict.Select(p => p.Value); }
 
         public int ByteLength()
         {

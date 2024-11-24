@@ -24,17 +24,6 @@ namespace OwlTree.Generator
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // reset generator state
-            GeneratorState.ClearEncodables();
-            GeneratorState.ClearConsts();
-            GeneratorState.ClearEnums();
-            GeneratorState.ClearTypeIds();
-            GeneratorState.ClearRpcData();
-            GeneratorState.ClearUsings();
-            // refill encodables with built in encodable types
-            IEncodableAnalyzer.AddPrimitives();
-            IEncodableAnalyzer.AddBuiltIns();
-
             // cache IEncodable types
             var encodableProvider = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is TypeDeclarationSyntax c && Helpers.InheritsFrom(c, Helpers.Tk_IEncodable),
@@ -72,6 +61,10 @@ namespace OwlTree.Generator
         private void GenerateProxies(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
         {
             var (compilation, list) = tuple;
+
+            GeneratorState.ClearTypeIds();
+            GeneratorState.ClearRpcData();
+            GeneratorState.ClearUsings();
 
             if (list.Length == 0) return;
 

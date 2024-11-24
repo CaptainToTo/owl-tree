@@ -83,7 +83,12 @@ namespace OwlTree.Generator
             {
                 var fullName = Helpers.GetFullName(m.Identifier.ValueText, m);
                 if (GeneratorState.HasRpc(fullName))
+                {
+                    var id = GeneratorState.GetRpcData(fullName).id;
+                    if (_curId <= id)
+                        _curId = id + 1;
                     continue;
+                }
 
                 if (!Helpers.IsVirtual(m))
                 {
