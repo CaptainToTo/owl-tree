@@ -74,5 +74,10 @@ namespace OwlTree
         {
             return _id.GetHashCode();
         }
+
+        public override string ToString()
+        {
+            return Id;
+        }
     }
 }
