@@ -322,6 +322,7 @@ namespace OwlTree
         /// </summary>
         internal void Reset() 
         { 
+            header.Reset();
             // if no fragmentation used, just reset indices
             if (!_useFragments || !FragmentationNeeded)
             {
