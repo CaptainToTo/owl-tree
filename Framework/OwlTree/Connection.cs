@@ -12,12 +12,26 @@ namespace OwlTree
     public class Connection
     {
         /// <summary>
-        /// Whether the Connection represents a server or client instance.
+        /// Determines the responsibilities and capabilities a Connection will have.
         /// </summary>
         public enum Role
         {
+            /// <summary>
+            /// The Connection is a Server, it will manage client connections, and act as the state authority.
+            /// </summary>
             Server,
-            Client
+            /// <summary>
+            /// The Connection is a Client, it will attempt to connect to a server, and will not have state authority.
+            /// </summary>
+            Client,
+            /// <summary>
+            /// The Connection is a Host Client, it will attempt to connect to a server, and will act as the state authority.
+            /// </summary>
+            Host,
+            /// <summary>
+            /// The Connection is Relay Server, it will manage client connections, and pass RPCs between host and clients.
+            /// </summary>
+            Relay
         }
 
         /// <summary>
@@ -182,15 +196,22 @@ namespace OwlTree
                 logger = _logger
             };
 
-            if (args.role == Role.Client)
+            switch (args.role)
             {
-                _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
-                IsReady = false;
-            }
-            else
-            {
-                _buffer = new ServerBuffer(bufferArgs, args.maxClients);
-                IsReady = true;
+                case Role.Server:
+                    _buffer = new ServerBuffer(bufferArgs, args.maxClients);
+                    IsReady = true;
+                    break;
+                case Role.Client:
+                    _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
+                    IsReady = false;
+                    break;
+                case Role.Host:
+                    IsReady = false;
+                    break;
+                case Role.Relay:
+                    IsReady = true;
+                    break;
             }
             NetRole = args.role;
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
@@ -246,7 +267,7 @@ namespace OwlTree
                 _bufferThread.Start();
             }
         }
-        
+
         /// <summary>
         /// Access metadata about RPC encodings and generated protocols.
         /// </summary>
@@ -270,6 +291,13 @@ namespace OwlTree
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _buffer.Read();
+
+                if (!IsClient)
+                {
+                    while (_disconnectRequests.TryDequeue(out var clientId))
+                        _buffer.Disconnect(clientId);
+                }
+
                 if (_buffer.HasOutgoing)
                     _buffer.Send();
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
@@ -292,6 +320,16 @@ namespace OwlTree
         /// Returns true if this connection is configured to be a client.
         /// </summary>
         public bool IsClient { get => NetRole == Role.Client; }
+
+        /// <summary>
+        /// Returns true if this connection is configured to be a host client.
+        /// </summary>
+        public bool IsHost { get => NetRole == Role.Host; }
+
+        /// <summary>
+        /// Returns true if this connection is configured to be a relay server.
+        /// </summary>
+        public bool IsRelay { get => NetRole == Role.Relay; }
 
         private NetworkBuffer _buffer;
 
@@ -333,6 +371,11 @@ namespace OwlTree
         /// On a client, provides the local client id, as assigned by the server.
         /// </summary>
         public event ClientId.Delegate OnReady;
+
+        /// <summary>
+        /// Invoke when this connection is closed. Provides the local client id.
+        /// </summary>
+        public event ClientId.Delegate OnLocalDisconnect;
 
         /// <summary>
         /// Whether this connection is active. Will be false for clients if they have been disconnected from the server.
@@ -406,15 +449,16 @@ namespace OwlTree
                                 _logger.Write("Local client disconnected.");
                             IsActive = false;
                             IsReady = false;
+                            OnLocalDisconnect?.Invoke(LocalId);
                             _spawner.DespawnAll();
                         }
                         else
                         {
                             if (_logger.includes.clientEvents)
                                 _logger.Write("Remote client disconnected: " + result.id.ToString());
+                            _clients.Remove(result.id);
+                            OnClientDisconnected?.Invoke(result.id);
                         }
-                        _clients.Remove(result.id);
-                        OnClientDisconnected?.Invoke(result.id);
                         break;
                     case ConnectionEventType.OnReady:
                         IsReady = true;
@@ -423,14 +467,6 @@ namespace OwlTree
                         _clients.Add(result.id);
                         OnReady?.Invoke(result.id);
                         break;
-                }
-            }
-
-            if (NetRole == Role.Server)
-            {
-                while (_disconnectRequests.TryDequeue(out var clientId))
-                {
-                    _buffer.Disconnect(clientId);
                 }
             }
 
@@ -564,7 +600,7 @@ namespace OwlTree
         /// </summary>
         public void Disconnect(ClientId id)
         {
-            if (NetRole == Role.Client)
+            if (IsClient)
                 throw new InvalidOperationException("Clients cannot disconnect other clients");
             if (Threaded)
                 _disconnectRequests.Enqueue(id);
@@ -587,10 +623,17 @@ namespace OwlTree
         public event NetworkObject.Delegate OnObjectDespawn;
 
         /// <summary>
+        /// Iterable of all currently spawned network objects
+        /// </summary>
+        public IEnumerable<NetworkObject> NetworkObjects => _spawner.NetworkObjects;
+
+        /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.
         /// </summary>
         public bool TryGetObject(NetworkId id, out NetworkObject obj)
         {
+            if (IsRelay)
+                throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
             return _spawner.TryGetObject(id, out obj);
         }
         
@@ -599,6 +642,8 @@ namespace OwlTree
         /// </summary>
         public NetworkObject GetNetworkObject(NetworkId id)
         {
+            if (IsRelay)
+                throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
             return _spawner.GetNetworkObject(id);
         }
 
@@ -607,8 +652,10 @@ namespace OwlTree
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
-            if (NetRole == Role.Client)
-                throw new InvalidOperationException("Clients cannot spawn or destroy network objects");
+            if (IsClient)
+                throw new InvalidOperationException("Clients cannot spawn or destroy network objects.");
+            else if (IsRelay)
+                throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
             var obj = _spawner.Spawn<T>();
             return obj;
         }
@@ -618,8 +665,10 @@ namespace OwlTree
         /// </summary>
         public object Spawn(Type t)
         {
-            if (NetRole == Role.Client)
+            if (IsClient)
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
+            else if (IsRelay)
+                throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
             return _spawner.Spawn(t);
         }
 
@@ -628,8 +677,10 @@ namespace OwlTree
         /// </summary>
         public void Despawn(NetworkObject target)
         {
-            if (NetRole == Role.Client)
+            if (IsClient)
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
+            else if (IsRelay)
+                throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
             _spawner.Despawn(target);
         }
     }

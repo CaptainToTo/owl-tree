@@ -22,6 +22,11 @@ namespace OwlTree
         private Dictionary<NetworkId, NetworkObject> _netObjects = new Dictionary<NetworkId, NetworkObject>();
 
         /// <summary>
+        /// Iterable of all currently spawned network objects
+        /// </summary>
+        public IEnumerable<NetworkObject> NetworkObjects => _netObjects.Values;
+
+        /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.
         /// </summary>
         public bool TryGetObject(NetworkId id, out NetworkObject obj)
