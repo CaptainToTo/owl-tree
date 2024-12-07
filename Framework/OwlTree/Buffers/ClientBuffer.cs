@@ -21,7 +21,7 @@ namespace OwlTree
             _tcpEndPoint = new IPEndPoint(Address, TcpPort);
 
             _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpClient.Bind(new IPEndPoint(Address, 0));
+            _udpClient.Bind(new IPEndPoint(IPAddress.Any, 0));
 
             _udpEndPoint = new IPEndPoint(Address, ServerUdpPort);
 

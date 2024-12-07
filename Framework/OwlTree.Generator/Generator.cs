@@ -20,7 +20,7 @@ namespace OwlTree.Generator
         // TODO: create cache to allow generator to be applied across multiple projects
         // will allow for easier add-on creation, since pre-built IEncodables, and NetworkObjects from different projects
         // can be analyzed "together".
-        static string outputPath = "";
+        // static string outputPath = "";
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
@@ -56,6 +56,11 @@ namespace OwlTree.Generator
             var compilation = context.CompilationProvider.Combine(provider.Collect());
 
             context.RegisterSourceOutput(compilation, GenerateProxies);
+        }
+
+        public void Initialize(GeneratorInitializationContext context)
+        {
+            throw new NotImplementedException();
         }
 
         private void GenerateProxies(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
