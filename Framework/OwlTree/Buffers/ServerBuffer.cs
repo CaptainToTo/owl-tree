@@ -18,9 +18,8 @@ namespace OwlTree
         /// </summary>
         /// <param name="args">NetworkBuffer parameters.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        public ServerBuffer(Args args, byte maxClients) : base (args)
+        public ServerBuffer(Args args, int maxClients) : base (args)
         {
-
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
             _tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _tcpServer.Bind(tpcEndPoint);
@@ -32,8 +31,9 @@ namespace OwlTree
             _udpServer.Bind(udpEndPoint);
             _readList.Add(_udpServer);
 
-            MaxClients = maxClients;
+            MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             LocalId = ClientId.None;
+            Authority = ClientId.None;
             IsReady = true;
             OnReady?.Invoke(LocalId);
         }
@@ -49,7 +49,6 @@ namespace OwlTree
         private struct ClientData
         {
             public ClientId id;
-            public UInt32 hash;
             public Packet tcpPacket;
             public Socket tpcSocket;
             public Packet udpPacket;
@@ -107,13 +106,6 @@ namespace OwlTree
             return ClientData.None;
         }
 
-        private ClientData FindClientData(UInt32 hash)
-        {
-            foreach (var data in _clientData)
-                if (data.hash == hash) return data;
-            return ClientData.None;
-        }
-
         private ClientData FindClientData(IPEndPoint endPoint)
         {
             foreach (var data in _clientData)
@@ -161,7 +153,6 @@ namespace OwlTree
 
                     var clientData = new ClientData() {
                         id = ClientId.New(), 
-                        hash = hash, 
                         tcpPacket = new Packet(BufferSize), 
                         tpcSocket = tcpClient,
                         udpPacket = new Packet(BufferSize, true),
@@ -183,7 +174,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, clientData.id, clientData.hash);
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, ClientId.None));
 
                     foreach (var otherClient in _clientData)
                     {
@@ -244,23 +235,25 @@ namespace OwlTree
                         ReadPacket.StartMessageRead();
                         if (ReadPacket.TryGetNextMessage(out var bytes))
                         {
-                            var rpcId = ServerMessageDecode(bytes, out var id);
-                            if (rpcId == RpcId.CONNECTION_REQUEST && id == ApplicationId)
+                            var rpcId = ServerMessageDecode(bytes, out var request);
+                            if (rpcId == RpcId.CONNECTION_REQUEST && request.appId == ApplicationId && !request.isHost)
                             {
 
                                 // connection request verified, send client confirmation
                                 _connectionRequests.Add((IPEndPoint)source);
                                 accepted = true;
-
-                                ReadPacket.Clear();
-                                ReadPacket.header.owlTreeVer = OwlTreeVersion;
-                                ReadPacket.header.appVer = AppVersion;
-                                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                ReadPacket.header.sender = 0;
-                                ReadPacket.header.hash = 0;
-                                var confirmation = ReadPacket.GetPacket();
-                                _udpServer.SendTo(confirmation.ToArray(), source);
                             }
+                            
+                            ReadPacket.Clear();
+                            ReadPacket.header.owlTreeVer = OwlTreeVersion;
+                            ReadPacket.header.appVer = AppVersion;
+                            ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            ReadPacket.header.sender = 0;
+                            ReadPacket.header.target = 0;
+                            var response = ReadPacket.GetSpan(4);
+                            BitConverter.TryWriteBytes(response, (int)(accepted ? ConnectionResponseCode.Accepted : ConnectionResponseCode.Rejected));
+                            var responsePacket = ReadPacket.GetPacket();
+                            _udpServer.SendTo(responsePacket.ToArray(), source);
                         }
 
                         if (Logger.includes.connectionAttempts)

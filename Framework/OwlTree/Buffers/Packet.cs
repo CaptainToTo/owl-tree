@@ -82,9 +82,9 @@ namespace OwlTree
 
             // 4 bytes
             /// <summary>
-            /// The hash assigned to the client that sent this packet.
+            /// The client id of the client this packet is being sent to, as a UInt32.
             /// </summary>
-            internal uint hash;
+            public uint target { get; internal set; }
 
             public void InsertBytes(Span<byte> bytes)
             {
@@ -104,7 +104,7 @@ namespace OwlTree
                 BitConverter.TryWriteBytes(bytes.Slice(ind), sender);
                 ind += 4;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), hash);
+                BitConverter.TryWriteBytes(bytes.Slice(ind), target);
                 ind += 4;
 
                 byte flags = 0;
@@ -140,7 +140,7 @@ namespace OwlTree
                 sender = BitConverter.ToUInt32(bytes.Slice(ind));
                 ind += 4;
 
-                hash = BitConverter.ToUInt32(bytes.Slice(ind));
+                target = BitConverter.ToUInt32(bytes.Slice(ind));
                 ind += 4;
 
                 byte flags = bytes[ind];
@@ -159,7 +159,7 @@ namespace OwlTree
                 timestamp = 0;
                 length = 0;
                 sender = 0;
-                hash = 0;
+                target = 0;
                 compressionEnabled = false;
                 flag1 = false;
                 flag2 = false;

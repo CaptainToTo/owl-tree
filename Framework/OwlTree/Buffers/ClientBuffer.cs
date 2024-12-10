@@ -63,7 +63,7 @@ namespace OwlTree
             if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
             {
                 var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
-                ConnectionRequestEncode(idBytes, ApplicationId);
+                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, false));
                 _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                 _udpPacket.Clear();
                 _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -100,13 +100,27 @@ namespace OwlTree
                         continue;
                     }
 
-                    if (Logger.includes.connectionAttempts)
-                    {
-                        Logger.Write("Connection request to " + Address.ToString() + " accepted at " + DateTime.UtcNow);
-                    }
+                    var response = (ConnectionResponseCode)BitConverter.ToInt32(ReadPacket.GetMessages());
 
-                    _acceptedRequest = true;
-                    _tcpClient.Connect(_tcpEndPoint);
+                    if (response == ConnectionResponseCode.Accepted)
+                    {
+                        if (Logger.includes.connectionAttempts)
+                        {
+                            Logger.Write("Connection request to " + Address.ToString() + " accepted at " + DateTime.UtcNow);
+                        }
+
+                        _acceptedRequest = true;
+                        _tcpClient.Connect(_tcpEndPoint);
+                    }
+                    else
+                    {
+                        if (Logger.includes.connectionAttempts)
+                        {
+                            Logger.Write("Connection request to " + Address.ToString() + " rejected at " + DateTime.UtcNow);
+                        }
+
+                        _remainingRequests = 0;
+                    }
                 }
             }
         }
@@ -188,10 +202,10 @@ namespace OwlTree
                         ReadPacket.StartMessageRead();
                         while (ReadPacket.TryGetNextMessage(out var bytes))
                         {
-                            RpcId clientMessage = ClientMessageDecode(bytes, out var clientId, out var hash);
+                            RpcId clientMessage = ClientMessageDecode(bytes);
                             if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
                             {
-                                HandleClientConnectionMessage(clientMessage, clientId, hash);
+                                HandleClientConnectionMessage(clientMessage, bytes.Slice(RpcId.MaxLength()));
                             }
                             else if (TryDecode(ClientId.None, bytes, out var message))
                             {
@@ -249,25 +263,27 @@ namespace OwlTree
 
         // handle connections and disconnections immediately, 
         // they do not preserve the message execution order.
-        private void HandleClientConnectionMessage(RpcId messageType, ClientId id, UInt32 hash)
+        private void HandleClientConnectionMessage(RpcId messageType, ReadOnlySpan<byte> bytes)
         {
             switch (messageType.Id)
             {
                 case RpcId.CLIENT_CONNECTED_MESSAGE_ID:
+                    var id = new ClientId(bytes);
                     _clients.Add(id);
                     OnClientConnected?.Invoke(id);
                     break;
                 case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
-                    _clients.Add(id);
-                    LocalId = id;
+                    var assignment = new ClientIdAssignment(bytes);
+                    _clients.Add(assignment.assignedId);
+                    LocalId = assignment.assignedId;
+                    Authority = assignment.authorityId;
                     _tcpPacket.header.sender = LocalId.Id;
-                    _tcpPacket.header.hash = hash;
                     _udpPacket.header.sender = LocalId.Id;
-                    _udpPacket.header.hash = hash;
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
                 case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
+                    id = new ClientId(bytes);
                     _clients.Remove(id);
                     OnClientDisconnected?.Invoke(id);
                     break;

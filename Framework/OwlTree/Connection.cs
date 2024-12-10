@@ -61,7 +61,7 @@ namespace OwlTree
             /// The maximum number of clients the server will allow to be connected at once.
             /// <b>Default = 4</b>
             /// </summary>
-            public byte maxClients = 4;
+            public int maxClients = 4;
 
             /// <summary>
             /// The number of milliseconds clients will wait before sending another connection request to the server.

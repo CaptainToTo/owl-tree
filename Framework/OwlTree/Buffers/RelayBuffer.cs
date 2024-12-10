@@ -1,10 +1,13 @@
 
+using System.Net;
+
 namespace OwlTree
 {
     public class RelayBuffer : NetworkBuffer
     {
-        public RelayBuffer(Args args) : base(args)
+        public RelayBuffer(Args args, int maxClients, IPAddress hostIp) : base(args)
         {
+
         }
 
         public override void Disconnect()
