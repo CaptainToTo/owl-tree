@@ -45,36 +45,11 @@ namespace OwlTree
 
         private Random _rand = new Random();
 
-        // used to map a client's socket to its id and buffer
-        private struct ClientData
-        {
-            public ClientId id;
-            public Packet tcpPacket;
-            public Socket tpcSocket;
-            public Packet udpPacket;
-            public IPEndPoint udpEndPoint;
-
-            public static ClientData None = new ClientData() { id = ClientId.None };
-
-            public static bool operator ==(ClientData a, ClientData b) => a.id == b.id;
-            public static bool operator !=(ClientData a, ClientData b) => a.id != b.id;
-
-            public override bool Equals(object obj)
-            {
-                return obj != null && obj.GetType() == typeof(ClientData) && ((ClientData)obj == this);
-            }
-
-            public override int GetHashCode()
-            {
-                return base.GetHashCode();
-            }
-        }
-
         // server state
         private Socket _tcpServer;
         private Socket _udpServer;
         private List<Socket> _readList = new List<Socket>();
-        private List<ClientData> _clientData = new List<ClientData>();
+        private ClientDataList _clientData = new();
         private List<IPEndPoint> _connectionRequests = new List<IPEndPoint>();
 
         private bool GetConnectionRequest(IPEndPoint endPoint, out int udpPort)
@@ -90,35 +65,6 @@ namespace OwlTree
             }
             udpPort = 0;
             return false;
-        }
-
-        private ClientData FindClientData(Socket s)
-        {
-            foreach (var data in _clientData)
-                if (data.tpcSocket == s) return data;
-            return ClientData.None;
-        }
-
-        private ClientData FindClientData(ClientId id)
-        {
-            foreach (var data in _clientData)
-                if (data.id == id) return data;
-            return ClientData.None;
-        }
-
-        private ClientData FindClientData(IPEndPoint endPoint)
-        {
-            foreach (var data in _clientData)
-                if (data.udpEndPoint.Address.Equals(endPoint.Address) && data.udpEndPoint.Port == endPoint.Port) return data;
-            return ClientData.None;
-        }
-
-        private ClientId[] GetClientIds()
-        {
-            ClientId[] ids = new ClientId[_clientData.Count];
-            for (int i = 0; i < _clientData.Count; i++)
-                ids[i] = _clientData[i].id;
-            return ids;
         }
 
         /// <summary>
@@ -220,7 +166,7 @@ namespace OwlTree
                         continue;
                     }
 
-                    var client = FindClientData((IPEndPoint)source);
+                    var client = _clientData.Find((IPEndPoint)source);
 
                     // try to verify a new client connection
                     if (client == ClientData.None)
@@ -323,7 +269,7 @@ namespace OwlTree
                         }
 
                         if (client == ClientData.None)
-                            client = FindClientData(socket);
+                            client = _clientData.Find(socket);
 
                         // disconnect if receive fails
                         if (dataLen <= 0)
@@ -382,7 +328,7 @@ namespace OwlTree
 
                 if (message.callee != ClientId.None)
                 {
-                    var client = FindClientData(message.callee);
+                    var client = _clientData.Find(message.callee);
                     if (client != ClientData.None)
                     {
                         if (message.protocol == Protocol.Tcp)
@@ -470,7 +416,7 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            var ids = GetClientIds();
+            var ids = _clientData.GetIds();
             foreach (var id in ids)
             {
                 Disconnect(id);
@@ -485,7 +431,7 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect(ClientId id)
         {
-            var client = FindClientData(id);
+            var client = _clientData.Find(id);
             if (client != ClientData.None)
             {
                 _clientData.Remove(client);
