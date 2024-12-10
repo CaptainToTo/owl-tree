@@ -18,7 +18,7 @@ namespace OwlTree
         /// </summary>
         /// <param name="args">NetworkBuffer parameters.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        public ServerBuffer(Args args, int maxClients) : base (args)
+        public ServerBuffer(Args args, int maxClients, long requestTimeout) : base (args)
         {
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
             _tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -31,7 +31,9 @@ namespace OwlTree
             _udpServer.Bind(udpEndPoint);
             _readList.Add(_udpServer);
 
+
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
+            _requests = new(MaxClients, requestTimeout);
             LocalId = ClientId.None;
             Authority = ClientId.None;
             IsReady = true;
@@ -43,29 +45,12 @@ namespace OwlTree
         /// </summary>
         public int MaxClients { get; private set; }
 
-        private Random _rand = new Random();
-
         // server state
         private Socket _tcpServer;
         private Socket _udpServer;
         private List<Socket> _readList = new List<Socket>();
         private ClientDataList _clientData = new();
-        private List<IPEndPoint> _connectionRequests = new List<IPEndPoint>();
-
-        private bool GetConnectionRequest(IPEndPoint endPoint, out int udpPort)
-        {
-            for (int i = 0; i < _connectionRequests.Count; i++)
-            {
-                if (_connectionRequests[i].Address.Equals(endPoint.Address))
-                {
-                    udpPort = _connectionRequests[i].Port;
-                    _connectionRequests.RemoveAt(i);
-                    return true;
-                }
-            }
-            udpPort = 0;
-            return false;
-        }
+        private ConnectionRequestList _requests;
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
@@ -80,6 +65,8 @@ namespace OwlTree
             
             Socket.Select(_readList, null, null, 0);
 
+            _requests.ClearTimeouts();
+
             foreach (var socket in _readList)
             {
                 // new client connects
@@ -88,14 +75,13 @@ namespace OwlTree
                     var tcpClient = socket.Accept();
 
                     // reject connections that aren't from verified app instances
-                    if(!GetConnectionRequest((IPEndPoint)tcpClient.RemoteEndPoint, out var udpPort))
+                    if(!_requests.TryGet((IPEndPoint)tcpClient.RemoteEndPoint, out var udpPort))
                     {
                         tcpClient.Close();
                         continue;
                     }
 
                     IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, udpPort);
-                    var hash = (UInt32)_rand.Next();
 
                     var clientData = new ClientData() {
                         id = ClientId.New(), 
@@ -182,11 +168,15 @@ namespace OwlTree
                         if (ReadPacket.TryGetNextMessage(out var bytes))
                         {
                             var rpcId = ServerMessageDecode(bytes, out var request);
-                            if (rpcId == RpcId.CONNECTION_REQUEST && request.appId == ApplicationId && !request.isHost)
+                            if (
+                                rpcId == RpcId.CONNECTION_REQUEST && 
+                                request.appId == ApplicationId && !request.isHost &&
+                                _clientData.Count < MaxClients && _requests.Count < MaxClients
+                            )
                             {
 
                                 // connection request verified, send client confirmation
-                                _connectionRequests.Add((IPEndPoint)source);
+                                _requests.Add((IPEndPoint)source);
                                 accepted = true;
                             }
                             

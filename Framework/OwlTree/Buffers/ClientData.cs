@@ -42,6 +42,8 @@ namespace OwlTree
     {
         private List<ClientData> _data = new();
 
+        public int Count => _data.Count;
+
         public void Add(ClientData data) => _data.Add(data);
 
         public void Remove(ClientData data) => _data.Remove(data);

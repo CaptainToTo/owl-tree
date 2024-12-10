@@ -1,5 +1,7 @@
 
+using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 
 namespace OwlTree
 {
@@ -12,6 +14,19 @@ namespace OwlTree
         {
 
         }
+
+
+        /// <summary>
+        /// The maximum number of clients allowed to be connected at once in this session.
+        /// </summary>
+        public int MaxClients { get; private set; }
+
+        // server state
+        private Socket _tcpRelay;
+        private Socket _udpRelay;
+        private List<Socket> _readList = new();
+        private ClientDataList _clientData = new();
+        private List<IPEndPoint> _connectionRequests = new();
 
         public override void Disconnect()
         {
