@@ -12,7 +12,7 @@ namespace OwlTree
     /// </summary>
     public class RelayBuffer : NetworkBuffer
     {
-        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr) : base(args)
+        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr, bool migratable) : base(args)
         {
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
             _tcpRelay = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -27,6 +27,7 @@ namespace OwlTree
 
             if (hostAddr != null)
                 _hostAddr = IPAddress.Parse(hostAddr);
+            Migratable = migratable;
 
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
@@ -49,6 +50,12 @@ namespace OwlTree
         private ConnectionRequestList _requests;
 
         private IPAddress _hostAddr = null;
+
+        /// <summary>
+        /// Whether or not the host role can be migrated or not. 
+        /// If not, then the relay server will shutdown when the host disconnects.
+        /// </summary>
+        public bool Migratable { get; private set; }
 
         public override void Read()
         {
@@ -231,28 +238,265 @@ namespace OwlTree
                     ReadPacket.StartMessageRead();
                     while (ReadPacket.TryGetNextMessage(out var bytes))
                     {
-                        if (TryDecode(client.id, bytes, out var message))
+                        var rpcId = new RpcId(bytes);
+                        if (rpcId >= RpcId.FIRST_RPC_ID)
                         {
-                            _incoming.Enqueue(message);
+                            RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
+                            if (caller != client.id) continue;
+
+                            if (callee == ClientId.None)
+                                RelayUdpMessage(bytes, client.id);
+                            else
+                                RelayMessageTo(bytes, _clientData.Find(callee).udpPacket);
                         }
                     }
+                }
+                else // receive client tcp messages
+                {
+                    Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+                    int dataRemaining = -1;
+                    int dataLen = -1;
+                    ClientData client = ClientData.None;
+
+                    do {
+                        ReadPacket.Clear();
+
+                        int iters = 0;
+                        do {
+                            try
+                            {
+                                if (dataRemaining <= 0)
+                                {
+                                    dataLen = socket.Receive(ReadBuffer);
+                                    dataRemaining = dataLen;
+                                }
+                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
+                                iters++;
+                            }
+                            catch
+                            {
+                                dataLen = -1;
+                                break;
+                            }
+                        } while (ReadPacket.Incomplete && iters < 10);
+
+                        if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
+                        {
+                            dataLen = -1;
+                        }
+
+                        if (client == ClientData.None)
+                            client = _clientData.Find(socket);
+
+                        // disconnect if receive fails
+                        if (dataLen <= 0)
+                        {
+                            _clientData.Remove(client);
+                            socket.Close();
+                            OnClientDisconnected?.Invoke(client.id);
+
+                            foreach (var otherClient in _clientData)
+                            {
+                                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
+                                ClientDisconnectEncode(span, client.id);
+                            }
+
+                            HasClientEvent = true;
+                            continue;
+                        }
+
+                        if (Logger.includes.tcpPreTransform)
+                        {
+                            var packetStr = new StringBuilder($"RECEIVED: Pre-Transform TCP packet from {client.id} at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
+                        }
+
+                        ApplyReadSteps(ReadPacket);
+
+                        if (Logger.includes.tcpPostTransform)
+                        {
+                            var packetStr = new StringBuilder($"RECEIVED: Post-Transform TCP packet from {client.id} at {DateTime.UtcNow}:\n");
+                            PacketToString(ReadPacket, packetStr);
+                            Logger.Write(packetStr.ToString());
+                        }
+                        
+                        ReadPacket.StartMessageRead();
+                        while (ReadPacket.TryGetNextMessage(out var bytes))
+                        {
+                            var rpcId = new RpcId(bytes);
+
+                            if (rpcId.Id == RpcId.CLIENT_DISCONNECTED_MESSAGE_ID && client.id == Authority)
+                            {
+                                Disconnect(new ClientId(bytes.Slice(rpcId.ByteLength())));
+                            }
+                            else if (rpcId.Id == RpcId.HOST_MIGRATION && client.id == Authority)
+                            {
+                                MigrateHost(new ClientId(bytes.Slice(rpcId.ByteLength())));
+                            }
+                            else if ((rpcId.Id == RpcId.NETWORK_OBJECT_SPAWN || rpcId.Id == RpcId.NETWORK_OBJECT_DESPAWN) && client.id == Authority)
+                            {
+                                RelayTcpMessage(bytes, client.id);
+                            }
+                            else if (rpcId >= RpcId.FIRST_RPC_ID)
+                            {
+                                RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
+                                if (caller != client.id) continue;
+
+                                if (callee == ClientId.None)
+                                    RelayTcpMessage(bytes, client.id);
+                                else
+                                    RelayMessageTo(bytes, _clientData.Find(callee).tcpPacket);
+                            }
+                        }
+                    } while (dataRemaining > 0);
                 }
             }
         }
 
+        private void RelayTcpMessage(ReadOnlySpan<byte> bytes, ClientId source)
+        {
+            foreach (var client in _clientData)
+            {
+                if (client.id == source) continue;
+                RelayMessageTo(bytes, client.tcpPacket);
+            }
+        }
+
+        private void RelayUdpMessage(ReadOnlySpan<byte> bytes, ClientId source)
+        {
+            foreach (var client in _clientData)
+            {
+                if (client.id == source) continue;
+                RelayMessageTo(bytes, client.udpPacket);
+            }
+        }
+
+        private void RelayMessageTo(ReadOnlySpan<byte> bytes, Packet packet)
+        {
+            var span = packet.GetSpan(bytes.Length);
+            for (int i = 0; i < span.Length; i++)
+                span[i] = bytes[i];
+        }
+
         public override void Send()
         {
-            throw new System.NotImplementedException();
+            foreach (var client in _clientData)
+            {
+                if (!client.tcpPacket.IsEmpty)
+                {
+                    client.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                    if (Logger.includes.tcpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"SENDING: Pre-Transform TCP packet to {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(client.tcpPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
+                    ApplySendSteps(client.tcpPacket);
+                    var bytes = client.tcpPacket.GetPacket();
+
+                    if (Logger.includes.tcpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"SENDING: Post-Transform TCP packet to {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(client.tcpPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
+                    client.tcpSocket.Send(bytes);
+                    client.tcpPacket.Reset();
+                }
+
+                if (!client.udpPacket.IsEmpty)
+                {
+                    client.udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                    if (Logger.includes.tcpPreTransform)
+                    {
+                        var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(client.udpPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
+                    ApplySendSteps(client.udpPacket);
+                    var bytes = client.udpPacket.GetPacket();
+
+                    if (Logger.includes.tcpPostTransform)
+                    {
+                        var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to {client.id} at {DateTime.UtcNow}:\n");
+                        PacketToString(client.udpPacket, packetStr);
+                        Logger.Write(packetStr.ToString());
+                    }
+
+                    _udpRelay.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    client.udpPacket.Reset();
+                }
+            }
+
+            HasClientEvent = false;
         }
 
         public override void Disconnect()
         {
-            throw new System.NotImplementedException();
+            var ids = _clientData.GetIds();
+            foreach (var id in ids)
+            {
+                if (id == Authority) continue;
+                Disconnect(id);
+            }
+            Disconnect(Authority);
+            _tcpRelay.Close();
+            _udpRelay.Close();
         }
 
         public override void Disconnect(ClientId id)
         {
-            throw new System.NotImplementedException();
+            var client = _clientData.Find(id);
+            if (client != ClientData.None)
+            {
+                _clientData.Remove(client);
+                client.tcpSocket.Close();
+                OnClientDisconnected?.Invoke(id);
+
+                foreach (var otherClient in _clientData)
+                {
+                    var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
+                    ClientDisconnectEncode(span, client.id);
+                }
+                HasClientEvent = true;
+
+                if (id == Authority)
+                {
+                    if (Migratable && _clientData.Count > 0)
+                        MigrateHost(FindNewHost());
+                    else
+                        Disconnect();
+                }
+            }
+        }
+
+        // TODO: improve heuristic
+        private ClientId FindNewHost()
+        {
+            foreach (var client in _clientData)
+                if (client.id != Authority) return client.id;
+            return ClientId.None;
+        }
+
+        /// <summary>
+        /// Change the authority of the session to the given new host.
+        /// The previous host will be down-graded to a client if they are still connected.
+        /// </summary>
+        public void MigrateHost(ClientId newHost)
+        {
+            Authority = newHost;
+            foreach (var client in _clientData)
+            {
+                var span = client.tcpPacket.GetSpan(ClientMessageLength);
+                HostMigrationEncode(span, newHost);
+            }
+            HasClientEvent = true;
         }
     }
 }

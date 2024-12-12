@@ -225,6 +225,12 @@ namespace OwlTree
         public ClientId.Delegate OnReady;
 
         /// <summary>
+        /// Invoked when the session authority changes. Provides the client id
+        /// of the new authority.
+        /// </summary>
+        public ClientId.Delegate OnHostMigration;
+
+        /// <summary>
         /// Injected decoding scheme for messages.
         /// </summary>
         protected Decoder TryDecode;
@@ -445,6 +451,14 @@ namespace OwlTree
             request.InsertBytes(bytes.Slice(ind));
         }
 
+        protected static void HostMigrationEncode(Span<byte> bytes, ClientId newHost)
+        {
+            var rpcId = new RpcId(RpcId.HOST_MIGRATION);
+            var ind = rpcId.ByteLength();
+            rpcId.InsertBytes(bytes.Slice(0, ind));
+            newHost.InsertBytes(bytes.Slice(ind, newHost.ByteLength()));
+        }
+
         protected static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest request)
         {
             RpcId result = RpcId.None;
@@ -459,20 +473,18 @@ namespace OwlTree
             return result;
         }
 
-        protected static RpcId ClientMessageDecode(ReadOnlySpan<byte> message)
+        protected static bool TryClientMessageDecode(ReadOnlySpan<byte> bytes, out RpcId rpcId)
         {
-            UInt32 rpcId = BitConverter.ToUInt32(message);
-            switch(rpcId)
+            rpcId = new RpcId(bytes);
+            switch(rpcId.Id)
             {
                 case RpcId.CLIENT_CONNECTED_MESSAGE_ID:
-                    return new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
                 case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
-                    return new RpcId(RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID);
                 case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
-                    return new RpcId(RpcId.CLIENT_DISCONNECTED_MESSAGE_ID);
-                default:
-                    return RpcId.None;
+                case RpcId.HOST_MIGRATION:
+                    return true;
             }
+            return false;
         }
     }
 }

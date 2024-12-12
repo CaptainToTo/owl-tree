@@ -219,7 +219,11 @@ namespace OwlTree
                     {
                         if (TryDecode(client.id, bytes, out var message))
                         {
-                            _incoming.Enqueue(message);
+                            message.protocol = Protocol.Udp;
+                            if (message.callee != ClientId.None)
+                                _outgoing.Enqueue(message);
+                            else
+                                _incoming.Enqueue(message);
                         }
                     }
                 }
@@ -298,6 +302,7 @@ namespace OwlTree
                         {
                             if (TryDecode(client.id, bytes, out var message))
                             {
+                                message.protocol = Protocol.Tcp;
                                 if (message.callee != ClientId.None)
                                     _outgoing.Enqueue(message);
                                 else

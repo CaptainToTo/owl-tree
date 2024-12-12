@@ -67,6 +67,13 @@ namespace OwlTree
             /// to pre-verify the host. <b>Default = null (first client connected will be given host authority)</b>
             /// </summary>
             public string hostAddr = null;
+            /// <summary>
+            /// Whether or not a relayed peer-to-peer session can migrate hosts. 
+            /// A session that is migratable will re-assign the host if the current host disconnects.
+            /// A session that is not migratable will shutdown if the current host disconnects.
+            /// <b>Default = false</b>
+            /// </summary>
+            public bool migratable = false;
 
             /// <summary>
             /// The number of milliseconds clients will wait before sending another connection request to the server.
@@ -221,7 +228,7 @@ namespace OwlTree
                     IsReady = false;
                     break;
                 case Role.Relay:
-                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr);
+                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable);
                     IsReady = true;
                     break;
             }
@@ -229,6 +236,7 @@ namespace OwlTree
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
+            _buffer.OnHostMigration = (id) => _clientEvents.Enqueue((ConnectionEventType.OnHostMigration, id));
             IsActive = true;
 
             var factory = ProxyFactory.GetProjectImplementation();
@@ -349,7 +357,8 @@ namespace OwlTree
         {
             OnConnect,
             OnDisconnect,
-            OnReady
+            OnReady,
+            OnHostMigration
         }
 
         private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new ConcurrentQueue<(ConnectionEventType, ClientId)>();
@@ -390,6 +399,11 @@ namespace OwlTree
         public event ClientId.Delegate OnLocalDisconnect;
 
         /// <summary>
+        /// Invoked when the authority is migrated. Provides the new authority's client id.
+        /// </summary>
+        public event ClientId.Delegate OnHostMigration;
+
+        /// <summary>
         /// Whether this connection is active. Will be false for clients if they have been disconnected from the server.
         /// </summary>
         public bool IsActive { get; private set; } = false;
@@ -408,7 +422,7 @@ namespace OwlTree
         /// the client id of the instance assigned as the authority of the session. 
         /// Servers will have an id of <c>ClientId.None</c>.
         /// </summary>
-        public ClientId Authority { get { return _buffer.Authority; } }
+        public ClientId Authority { get; private set; } = ClientId.None;
 
         /// <summary>
         /// Returns true if the local connection is the authority of this session.
@@ -485,10 +499,21 @@ namespace OwlTree
                         break;
                     case ConnectionEventType.OnReady:
                         IsReady = true;
+                        Authority = _buffer.Authority;
                         if (_logger.includes.clientEvents)
                             _logger.Write("Connection is ready. Local client id is: " + result.id.ToString());
                         _clients.Add(result.id);
                         OnReady?.Invoke(result.id);
+                        break;
+                    case ConnectionEventType.OnHostMigration:
+                        Authority = result.id;
+                        if (NetRole == Role.Host)
+                            NetRole = Role.Client;
+                        if (result.id == LocalId)
+                            NetRole = Role.Host;
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Host migrated, new authority is: " + result.id.ToString());
+                        OnHostMigration?.Invoke(result.id);
                         break;
                 }
             }

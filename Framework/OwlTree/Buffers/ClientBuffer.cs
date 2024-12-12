@@ -202,10 +202,9 @@ namespace OwlTree
                         ReadPacket.StartMessageRead();
                         while (ReadPacket.TryGetNextMessage(out var bytes))
                         {
-                            RpcId clientMessage = ClientMessageDecode(bytes);
-                            if (RpcId.CLIENT_CONNECTED_MESSAGE_ID <= clientMessage && clientMessage <= RpcId.CLIENT_DISCONNECTED_MESSAGE_ID)
+                            if (TryClientMessageDecode(bytes, out var rpcId))
                             {
-                                HandleClientConnectionMessage(clientMessage, bytes.Slice(RpcId.MaxLength()));
+                                HandleClientConnectionMessage(rpcId, bytes.Slice(RpcId.MaxLength()));
                             }
                             else if (TryDecode(ClientId.None, bytes, out var message))
                             {
@@ -286,6 +285,10 @@ namespace OwlTree
                     id = new ClientId(bytes);
                     _clients.Remove(id);
                     OnClientDisconnected?.Invoke(id);
+                    break;
+                case RpcId.HOST_MIGRATION:
+                    Authority = new ClientId(bytes);
+                    OnHostMigration?.Invoke(Authority);
                     break;
                 default: break;
             }
