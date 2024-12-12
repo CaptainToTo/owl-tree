@@ -62,6 +62,11 @@ namespace OwlTree
             /// <b>Default = 4</b>
             /// </summary>
             public int maxClients = 4;
+            /// <summary>
+            /// The IP address of the host client of this session. Used by relay server 
+            /// to pre-verify the host. <b>Default = null (first client connected will be given host authority)</b>
+            /// </summary>
+            public string hostAddr = null;
 
             /// <summary>
             /// The number of milliseconds clients will wait before sending another connection request to the server.
@@ -73,6 +78,12 @@ namespace OwlTree
             /// The number of connection attempts clients will make before ending the connection in failure. <b>Default = 10</b>
             /// </summary>
             public int connectionRequestLimit = 10;
+
+            /// <summary>
+            /// the number of milliseconds servers will wait for clients to make the TCP handshake before timing out
+            /// their connection request. <b>Default = 20000 (20 sec)</b>
+            /// </summary>
+            public int connectionRequestTimeout = 20000;
 
             /// <summary>
             /// The byte length of read and write buffers.
@@ -199,7 +210,7 @@ namespace OwlTree
             switch (args.role)
             {
                 case Role.Server:
-                    _buffer = new ServerBuffer(bufferArgs, args.maxClients);
+                    _buffer = new ServerBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout);
                     IsReady = true;
                     break;
                 case Role.Client:
@@ -210,6 +221,7 @@ namespace OwlTree
                     IsReady = false;
                     break;
                 case Role.Relay:
+                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr);
                     IsReady = true;
                     break;
             }
@@ -393,6 +405,17 @@ namespace OwlTree
         public ClientId LocalId { get { return _buffer.LocalId; } }
 
         /// <summary>
+        /// the client id of the instance assigned as the authority of the session. 
+        /// Servers will have an id of <c>ClientId.None</c>.
+        /// </summary>
+        public ClientId Authority { get { return _buffer.Authority; } }
+
+        /// <summary>
+        /// Returns true if the local connection is the authority of this session.
+        /// </summary>
+        public bool IsAuthority { get { return !IsRelay && _buffer.LocalId == _buffer.Authority; } }
+
+        /// <summary>
         /// Receive any RPCs that have been sent to this connection. Execute them with <c>ExecuteQueue()</c>.
         /// </summary>
         public void Read()
@@ -489,10 +512,10 @@ namespace OwlTree
             }
         }
 
-        private bool TryDecodeRpc(ClientId caller, ReadOnlySpan<byte> bytes, out NetworkBuffer.Message message)
+        private bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out NetworkBuffer.Message message)
         {
             message = NetworkBuffer.Message.Empty;
-            if (NetworkSpawner.TryDecode(bytes, out var rpcId, out var args) && NetRole == Role.Client)
+            if (NetRole != Role.Server && NetworkSpawner.TryDecode(bytes, out var rpcId, out var args))
             {
                 message = new NetworkBuffer.Message(LocalId, rpcId, args);
                 if (_logger.includes.rpcReceiveEncodings)
@@ -504,14 +527,14 @@ namespace OwlTree
                 }
                 return true;
             }
-            else if (Protocols.TryDecodeRpc(caller, bytes, out rpcId, out var target, out args))
+            else if (Protocols.TryDecodeRpc(bytes, out rpcId, out var caller, out var callee, out var target, out args))
             {
-                message = new NetworkBuffer.Message(caller, LocalId, rpcId, target, Protocol.Tcp, args);
+                message = new NetworkBuffer.Message(caller, callee, rpcId, target, Protocol.Tcp, args);
                 if (_logger.includes.rpcReceives)
                 {
                     var output = $"RECEIVING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcReceiveEncodings)
-                        output += ":\n" + Protocols.GetEncodingSummary(caller, rpcId, target, args);
+                        output += ":\n" + Protocols.GetEncodingSummary(rpcId, caller, callee, target, args);
                     _logger.Write(output);
                 }
                 return true;
@@ -521,10 +544,44 @@ namespace OwlTree
 
         private void EncodeRpc(NetworkBuffer.Message message, Packet buffer)
         {
-            var span = buffer.GetSpan(message.bytes.Length);
-            for (int i = 0; i < span.Length; i++)
+            // add locally called rpc to packet
+            if (message.bytes != null)
             {
-                span[i] = message.bytes[i];
+                var span = buffer.GetSpan(message.bytes.Length);
+                for (int i = 0; i < span.Length; i++)
+                {
+                    span[i] = message.bytes[i];
+                }
+            }
+            // relaying client to client rpc
+            else
+            {
+                if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
+                {
+                    var bytes = buffer.GetSpan(NetworkSpawner.SpawnByteLength);
+                    _spawner.SpawnEncode(bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                    if (_logger.includes.rpcCallEncodings)
+                        _logger.Write("RELAYING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                }
+                else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
+                {
+                    var bytes = buffer.GetSpan(NetworkSpawner.DespawnByteLength);
+                    _spawner.DespawnEncode(bytes, (NetworkId)message.args[0]);
+                    if (_logger.includes.rpcCallEncodings)
+                        _logger.Write("RELAYING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                }
+                else
+                {
+                    var bytes = buffer.GetSpan(RpcEncoding.GetExpectedRpcLength(message.args));
+                    Protocols.EncodeRpc(bytes, message.rpcId, message.caller, message.callee, message.target, message.args);
+                    if (_logger.includes.rpcCalls)
+                    {
+                        var output = $"RELAYING:\n{Protocols.GetRpcName(message.rpcId.Id)} {message.rpcId}, Called on Object {message.target}";
+                        if (_logger.includes.rpcCallEncodings)
+                            output += ":\n" + Protocols.GetEncodingSummary(message.rpcId, message.caller, message.callee, message.target, message.args);
+                        _logger.Write(output);
+                    }
+                }
             }
         }
 
@@ -549,12 +606,12 @@ namespace OwlTree
             else
             {
                 message.bytes = new byte[RpcEncoding.GetExpectedRpcLength(message.args)];
-                RpcEncoding.EncodeRpc(message.bytes, message.rpcId, message.target, message.args);
+                Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
                 if (_logger.includes.rpcCalls)
                 {
                     var output = $"SENDING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
                     if (_logger.includes.rpcCallEncodings)
-                        output += ":\n" + Protocols.GetEncodingSummary(LocalId, rpcId, target, args);
+                        output += ":\n" + Protocols.GetEncodingSummary(rpcId, LocalId, callee, target, args);
                     _logger.Write(output);
                 }
             }

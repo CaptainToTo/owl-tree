@@ -31,7 +31,6 @@ namespace OwlTree
             _udpServer.Bind(udpEndPoint);
             _readList.Add(_udpServer);
 
-
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
             LocalId = ClientId.None;
@@ -61,7 +60,7 @@ namespace OwlTree
             _readList.Add(_tcpServer);
             _readList.Add(_udpServer);
             foreach (var data in _clientData)
-                _readList.Add(data.tpcSocket);
+                _readList.Add(data.tcpSocket);
             
             Socket.Select(_readList, null, null, 0);
 
@@ -86,7 +85,7 @@ namespace OwlTree
                     var clientData = new ClientData() {
                         id = ClientId.New(), 
                         tcpPacket = new Packet(BufferSize), 
-                        tpcSocket = tcpClient,
+                        tcpSocket = tcpClient,
                         udpPacket = new Packet(BufferSize, true),
                         udpEndPoint = udpEndPoint
                     };
@@ -106,7 +105,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, ClientId.None));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority));
 
                     foreach (var otherClient in _clientData)
                     {
@@ -299,7 +298,10 @@ namespace OwlTree
                         {
                             if (TryDecode(client.id, bytes, out var message))
                             {
-                                _incoming.Enqueue(message);
+                                if (message.callee != ClientId.None)
+                                    _outgoing.Enqueue(message);
+                                else
+                                    _incoming.Enqueue(message);
                             }
                         }
                     } while (dataRemaining > 0);
@@ -368,7 +370,7 @@ namespace OwlTree
                         Logger.Write(packetStr.ToString());
                     }
 
-                    client.tpcSocket.Send(bytes);
+                    client.tcpSocket.Send(bytes);
                     client.tcpPacket.Reset();
                 }
 
@@ -425,7 +427,7 @@ namespace OwlTree
             if (client != ClientData.None)
             {
                 _clientData.Remove(client);
-                client.tpcSocket.Close();
+                client.tcpSocket.Close();
                 OnClientDisconnected?.Invoke(id);
 
                 foreach (var otherClient in _clientData)

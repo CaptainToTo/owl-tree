@@ -13,11 +13,17 @@ namespace OwlTree
         /// Encodes an RPC call into the given span of bytes. This span must have enough space, which can be verified
         /// using <c>GetExpectedRpcLength()</c>.
         /// </summary>
-        internal static void EncodeRpc(Span<byte> bytes, RpcId id, NetworkId source, object[] args)
+        internal static void EncodeRpc(Span<byte> bytes, RpcId id, ClientId caller, ClientId callee, NetworkId source, object[] args, int calleeInd, int callerInd)
         {
             int start = 0;
             int end = id.ByteLength();
             id.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += caller.ByteLength();
+            caller.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += callee.ByteLength();
+            callee.InsertBytes(bytes.Slice(start, end - start));
             start = end;
             end += source.ByteLength();
             source.InsertBytes(bytes.Slice(start, end - start));
@@ -27,6 +33,7 @@ namespace OwlTree
 
             for (int i = 0; i < args.Length; i++)
             {
+                if (i == callerInd || i == calleeInd) continue;
                 start = end;
                 end += GetExpectedLength(args[i]);
                 InsertBytes(bytes.Slice(start, end - start), args[i]);
@@ -36,24 +43,51 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Decodes an RPC encoding using the given span and parameter types. Returns the decoded arguments
-        /// as an array of objects, and outputs the decoded NetworkId of the NetworkObject the 
-        /// RPC was called from.
+        /// Decodes all header info from an rpc encoding.
         /// </summary>
-        internal static object[] DecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, Type[] paramTypes, int callerInd, out NetworkId target)
+        internal static void DecodeRpcHeader(ReadOnlySpan<byte> bytes, out RpcId rpc, out ClientId caller, out ClientId callee, out NetworkId target)
         {
-            int ind = RpcId.MaxLength();
+            if (RpcHeaderLength > bytes.Length)
+            {
+                rpc = RpcId.None;
+                caller = ClientId.None;
+                callee = ClientId.None;
+                target = NetworkId.None;
+                return;
+            }
 
-            target = new NetworkId(bytes.Slice(ind, NetworkId.MaxLength()));
-            ind += target.ByteLength();
+            int ind = 0;
+            rpc = new RpcId(bytes);
+            ind += rpc.ByteLength();
+            caller = new ClientId(bytes.Slice(ind));
+            ind += caller.ByteLength();
+            callee = new ClientId(bytes.Slice(ind));
+            ind += callee.ByteLength();
 
+            if (rpc.Id >= RpcId.FIRST_RPC_ID)
+                target = new NetworkId(bytes.Slice(ind));
+            else
+                target = NetworkId.None;
+        }
+
+        /// <summary>
+        /// Decodes an RPC argument encoding using the given span and parameter types. Returns the decoded arguments
+        /// as an array of objects. Uses provided caller and callee arguments to find and replace any RpcCaller or RpcCallee parameters.
+        /// </summary>
+        internal static object[] DecodeRpcArgs(ReadOnlySpan<byte> bytes, ClientId caller, ClientId callee, Type[] paramTypes, int callerInd, int calleeInd)
+        {
             object[] args = new object[paramTypes.Length];
 
+            int ind = 0;
             for (int i = 0; i < paramTypes.Length; i++)
             {
                 if (i == callerInd)
                 {
-                    args[i] = source;
+                    args[i] = caller;
+                }
+                else if (i == calleeInd)
+                {
+                    args[i] = callee;
                 }
                 else
                 {
@@ -363,16 +397,21 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// The constant byte count of header info for user made RPCs.
+        /// </summary>
+        public static int RpcHeaderLength => ClientId.MaxLength() + ClientId.MaxLength() + RpcId.MaxLength() + NetworkId.MaxLength();
+
+        /// <summary>
         /// Gets the expected byte length of a full RPC encoding, given an array of the 
         /// RPC arguments. To get the length of just the arguments, use <c>GetExpectedLength()</c>
         /// If any of the arguments are not encodable, returns -1.
         /// </summary>
-        public static int GetExpectedRpcLength(object[] args)
+        public static int GetExpectedRpcLength(object[] args, int callerInd = -1, int calleeInd = -1)
         {
-            var len = GetExpectedLength(args);
+            var len = GetExpectedLength(args, callerInd, calleeInd);
             if (len == -1)
                 return -1;
-            return len + RpcId.MaxLength() + NetworkId.MaxLength();
+            return len + RpcHeaderLength;
         }
 
         /// <summary>
@@ -381,15 +420,16 @@ namespace OwlTree
         /// encoding, use <c>GetExpectedRpcLength()</c>.
         /// If any of the arguments are not encodable, returns -1.
         /// </summary>
-        public static int GetExpectedLength(object[] args)
+        public static int GetExpectedLength(object[] args, int callerInd = -1, int calleeInd = -1)
         {
             if (args == null)
                 return 0;
 
             int sum = 0;
-            foreach (var arg in args)
+            for (int i = 0; i < args.Length; i++)
             {
-                var len = GetExpectedLength(arg);
+                if (i == callerInd || i == calleeInd) continue;
+                var len = GetExpectedLength(args[i]);
                 if (len == -1)
                     return -1;
                 sum += len;

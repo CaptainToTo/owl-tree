@@ -12,7 +12,7 @@ namespace OwlTree
     {
         public ClientId id;
         public Packet tcpPacket;
-        public Socket tpcSocket;
+        public Socket tcpSocket;
         public Packet udpPacket;
         public IPEndPoint udpEndPoint;
 
@@ -51,7 +51,7 @@ namespace OwlTree
         public ClientData Find(Socket s)
         {
             foreach (var data in _data)
-                if (data.tpcSocket == s) return data;
+                if (data.tcpSocket == s) return data;
             return ClientData.None;
         }
 

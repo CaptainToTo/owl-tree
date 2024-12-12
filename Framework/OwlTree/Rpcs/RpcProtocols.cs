@@ -103,18 +103,48 @@ namespace OwlTree
             return ind != -1 && ind == paramInd;
         }
 
-        public bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out RpcId rpcId, out NetworkId target, out object[] args)
+        /// <summary>
+        /// Returns whether or not a connection with the given role has permission to call the RPC
+        /// with the given id.
+        /// </summary>
+        public bool CanCallRpc(Connection.Role role, uint rpcId)
         {
-            rpcId = new RpcId(bytes);
+            var perms = GetRpcCaller(rpcId);
+            return perms == RpcCaller.Any || 
+                ( (role == Connection.Role.Server || role == Connection.Role.Host) && perms == RpcCaller.Server) ||
+                (role == Connection.Role.Client && perms == RpcCaller.Client);
+        }
+
+        public void EncodeRpc(Span<byte> bytes, RpcId rpcId, ClientId caller, ClientId callee, NetworkId target, object[] args)
+        {
+            if (!ValidateArgs(rpcId, args))
+                throw new ArgumentException("Invalid RPC arguments given to RPC " + rpcId.ToString());
+            var callerInd = GetRpcCallerParam(rpcId.Id);
+            var calleeInd = GetRpcCalleeParam(rpcId.Id);
+            RpcEncoding.EncodeRpc(bytes, rpcId, caller, callee, target, args, callerInd, calleeInd);
+        }
+
+        public bool TryDecodeRpc(ReadOnlySpan<byte> bytes, out RpcId rpcId, out ClientId caller, out ClientId callee, out NetworkId target, out object[] args)
+        {
+            RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out caller, out callee, out target);
             var paramTypes = GetProtocol(rpcId.Id);
-            if (paramTypes != null)
+            if (paramTypes == null)
             {
-                args = RpcEncoding.DecodeRpc(source, bytes, paramTypes, GetRpcCallerParam(rpcId.Id), out target);
+                target = NetworkId.None;
+                caller = ClientId.None;
+                callee = ClientId.None;
+                args = null;
+                return false;
+            }
+
+            if (rpcId < RpcId.FIRST_RPC_ID)
+            {
+                args = null;
                 return true;
             }
-            target = NetworkId.None;
-            args = null;
-            return false;
+
+            args = RpcEncoding.DecodeRpcArgs(bytes.Slice(RpcEncoding.RpcHeaderLength), caller, callee, paramTypes, GetRpcCallerParam(rpcId.Id), GetRpcCalleeParam(rpcId.Id));
+            return true;
         }
         
         /// <summary>
@@ -181,14 +211,11 @@ namespace OwlTree
         {
             string title = GetRpcName(id.Id) + " " + id + ":\n";
             var encoding = new StringBuilder();
-            encoding.Append("  Bytes: [ RpcId:")
-                .Append(RpcId.MaxLength())
-                .Append("b ][ NetId:")
-                .Append(NetworkId.MaxLength())
-                .Append("b ]");
+            encoding.Append(
+                $"  Bytes: [ RpcId:{RpcId.MaxLength()}b ][ Caller:{ClientId.MaxLength()}b ][ Callee:{ClientId.MaxLength()}b ][ NetId:{NetworkId.MaxLength()}b ]");
             var paramStr = new StringBuilder();
 
-            int maxSize = RpcId.MaxLength() + NetworkId.MaxLength();
+            int maxSize = RpcEncoding.RpcHeaderLength;
 
             var parameters = GetProtocol(id.Id);
             for (int i = 0; i < parameters.Length; i++)
@@ -196,7 +223,8 @@ namespace OwlTree
                 var param = parameters[i];
                 int size = RpcEncoding.GetMaxLength(param);
                 maxSize += size;
-                encoding.Append($"[ {i + 1}:{size}b ]");
+                if (!IsRpcCalleeParam(id.Id, i) && !IsRpcCallerParam(id.Id, i))
+                    encoding.Append($"[ {i + 1}:{size}b ]");
                 paramStr.Append($"   {i + 1}: {param} ").Append(GetRpcParamName(id.Id, i));
 
                 if (IsRpcCalleeParam(id.Id, i))
@@ -216,7 +244,7 @@ namespace OwlTree
         /// ordered in the RPC's byte encoding. The caller argument is used to replace a 
         /// <c>RpcCaller</c> argument if there is one.
         /// </summary>
-        public string GetEncodingSummary(ClientId caller, RpcId id, NetworkId target, object[] args)
+        public string GetEncodingSummary(RpcId id, ClientId caller, ClientId callee, NetworkId target, object[] args)
         {
             if (!ValidateArgs(id, args))
                 return "Invalid Args...";
@@ -224,14 +252,13 @@ namespace OwlTree
             int len = RpcEncoding.GetExpectedRpcLength(args);
             byte[] bytes = new byte[len];
 
-            var ind = GetRpcCallerParam(id.Id);
-            if (ind != -1 && args != null && args.Length > ind)
-                args[ind] = caller;
+            var callerInd = GetRpcCallerParam(id.Id);
+            var calleeInd = GetRpcCalleeParam(id.Id);
 
-            RpcEncoding.EncodeRpc(bytes, id, target, args);
+            RpcEncoding.EncodeRpc(bytes, id, caller, callee, target, args, callerInd, calleeInd);
 
             var str = new StringBuilder($"     Bytes: {BitConverter.ToString(bytes)}\n");
-            str.Append("  Encoding: |__RpcId__| |__NetId__|");
+            str.Append("  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__NetId__|");
 
             if (args != null && args.Length > 0)
             {
@@ -245,15 +272,18 @@ namespace OwlTree
                     int strLen = (size * 2) + (size - 1);
                     string iStr = (i + 1).ToString();
 
-                    if (size > 1)
+                    if (!IsRpcCallerParam(id.Id, i) && !IsRpcCalleeParam(id.Id, i))
                     {
-                        int front = (strLen / 2) - 1;
-                        int back = (strLen / 2) - (1 + iStr.Length) + (size % 2 == 0 ? 1 : 0);
-                        str.Append($" |{new string('_', front)}{iStr}{new string('_', back)}|");
-                    }
-                    else
-                    {
-                        str.Append($" {iStr}{(iStr.Length < 2 ? ' ' : "")}");
+                        if (size > 1)
+                        {
+                            int front = (strLen / 2) - 1;
+                            int back = (strLen / 2) - (1 + iStr.Length) + (size % 2 == 0 ? 1 : 0);
+                            str.Append($" |{new string('_', front)}{iStr}{new string('_', back)}|");
+                        }
+                        else
+                        {
+                            str.Append($" {iStr}{(iStr.Length < 2 ? ' ' : "")}");
+                        }
                     }
                     argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}\n");
                 }

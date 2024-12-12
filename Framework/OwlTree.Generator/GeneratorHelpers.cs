@@ -82,6 +82,7 @@ namespace OwlTree.Generator
         public const string MTk_Connection = "Connection";
         public const string MTk_LocalId = "LocalId";
         public const string MTk_ConnectionProtocols = "Protocols";
+        public const string MTk_CanCallRpc = "CanCallRpc";
         public const string MTk_Id = "Id";
         public const string MTk_IsActive = "IsActive";
         public const string MTk_NetRole = "NetRole";
