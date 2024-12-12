@@ -50,7 +50,7 @@ namespace OwlTree
         /// <summary>
         /// FOR INTERNAL USE ONLY. Used to flag an object as receiving an RPC call from a remote source.
         /// </summary>
-        public bool i_IsReceivingRpc {get; internal set; } = false;
+        public uint i_ReceivingRpc {get; internal set; } = 0;
 
         /// <summary>
         /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.

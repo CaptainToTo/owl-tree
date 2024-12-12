@@ -609,7 +609,7 @@ namespace OwlTree
                 }
                 else
                 {
-                    var bytes = buffer.GetSpan(RpcEncoding.GetExpectedRpcLength(message.args));
+                    var bytes = buffer.GetSpan(Protocols.GetRpcByteLength(message.rpcId, message.args));
                     Protocols.EncodeRpc(bytes, message.rpcId, message.caller, message.callee, message.target, message.args);
                     if (_logger.includes.rpcCalls)
                     {
@@ -642,7 +642,7 @@ namespace OwlTree
             }
             else
             {
-                message.bytes = new byte[RpcEncoding.GetExpectedRpcLength(message.args)];
+                message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, message.args)];
                 Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
                 if (_logger.includes.rpcCalls)
                 {

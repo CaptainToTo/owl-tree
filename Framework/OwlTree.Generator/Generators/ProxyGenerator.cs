@@ -208,13 +208,16 @@ namespace OwlTree.Generator
                                         LiteralExpression(
                                             SyntaxKind.StringLiteralExpression,
                                             Literal("RPCs can only be called on an active connection.")))))))),
-                // if (!i_IsReceivingRpc && Connection.Protocols.CanCallRpc(Connection.NetRole, RpcId))
+                // if (!i_ReceivingRpc != RpcId && Connection.Protocols.CanCallRpc(Connection.NetRole, RpcId))
                 IfStatement(
                     BinaryExpression(
                         SyntaxKind.LogicalAndExpression,
-                        PrefixUnaryExpression(
-                            SyntaxKind.LogicalNotExpression,
-                            IdentifierName(Helpers.MTk_IsReceivingRpc)),
+                        BinaryExpression(
+                            SyntaxKind.NotEqualsExpression,
+                            IdentifierName(Helpers.MTk_ReceivingRpc),
+                            LiteralExpression(
+                                SyntaxKind.NumericLiteralExpression,
+                                Literal(id))),
                         InvocationExpression(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
@@ -402,12 +405,17 @@ namespace OwlTree.Generator
                                     .WithArgumentList(
                                         ArgumentList(
                                             SeparatedList<ArgumentSyntax>(CreateParamArray(m))))))))
-                // else if (i_IsReceivingRpc)
+                // else if (i_ReceivingRpc == RpcId)
                 //     base.RpcName(args...); <- rpc caller not replaced
                 .WithElse(
                 ElseClause(
                     IfStatement(
-                        IdentifierName(Helpers.MTk_IsReceivingRpc),
+                        BinaryExpression(
+                            SyntaxKind.EqualsExpression,
+                            IdentifierName(Helpers.MTk_ReceivingRpc),
+                            LiteralExpression(
+                                SyntaxKind.NumericLiteralExpression,
+                                Literal(id))),
                         Block(
                             SingletonList<StatementSyntax>(
                                 ExpressionStatement(

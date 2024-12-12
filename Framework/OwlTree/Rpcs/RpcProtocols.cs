@@ -115,6 +115,11 @@ namespace OwlTree
                 (role == Connection.Role.Client && perms == RpcCaller.Client);
         }
 
+        public int GetRpcByteLength(RpcId rpcId, object[] args)
+        {
+            return RpcEncoding.GetExpectedRpcLength(args, GetRpcCallerParam(rpcId), GetRpcCalleeParam(rpcId));
+        }
+
         public void EncodeRpc(Span<byte> bytes, RpcId rpcId, ClientId caller, ClientId callee, NetworkId target, object[] args)
         {
             if (!ValidateArgs(rpcId, args))
@@ -162,9 +167,9 @@ namespace OwlTree
             if (ind != -1)
                 args[ind] = callee;
 
-            target.i_IsReceivingRpc = true;
+            target.i_ReceivingRpc = id;
             InvokeRpc(id.Id, target, args);
-            target.i_IsReceivingRpc = false;
+            target.i_ReceivingRpc = 0;
         }
 
         /// <summary>
@@ -249,7 +254,7 @@ namespace OwlTree
             if (!ValidateArgs(id, args))
                 return "Invalid Args...";
 
-            int len = RpcEncoding.GetExpectedRpcLength(args);
+            int len = RpcEncoding.GetExpectedRpcLength(args, GetRpcCallerParam(id), GetRpcCalleeParam(id));
             byte[] bytes = new byte[len];
 
             var callerInd = GetRpcCallerParam(id.Id);
@@ -285,7 +290,12 @@ namespace OwlTree
                             str.Append($" {iStr}{(iStr.Length < 2 ? ' ' : "")}");
                         }
                     }
-                    argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}\n");
+                    argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}");
+                    if (IsRpcCalleeParam(id.Id, i))
+                        argsStr.Append(" [Callee]");
+                    else if (IsRpcCallerParam(id.Id, i))
+                        argsStr.Append(" [Caller]");
+                    argsStr.Append("\n");
                 }
 
                 str.Append("\n").Append(argsStr);

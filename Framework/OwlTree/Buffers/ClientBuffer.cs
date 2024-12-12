@@ -99,8 +99,10 @@ namespace OwlTree
                     {
                         continue;
                     }
-
-                    var response = (ConnectionResponseCode)BitConverter.ToInt32(ReadPacket.GetMessages());
+                    
+                    ReadPacket.StartMessageRead();
+                    ReadPacket.TryGetNextMessage(out var message);
+                    var response = (ConnectionResponseCode)BitConverter.ToInt32(message);
 
                     if (response == ConnectionResponseCode.Accepted)
                     {
@@ -116,7 +118,7 @@ namespace OwlTree
                     {
                         if (Logger.includes.connectionAttempts)
                         {
-                            Logger.Write("Connection request to " + Address.ToString() + " rejected at " + DateTime.UtcNow);
+                            Logger.Write("Connection request to " + Address.ToString() + " rejected at " + DateTime.UtcNow + " with response code of: " + response.ToString());
                         }
 
                         _remainingRequests = 0;
