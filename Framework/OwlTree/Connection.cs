@@ -190,11 +190,13 @@ namespace OwlTree
         /// </summary>
         public Connection(Args args)
         {
+            NetRole = args.role;
+
             _logger = new Logger(args.printer, args.verbosity);
 
-            Protocols = RpcProtocols.GetProjectImplementation();
+            Protocols = IsRelay ? null : RpcProtocols.GetProjectImplementation();
 
-            if (_logger.includes.allRpcProtocols)
+            if (!IsRelay && _logger.includes.allRpcProtocols)
             {
                 _logger.Write(Protocols.GetAllProtocolSummaries());
             }
@@ -221,10 +223,8 @@ namespace OwlTree
                     IsReady = true;
                     break;
                 case Role.Client:
-                    _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
-                    IsReady = false;
-                    break;
                 case Role.Host:
+                    _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
                     IsReady = false;
                     break;
                 case Role.Relay:
@@ -232,30 +232,32 @@ namespace OwlTree
                     IsReady = true;
                     break;
             }
-            NetRole = args.role;
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
             _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
             _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
             _buffer.OnHostMigration = (id) => _clientEvents.Enqueue((ConnectionEventType.OnHostMigration, id));
             IsActive = true;
 
-            var factory = ProxyFactory.GetProjectImplementation();
+            if (!IsRelay)
+            {
+                var factory = ProxyFactory.GetProjectImplementation();
 
-            if (_logger.includes.allTypeIds)
-                _logger.Write(factory.GetAllIdAssignments());
+                if (_logger.includes.allTypeIds)
+                    _logger.Write(factory.GetAllIdAssignments());
 
-            _spawner = new NetworkSpawner(this, factory);
+                _spawner = new NetworkSpawner(this, factory);
 
-            _spawner.OnObjectSpawn = (obj) => {
-                if (_logger.includes.spawnEvents)
-                    _logger.Write("Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
-                OnObjectSpawn?.Invoke(obj);
-            };
-            _spawner.OnObjectDespawn = (obj) => {
-                if (_logger.includes.spawnEvents)
-                    _logger.Write("Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
-                OnObjectDespawn?.Invoke(obj);
-            };
+                _spawner.OnObjectSpawn = (obj) => {
+                    if (_logger.includes.spawnEvents)
+                        _logger.Write("Spawned new network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
+                    OnObjectSpawn?.Invoke(obj);
+                };
+                _spawner.OnObjectDespawn = (obj) => {
+                    if (_logger.includes.spawnEvents)
+                        _logger.Write("Despawned network object: " + obj.Id.ToString() + ", of type: " + obj.GetType().ToString());
+                    OnObjectDespawn?.Invoke(obj);
+                };
+            }
 
             if (args.useCompression)
             {
@@ -314,8 +316,18 @@ namespace OwlTree
 
                 if (!IsClient)
                 {
-                    while (_disconnectRequests.TryDequeue(out var clientId))
-                        _buffer.Disconnect(clientId);
+                    while (_clientRequests.TryDequeue(out var request))
+                    {
+                        switch (request.t)
+                        {
+                            case ConnectionEventType.OnDisconnect:
+                                _buffer.Disconnect(request.id);
+                                break;
+                            case ConnectionEventType.OnHostMigration:
+                                _buffer.MigrateHost(request.id);
+                                break;
+                        }
+                    }
                 }
 
                 if (_buffer.HasOutgoing)
@@ -363,7 +375,7 @@ namespace OwlTree
 
         private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new ConcurrentQueue<(ConnectionEventType, ClientId)>();
 
-        private ConcurrentQueue<ClientId> _disconnectRequests = new ConcurrentQueue<ClientId>();
+        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientRequests = new ConcurrentQueue<(ConnectionEventType t, ClientId id)>();
 
         private List<ClientId> _clients = new List<ClientId>();
 
@@ -678,16 +690,26 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// ONLY ALLOWED ON SERVER. Disconnect a specific client from the server.
+        /// Disconnect a specific client from the server.
         /// </summary>
         public void Disconnect(ClientId id)
         {
             if (IsClient)
-                throw new InvalidOperationException("Clients cannot disconnect other clients");
+                throw new InvalidOperationException("Only the authority can disconnect other clients.");
             if (Threaded)
-                _disconnectRequests.Enqueue(id);
+                _clientRequests.Enqueue((ConnectionEventType.OnDisconnect, id));
             else
                 _buffer.Disconnect(id);
+        }
+
+        public void MigrateHost(ClientId id)
+        {
+            if (IsClient)
+                throw new InvalidOperationException("Only the current host or the relay server can initiate a host migration.");
+            if (Threaded)
+                _clientRequests.Enqueue((ConnectionEventType.OnHostMigration, id));
+            else
+                _buffer.MigrateHost(id);
         }
 
         private NetworkSpawner _spawner;
@@ -707,7 +729,7 @@ namespace OwlTree
         /// <summary>
         /// Iterable of all currently spawned network objects
         /// </summary>
-        public IEnumerable<NetworkObject> NetworkObjects => _spawner.NetworkObjects;
+        public IEnumerable<NetworkObject> NetworkObjects => IsRelay ? null : _spawner.NetworkObjects;
 
         /// <summary>
         /// Try to get an object with the given id. Returns true if one was found, false otherwise.

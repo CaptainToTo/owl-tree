@@ -291,17 +291,7 @@ namespace OwlTree
                         // disconnect if receive fails
                         if (dataLen <= 0)
                         {
-                            _clientData.Remove(client);
-                            socket.Close();
-                            OnClientDisconnected?.Invoke(client.id);
-
-                            foreach (var otherClient in _clientData)
-                            {
-                                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                                ClientDisconnectEncode(span, client.id);
-                            }
-
-                            HasClientEvent = true;
+                            Disconnect(client);
                             continue;
                         }
 
@@ -454,25 +444,28 @@ namespace OwlTree
         {
             var client = _clientData.Find(id);
             if (client != ClientData.None)
+                Disconnect(client);
+        }
+
+        private void Disconnect(ClientData client)
+        {
+            _clientData.Remove(client);
+            client.tcpSocket.Close();
+            OnClientDisconnected?.Invoke(client.id);
+
+            foreach (var otherClient in _clientData)
             {
-                _clientData.Remove(client);
-                client.tcpSocket.Close();
-                OnClientDisconnected?.Invoke(id);
+                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
+                ClientDisconnectEncode(span, client.id);
+            }
+            HasClientEvent = true;
 
-                foreach (var otherClient in _clientData)
-                {
-                    var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                    ClientDisconnectEncode(span, client.id);
-                }
-                HasClientEvent = true;
-
-                if (id == Authority)
-                {
-                    if (Migratable && _clientData.Count > 0)
-                        MigrateHost(FindNewHost());
-                    else
-                        Disconnect();
-                }
+            if (client.id == Authority)
+            {
+                if (Migratable && _clientData.Count > 0)
+                    MigrateHost(FindNewHost());
+                else
+                    Disconnect();
             }
         }
 
@@ -488,8 +481,10 @@ namespace OwlTree
         /// Change the authority of the session to the given new host.
         /// The previous host will be down-graded to a client if they are still connected.
         /// </summary>
-        public void MigrateHost(ClientId newHost)
+        public override void MigrateHost(ClientId newHost)
         {
+            if (_clientData.Find(newHost) == ClientData.None)
+                return;
             Authority = newHost;
             foreach (var client in _clientData)
             {

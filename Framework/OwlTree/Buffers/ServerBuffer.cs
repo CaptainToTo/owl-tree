@@ -267,17 +267,7 @@ namespace OwlTree
                         // disconnect if receive fails
                         if (dataLen <= 0)
                         {
-                            _clientData.Remove(client);
-                            socket.Close();
-                            OnClientDisconnected?.Invoke(client.id);
-
-                            foreach (var otherClient in _clientData)
-                            {
-                                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                                ClientDisconnectEncode(span, client.id);
-                            }
-
-                            HasClientEvent = true;
+                            Disconnect(client);
                             continue;
                         }
 
@@ -422,6 +412,7 @@ namespace OwlTree
             _udpServer.Close();
         }
 
+
         /// <summary>
         /// Disconnect a client from the server.
         /// Invokes <c>OnClientDisconnected</c>.
@@ -430,18 +421,26 @@ namespace OwlTree
         {
             var client = _clientData.Find(id);
             if (client != ClientData.None)
-            {
-                _clientData.Remove(client);
-                client.tcpSocket.Close();
-                OnClientDisconnected?.Invoke(id);
+                Disconnect(client);
+        }
 
-                foreach (var otherClient in _clientData)
-                {
-                    var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                    ClientDisconnectEncode(span, client.id);
-                }
-                HasClientEvent = true;
+        private void Disconnect(ClientData client)
+        {
+            _clientData.Remove(client);
+            client.tcpSocket.Close();
+            OnClientDisconnected?.Invoke(client.id);
+
+            foreach (var otherClient in _clientData)
+            {
+                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
+                ClientDisconnectEncode(span, client.id);
             }
+            HasClientEvent = true;
+        }
+
+        public override void MigrateHost(ClientId newHost)
+        {
+            throw new InvalidOperationException("Servers cannot migrate authority off of themselves.");
         }
     }
 }

@@ -401,6 +401,12 @@ namespace OwlTree
         /// Invokes <c>OnClientDisconnected</c>.
         /// </summary>
         public abstract void Disconnect(ClientId id);
+        
+        /// <summary>
+        /// Change the authority of the session to the given new host.
+        /// The previous host will be down-graded to a client if they are still connected.
+        /// </summary>
+        public abstract void MigrateHost(ClientId newHost);
 
         // * Connection and Disconnection Message Protocols
 

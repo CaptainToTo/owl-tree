@@ -332,6 +332,7 @@ namespace OwlTree
                 _tcpClient.Send(bytes);
                 _tcpPacket.Reset();
             }
+            HasClientEvent = false;
 
             if (!_udpPacket.IsEmpty)
             {
@@ -372,11 +373,26 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// INVALID ON CLIENTS. Clients cannot disconnect other clients.
+        /// If this client is the authority, tell the server to disconnect the given client.
         /// </summary>
         public override void Disconnect(ClientId id)
         {
-            throw new InvalidOperationException("Clients cannot disconnect other clients.");
+            if (LocalId != Authority)
+                throw new InvalidOperationException("Only the authority can disconnect other clients.");
+            var span = _tcpPacket.GetSpan(ClientMessageLength);
+            ClientDisconnectEncode(span, id);
+            HasClientEvent = true;
+        }
+
+        public override void MigrateHost(ClientId newHost)
+        {
+            if (LocalId != Authority)
+                throw new InvalidOperationException("Only the authority can migrate the host role.");
+            if (!_clients.Contains(newHost))
+                return;
+            var span = _tcpPacket.GetSpan(ClientMessageLength);
+            HostMigrationEncode(span, newHost);
+            HasClientEvent = true;
         }
     }
 }
