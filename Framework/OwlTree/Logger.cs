@@ -43,6 +43,7 @@ namespace OwlTree
                 tcpPostTransform = true;
                 udpPreTransform = true;
                 udpPostTransform = true;
+                exceptions = true;
                 logSeparators = true;
                 logTimestamp = true;
                 return this;
@@ -190,6 +191,14 @@ namespace OwlTree
             public IncludeRules UdpPostTransform()
             {
                 udpPostTransform = true;
+                return this;
+            }
+
+            internal bool exceptions { get; private set; }
+
+            public IncludeRules Exceptions()
+            {
+                exceptions = true;
                 return this;
             }
 

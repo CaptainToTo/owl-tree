@@ -540,11 +540,27 @@ namespace OwlTree
                     (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN || message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
                 )
                 {
-                    _spawner.ReceiveInstruction(message.rpcId, message.args);
+                    try
+                    {
+                        _spawner.ReceiveInstruction(message.rpcId, message.args);
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to run {(message.rpcId == RpcId.NETWORK_OBJECT_SPAWN ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
+                    }
                 }
                 else if (TryGetObject(message.target, out var target))
                 {
-                    Protocols.InvokeRpc(message.caller, message.callee, message.rpcId, target, message.args);
+                    try
+                    {
+                        Protocols.InvokeRpc(message.caller, message.callee, message.rpcId, target, message.args);
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to run RPC {Protocols.GetRpcName(message.rpcId)} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
+                    }
                 }
             }
         }
