@@ -7,51 +7,10 @@ namespace OwlTree
     /// </summary>
     public struct NetworkId : IEncodable
     {
-        // tracks the current id for the next id generated
-        private static UInt32 _curId = 1;
-
-        /// <summary>
-        /// Reset ids. Provide an array of all current network object ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any NetworkIds that are stored as integers 
-        /// will likely be inaccurate after a reset.<br />
-        /// <br />
-        /// newIds must be at least the same length as curIds.
-        /// </summary>
-        public static void ResetIdsNonAlloc(NetworkId[] curIds, ref NetworkId[] newIds)
-        {
-            if (curIds.Length > newIds.Length)
-                throw new ArgumentException("The newIds array must be at least the same size as the curIds array.");
-
-            _curId = 1;
-            for (int i = 0; i < curIds.Length; i++)
-            {
-                newIds[i]._id = _curId;
-                _curId++;
-            }
-        }
-
-        /// <summary>
-        /// Reset ids. Provide an array of all current network object ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any NetworkIds that are stored as integers 
-        /// will likely be inaccurate after a reset.
-        /// </summary>
-        public static NetworkId[] ResetIds(NetworkId[] curIds)
-        {
-            NetworkId[] newIds = new NetworkId[curIds.Length];
-            ResetIdsNonAlloc(curIds, ref newIds);
-            return newIds;
-        }
+        public const UInt32 FIRST_NETWORK_ID = 1;
 
         // the actual id
         private UInt32 _id;
-
-        /// <summary>
-        /// Generate a new network object id.
-        /// </summary>
-        public static NetworkId New()
-        {
-            return new NetworkId(_curId);
-        }
 
         /// <summary>
         /// Get a NetworkId instance using an existing id.
@@ -59,8 +18,6 @@ namespace OwlTree
         public NetworkId(uint id)
         {
             _id = id;
-            if (_id >= _curId)
-                _curId = _id + 1;
         }
 
         /// <summary>
@@ -86,8 +43,6 @@ namespace OwlTree
                 throw new ArgumentException("Span must have 4 bytes from ind to decode a ClientId from.");
 
             _id = BitConverter.ToUInt32(bytes);
-            if (_id >= _curId)
-                _curId = _id + 1;
         }
 
         /// <summary>

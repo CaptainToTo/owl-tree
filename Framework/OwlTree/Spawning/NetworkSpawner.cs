@@ -59,13 +59,21 @@ namespace OwlTree
         /// </summary>
         public NetworkObject.Delegate OnObjectDespawn;
 
+        private uint _curId = NetworkId.FIRST_NETWORK_ID;
+        private NetworkId NextNetworkId()
+        {
+            var id = new NetworkId(_curId);
+            _curId++;
+            return id;
+        }
+
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
             var newObj = (T)_proxyFactory.CreateProxy(typeof(T));
-            newObj.SetIdInternal(NetworkId.New());
+            newObj.SetIdInternal(NextNetworkId());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
             newObj.i_OnRpcCall = _connection.AddRpc;
@@ -89,7 +97,7 @@ namespace OwlTree
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
             
-            newObj.SetIdInternal(NetworkId.New());
+            newObj.SetIdInternal(NextNetworkId());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
             newObj.i_OnRpcCall = _connection.AddRpc;
@@ -124,6 +132,9 @@ namespace OwlTree
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
+            
+            if (_curId <= id.Id)
+                _curId = id.Id + 1;
             
             newObj.SetIdInternal(id);
             newObj.SetActiveInternal(true);
@@ -181,7 +192,7 @@ namespace OwlTree
         }
 
         // run destroy on client
-        private void ReceiveDestroy(NetworkId id)
+        private void ReceiveDespawn(NetworkId id)
         {
             var target = _netObjects[id];
             _netObjects.Remove(id);
@@ -243,7 +254,7 @@ namespace OwlTree
                     ReceiveSpawn(objType, id);
                     break;
                 case RpcId.NETWORK_OBJECT_DESPAWN:
-                    ReceiveDestroy((NetworkId)args[0]);
+                    ReceiveDespawn((NetworkId)args[0]);
                     break;
             }
         }
