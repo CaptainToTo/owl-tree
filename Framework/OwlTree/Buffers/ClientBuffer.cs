@@ -15,7 +15,7 @@ namespace OwlTree
         /// Manages sending and receiving messages for a client instance.
         /// </summary>
         /// <param name="Args">NetworkBuffer parameters.</param>
-        public ClientBuffer(Args args, int requestRate, int requestLimit) : base(args)
+        public ClientBuffer(Args args, int requestRate, int requestLimit, bool requestAsHost) : base(args)
         {
             _tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _tcpEndPoint = new IPEndPoint(Address, TcpPort);
@@ -37,6 +37,7 @@ namespace OwlTree
 
             _requestRate = requestRate;
             _remainingRequests = requestLimit;
+            _requestAsHost = requestAsHost;
         }
 
         // client state
@@ -57,6 +58,7 @@ namespace OwlTree
         private int _requestRate;
         private long _lastRequest;
         private int _remainingRequests;
+        private bool _requestAsHost;
 
         public void Connect()
         {
@@ -65,7 +67,7 @@ namespace OwlTree
             if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
             {
                 var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
-                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, false));
+                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, _requestAsHost));
                 _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                 _udpPacket.Clear();
                 _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

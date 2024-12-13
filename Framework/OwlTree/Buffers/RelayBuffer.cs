@@ -12,7 +12,7 @@ namespace OwlTree
     /// </summary>
     public class RelayBuffer : NetworkBuffer
     {
-        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr, bool migratable) : base(args)
+        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr, bool migratable, IPAddress[] whitelist) : base(args)
         {
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
             _tcpRelay = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -24,6 +24,8 @@ namespace OwlTree
             _udpRelay = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _udpRelay.Bind(udpEndPoint);
             _readList.Add(_udpRelay);
+
+            _whitelist = whitelist;
 
             if (hostAddr != null)
                 _hostAddr = IPAddress.Parse(hostAddr);
@@ -52,6 +54,18 @@ namespace OwlTree
         private ConnectionRequestList _requests;
 
         private IPAddress _hostAddr = null;
+
+        private IPAddress[] _whitelist = null;
+
+        private bool HasWhitelist => _whitelist != null && _whitelist.Length > 0;
+
+        private bool IsOnWhitelist(IPAddress addr)
+        {
+            if (!HasWhitelist) return false;
+            foreach (var a in _whitelist)
+                if (a.Equals(addr)) return true;
+            return false;
+        }
 
         /// <summary>
         /// Whether or not the host role can be migrated or not. 
@@ -167,6 +181,9 @@ namespace OwlTree
                     if (client == ClientData.None)
                     {
                         var accepted = false;
+
+                        if (HasWhitelist && !IsOnWhitelist(((IPEndPoint)source).Address))
+                            continue;
 
                         if (Logger.includes.connectionAttempts)
                         {

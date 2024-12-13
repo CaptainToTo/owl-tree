@@ -18,7 +18,7 @@ namespace OwlTree
         /// </summary>
         /// <param name="args">NetworkBuffer parameters.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        public ServerBuffer(Args args, int maxClients, long requestTimeout) : base (args)
+        public ServerBuffer(Args args, int maxClients, long requestTimeout, IPAddress[] whitelist) : base (args)
         {
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, TcpPort);
             _tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -32,6 +32,7 @@ namespace OwlTree
             _readList.Add(_udpServer);
 
             _clientData = new ClientDataList(BufferSize, DateTimeOffset.UtcNow.Millisecond);
+            _whitelist = whitelist;
 
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
@@ -52,6 +53,17 @@ namespace OwlTree
         private List<Socket> _readList = new List<Socket>();
         private ClientDataList _clientData;
         private ConnectionRequestList _requests;
+        private IPAddress[] _whitelist = null;
+
+        private bool HasWhitelist => _whitelist != null && _whitelist.Length > 0;
+
+        private bool IsOnWhitelist(IPAddress addr)
+        {
+            if (!HasWhitelist) return false;
+            foreach (var a in _whitelist)
+                if (a.Equals(addr)) return true;
+            return false;
+        }
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
@@ -151,6 +163,9 @@ namespace OwlTree
                     if (client == ClientData.None)
                     {
                         var accepted = false;
+
+                        if (HasWhitelist && !IsOnWhitelist(((IPEndPoint)source).Address))
+                            continue;
 
                         if (Logger.includes.connectionAttempts)
                         {

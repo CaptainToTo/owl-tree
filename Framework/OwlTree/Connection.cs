@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 
 namespace OwlTree
@@ -74,6 +75,12 @@ namespace OwlTree
             /// <b>Default = false</b>
             /// </summary>
             public bool migratable = false;
+            /// <summary>
+            /// Provide a server a list of IP addresses that will be the only IPs allowed to connect as clients.
+            /// If left as null, then any IP address will be allowed to connect.
+            /// <b>Default = null</b>
+            /// </summary>
+            public IPAddress[] whitelist = null;
 
             /// <summary>
             /// The number of milliseconds clients will wait before sending another connection request to the server.
@@ -216,17 +223,17 @@ namespace OwlTree
             switch (args.role)
             {
                 case Role.Server:
-                    _buffer = new ServerBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout);
+                    _buffer = new ServerBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.whitelist);
+                    IsReady = true;
+                    break;
+                case Role.Relay:
+                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable, args.whitelist);
                     IsReady = true;
                     break;
                 case Role.Client:
                 case Role.Host:
-                    _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit);
+                    _buffer = new ClientBuffer(bufferArgs, args.connectionRequestRate, args.connectionRequestLimit, IsHost);
                     IsReady = false;
-                    break;
-                case Role.Relay:
-                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable);
-                    IsReady = true;
                     break;
             }
             _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
