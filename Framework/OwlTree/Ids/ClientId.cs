@@ -14,51 +14,10 @@ namespace OwlTree
         /// </summary>
         public delegate void Delegate(ClientId id);
 
-        // tracks the current id for the next id generated
-        private static UInt32 _curId = 1;
-
-        /// <summary>
-        /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any ClientIds that are stored as integers 
-        /// will likely be inaccurate after a reset.<br />
-        /// <br />
-        /// newIds must be at least the same length as curIds.
-        /// </summary>
-        public static void ResetIdsNonAlloc(ClientId[] curIds, ref ClientId[] newIds)
-        {
-            if (curIds.Length > newIds.Length)
-                throw new ArgumentException("The newIds array must be at least the same size as the curIds array.");
-
-            _curId = 1;
-            for (int i = 0; i < curIds.Length; i++)
-            {
-                newIds[i]._id = _curId;
-                _curId++;
-            }
-        }
-
-        /// <summary>
-        /// Reset ids. Provide an array of all current client ids, which will be re-assigned to reduce the max id value.
-        /// Use this for long-running servers which might run out available ids. Any ClientIds that are stored as integers 
-        /// will likely be inaccurate after a reset.
-        /// </summary>
-        public static ClientId[] ResetIds(ClientId[] curIds)
-        {
-            ClientId[] newIds = new ClientId[curIds.Length];
-            ResetIdsNonAlloc(curIds, ref newIds);
-            return newIds;
-        }
+        public const UInt32 FIRST_CLIENT_ID = 1;
 
         // the actual id
         private UInt32 _id;
-
-        /// <summary>
-        /// Generate a new client id.
-        /// </summary>
-        public static ClientId New()
-        {
-            return new ClientId(_curId);
-        }
 
         /// <summary>
         /// Get a ClientId instance using an existing id.
@@ -66,8 +25,6 @@ namespace OwlTree
         public ClientId(uint id)
         {
             _id = id;
-            if (id >= _curId)
-                _curId = id + 1;
         }
 
         /// <summary>
@@ -93,8 +50,6 @@ namespace OwlTree
                 throw new ArgumentException("Span must have 4 bytes to decode a ClientId from.");
 
             _id = BitConverter.ToUInt32(bytes);
-            if (_id >= _curId)
-                _curId = _id + 1;
         }
 
         /// <summary>

@@ -47,6 +47,8 @@ namespace OwlTree
         private List<Socket> _readList = new List<Socket>();
         private List<ClientId> _clients = new List<ClientId>();
 
+        private uint _hash = 0;
+
         // messages to be sent ot the sever
         private Packet _tcpPacket;
         private Packet _udpPacket;
@@ -278,8 +280,7 @@ namespace OwlTree
                     _clients.Add(assignment.assignedId);
                     LocalId = assignment.assignedId;
                     Authority = assignment.authorityId;
-                    _tcpPacket.header.sender = LocalId.Id;
-                    _udpPacket.header.sender = LocalId.Id;
+                    _hash = assignment.assignedHash;
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
@@ -313,6 +314,8 @@ namespace OwlTree
             if (!_tcpPacket.IsEmpty)
             {
                 _tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _tcpPacket.header.sender = LocalId.Id;
+                _tcpPacket.header.hash = _hash;
 
                 if (Logger.includes.tcpPreTransform)
                 {
@@ -339,6 +342,8 @@ namespace OwlTree
             if (!_udpPacket.IsEmpty)
             {
                 _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _udpPacket.header.sender = LocalId.Id;
+                _udpPacket.header.hash = _hash;
 
                 if (Logger.includes.udpPreTransform)
                 {

@@ -78,8 +78,8 @@ public class NetworkDictTests
         list2.Add(NetworkId.New());
         list2.Add(NetworkId.New());
 
-        dict.Add(ClientId.New(), list1);
-        dict.Add(ClientId.New(), list2);
+        dict.Add(new ClientId(1), list1);
+        dict.Add(new ClientId(2), list2);
 
         var bytes = new byte[dict.ByteLength()];
         dict.InsertBytes(bytes);

@@ -92,39 +92,49 @@ namespace OwlTree
         /// </summary>
         public ClientId authorityId;
 
-        public ClientIdAssignment(ClientId assigned, ClientId authority)
+        /// <summary>
+        /// The unique 32 bit integer assigned to this client, which is kept secret between the
+        /// server and client.
+        /// </summary>
+        public uint assignedHash;
+
+        public ClientIdAssignment(ClientId assigned, ClientId authority, uint hash)
         {
             assignedId = assigned;
             authorityId = authority;
+            assignedHash = hash;
         }
 
         public ClientIdAssignment(ReadOnlySpan<byte> bytes)
         {
             assignedId = ClientId.None;
             authorityId = ClientId.None;
+            assignedHash = 0;
             FromBytes(bytes);
         }
 
         public static int MaxLength()
         {
-            return ClientId.MaxLength() + ClientId.MaxLength();
+            return ClientId.MaxLength() + ClientId.MaxLength() + 4;
         }
 
         public int ByteLength()
         {
-            return assignedId.ByteLength() + authorityId.ByteLength();
+            return assignedId.ByteLength() + authorityId.ByteLength() + 4;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             assignedId.FromBytes(bytes);
             authorityId.FromBytes(bytes.Slice(assignedId.ByteLength()));
+            assignedHash = BitConverter.ToUInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()));
         }
 
         public void InsertBytes(Span<byte> bytes)
         {
             assignedId.InsertBytes(bytes);
             authorityId.InsertBytes(bytes.Slice(assignedId.ByteLength()));
+            BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()), assignedHash);
         }
     }
 }

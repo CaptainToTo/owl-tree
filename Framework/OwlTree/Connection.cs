@@ -148,9 +148,6 @@ namespace OwlTree
             /// </summary>
             public bool useCompression = true;
 
-            // initial listeners
-
-
             // threaded buffer
 
             /// <summary>
@@ -285,6 +282,7 @@ namespace OwlTree
             {
                 Threaded = true;
                 _threadUpdateDelta = args.threadUpdateDelta;
+                _clientRequests = new();
                 _bufferThread = new Thread(new ThreadStart(NetworkLoop));
                 _bufferThread.Start();
             }
@@ -373,9 +371,9 @@ namespace OwlTree
             OnHostMigration
         }
 
-        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new ConcurrentQueue<(ConnectionEventType, ClientId)>();
+        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new();
 
-        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientRequests = new ConcurrentQueue<(ConnectionEventType t, ClientId id)>();
+        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientRequests = null;
 
         private List<ClientId> _clients = new List<ClientId>();
 

@@ -29,6 +29,8 @@ namespace OwlTree
                 _hostAddr = IPAddress.Parse(hostAddr);
             Migratable = migratable;
 
+            _clientData = new ClientDataList(BufferSize, DateTimeOffset.UtcNow.Millisecond);
+
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
             LocalId = ClientId.None;
@@ -46,7 +48,7 @@ namespace OwlTree
         private Socket _tcpRelay;
         private Socket _udpRelay;
         private List<Socket> _readList = new();
-        private ClientDataList _clientData = new();
+        private ClientDataList _clientData;
         private ConnectionRequestList _requests;
 
         private IPAddress _hostAddr = null;
@@ -85,13 +87,7 @@ namespace OwlTree
 
                     IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, udpPort);
 
-                    var clientData = new ClientData() {
-                        id = ClientId.New(), 
-                        tcpPacket = new Packet(BufferSize), 
-                        tcpSocket = tcpClient,
-                        udpPacket = new Packet(BufferSize, true),
-                        udpEndPoint = udpEndPoint
-                    };
+                    var clientData = _clientData.Add(tcpClient, udpEndPoint);
                     clientData.tcpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.tcpPacket.header.appVer = AppVersion;
                     clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
@@ -119,7 +115,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash));
 
                     foreach (var otherClient in _clientData)
                     {
@@ -205,7 +201,7 @@ namespace OwlTree
                             ReadPacket.header.appVer = AppVersion;
                             ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                             ReadPacket.header.sender = 0;
-                            ReadPacket.header.target = 0;
+                            ReadPacket.header.hash = 0;
                             var response = ReadPacket.GetSpan(4);
                             BitConverter.TryWriteBytes(response, (int)(accepted ? ConnectionResponseCode.Accepted : ConnectionResponseCode.Rejected));
                             var responsePacket = ReadPacket.GetPacket();

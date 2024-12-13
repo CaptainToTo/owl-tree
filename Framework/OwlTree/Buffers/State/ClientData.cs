@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net;
@@ -11,6 +12,7 @@ namespace OwlTree
     internal struct ClientData
     {
         public ClientId id;
+        public uint hash;
         public Packet tcpPacket;
         public Socket tcpSocket;
         public Packet udpPacket;
@@ -42,9 +44,49 @@ namespace OwlTree
     {
         private List<ClientData> _data = new();
 
+        private uint _curId = ClientId.FIRST_CLIENT_ID;
+        private ClientId NextClientId()
+        {
+            var id = new ClientId(_curId);
+            _curId++;
+            return id;
+        }
+
+        private Random _rand;
+        private uint NextHash()
+        {
+            uint nextHash = 0;
+            do {
+                nextHash = (uint)_rand.Next();
+            } while (Find(nextHash) != ClientData.None);
+            return nextHash;
+        }
+
+        private int _bufferSize;
+
+        public ClientDataList(int bufferSize, int hashSeed)
+        {
+            _bufferSize = bufferSize;
+            _rand = new Random(hashSeed);
+        }
+
         public int Count => _data.Count;
 
         public void Add(ClientData data) => _data.Add(data);
+
+        public ClientData Add(Socket tcpSocket, IPEndPoint udpEndPoint)
+        {
+            var data = new ClientData() {
+                id = NextClientId(),
+                hash = NextHash(),
+                tcpPacket = new Packet(_bufferSize),
+                tcpSocket = tcpSocket,
+                udpPacket = new Packet(_bufferSize, true),
+                udpEndPoint = udpEndPoint
+            };
+            _data.Add(data);
+            return data;
+        }
 
         public void Remove(ClientData data) => _data.Remove(data);
 
@@ -59,6 +101,13 @@ namespace OwlTree
         {
             foreach (var data in _data)
                 if (data.id == id) return data;
+            return ClientData.None;
+        }
+
+        public ClientData Find(uint hash)
+        {
+            foreach (var data in _data)
+                if (data.hash == hash) return data;
             return ClientData.None;
         }
 

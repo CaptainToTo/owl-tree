@@ -31,6 +31,8 @@ namespace OwlTree
             _udpServer.Bind(udpEndPoint);
             _readList.Add(_udpServer);
 
+            _clientData = new ClientDataList(BufferSize, DateTimeOffset.UtcNow.Millisecond);
+
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
             LocalId = ClientId.None;
@@ -48,7 +50,7 @@ namespace OwlTree
         private Socket _tcpServer;
         private Socket _udpServer;
         private List<Socket> _readList = new List<Socket>();
-        private ClientDataList _clientData = new();
+        private ClientDataList _clientData;
         private ConnectionRequestList _requests;
 
         /// <summary>
@@ -82,19 +84,11 @@ namespace OwlTree
 
                     IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, udpPort);
 
-                    var clientData = new ClientData() {
-                        id = ClientId.New(), 
-                        tcpPacket = new Packet(BufferSize), 
-                        tcpSocket = tcpClient,
-                        udpPacket = new Packet(BufferSize, true),
-                        udpEndPoint = udpEndPoint
-                    };
+                    var clientData = _clientData.Add(tcpClient, udpEndPoint);
                     clientData.tcpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.tcpPacket.header.appVer = AppVersion;
                     clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.udpPacket.header.appVer = AppVersion;
-
-                    _clientData.Add(clientData);
 
                     if (Logger.includes.connectionAttempts)
                     {
@@ -105,7 +99,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash));
 
                     foreach (var otherClient in _clientData)
                     {
@@ -184,7 +178,7 @@ namespace OwlTree
                             ReadPacket.header.appVer = AppVersion;
                             ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                             ReadPacket.header.sender = 0;
-                            ReadPacket.header.target = 0;
+                            ReadPacket.header.hash = 0;
                             var response = ReadPacket.GetSpan(4);
                             BitConverter.TryWriteBytes(response, (int)(accepted ? ConnectionResponseCode.Accepted : ConnectionResponseCode.Rejected));
                             var responsePacket = ReadPacket.GetPacket();
@@ -195,6 +189,12 @@ namespace OwlTree
                         {
                             Logger.Write("Connection attempt from " + ((IPEndPoint)source).Address.ToString() + " (udp port: " + ((IPEndPoint)source).Port + ") " + (accepted ? "accepted, awaiting TCP handshake..." : "rejected."));
                         }
+                        continue;
+                    }
+                    else if (client.hash != ReadPacket.header.hash)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"Incorrect hash received in UDP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
                         continue;
                     }
 
@@ -262,13 +262,22 @@ namespace OwlTree
                         }
 
                         if (client == ClientData.None)
+                        {
                             client = _clientData.Find(socket);
+
+                            if (client.hash != ReadPacket.header.hash)
+                            {
+                                if (Logger.includes.exceptions)
+                                    Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
+                                continue;
+                            }
+                        }
 
                         // disconnect if receive fails
                         if (dataLen <= 0)
                         {
                             Disconnect(client);
-                            continue;
+                            break;
                         }
 
                         if (Logger.includes.tcpPreTransform)
