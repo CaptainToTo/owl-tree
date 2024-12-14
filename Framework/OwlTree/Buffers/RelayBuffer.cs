@@ -341,6 +341,10 @@ namespace OwlTree
                             {
                                 RelayTcpMessage(bytes, client.id);
                             }
+                            else if (rpcId.Id == RpcId.PING_REQUEST && TryPingRequestDecode(bytes, out var request))
+                            {
+                                HandlePingRequest(request);
+                            }
                             else if (rpcId >= RpcId.FIRST_RPC_ID)
                             {
                                 RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
@@ -380,6 +384,36 @@ namespace OwlTree
             var span = packet.GetSpan(bytes.Length);
             for (int i = 0; i < span.Length; i++)
                 span[i] = bytes[i];
+        }
+
+        private void HandlePingRequest(PingRequest request)
+        {
+            if (request.Target == LocalId)
+            {
+                PingResponse(request);
+            }
+            else if (request.Source == LocalId)
+            {
+                var original = _pingRequests.Find(request.Target);
+                if (original != null)
+                {
+                    original.PingResponded();
+                    _pingRequests.Remove(original);
+                    _incoming.Enqueue(new Message(ClientId.None, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{original}));
+                }
+            }
+            else
+            {
+                var target = _clientData.Find(request.Target);
+                var source = _clientData.Find(request.Source);
+                if (target == ClientData.None || source == ClientData.None)
+                    return;
+                
+                var packet = request.Received ? source.tcpPacket : target.tcpPacket;
+                var span = packet.GetSpan(PingRequestLength);
+                PingRequestEncode(span, request);
+                HasClientEvent = true;
+            }
         }
 
         public override void Send()

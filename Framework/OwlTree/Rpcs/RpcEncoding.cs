@@ -9,6 +9,22 @@ namespace OwlTree
     /// </summary>
     public static class RpcEncoding
     {
+        internal static void EncodeRpcHeader(Span<byte> bytes, RpcId id, ClientId caller, ClientId callee, NetworkId source)
+        {
+            int start = 0;
+            int end = id.ByteLength();
+            id.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += caller.ByteLength();
+            caller.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += callee.ByteLength();
+            callee.InsertBytes(bytes.Slice(start, end - start));
+            start = end;
+            end += source.ByteLength();
+            source.InsertBytes(bytes.Slice(start, end - start));
+        }
+
         /// <summary>
         /// Encodes an RPC call into the given span of bytes. This span must have enough space, which can be verified
         /// using <c>GetExpectedRpcLength()</c>.

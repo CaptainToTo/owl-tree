@@ -153,6 +153,8 @@ namespace OwlTree
             _readList.Add(_udpClient);
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
+            _pingRequests.ClearTimeouts(PingTimeout);
+
             foreach (var socket in _readList)
             {
                 if (socket == _tcpClient)
@@ -211,6 +213,10 @@ namespace OwlTree
                             if (TryClientMessageDecode(bytes, out var rpcId))
                             {
                                 HandleClientConnectionMessage(rpcId, bytes.Slice(RpcId.MaxLength()));
+                            }
+                            else if (TryPingRequestDecode(bytes, out var request))
+                            {
+                                HandlePingRequest(request);
                             }
                             else if (TryDecode(ClientId.None, bytes, out var message))
                             {
@@ -296,6 +302,24 @@ namespace OwlTree
                     OnHostMigration?.Invoke(Authority);
                     break;
                 default: break;
+            }
+        }
+
+        private void HandlePingRequest(PingRequest request)
+        {
+            if (request.Target == LocalId)
+            {
+                PingResponse(request);
+            }
+            else if (request.Source == LocalId)
+            {
+                var original = _pingRequests.Find(request.Target);
+                if (original != null)
+                {
+                    original.PingResponded();
+                    _pingRequests.Remove(original);
+                    _incoming.Enqueue(new Message(ClientId.None, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{original}));
+                }
             }
         }
 

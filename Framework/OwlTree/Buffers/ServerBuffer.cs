@@ -182,7 +182,6 @@ namespace OwlTree
                                 _clientData.Count < MaxClients && _requests.Count < MaxClients
                             )
                             {
-
                                 // connection request verified, send client confirmation
                                 _requests.Add((IPEndPoint)source);
                                 accepted = true;
@@ -314,7 +313,11 @@ namespace OwlTree
                         ReadPacket.StartMessageRead();
                         while (ReadPacket.TryGetNextMessage(out var bytes))
                         {
-                            if (TryDecode(client.id, bytes, out var message))
+                            if (TryPingRequestDecode(bytes, out var request))
+                            {
+                                HandlePingRequest(request);
+                            }
+                            else if (TryDecode(client.id, bytes, out var message))
                             {
                                 message.protocol = Protocol.Tcp;
                                 if (message.callee != ClientId.None)
@@ -325,6 +328,36 @@ namespace OwlTree
                         }
                     } while (dataRemaining > 0);
                 }
+            }
+        }
+
+        private void HandlePingRequest(PingRequest request)
+        {
+            if (request.Target == LocalId)
+            {
+                PingResponse(request);
+            }
+            else if (request.Source == LocalId)
+            {
+                var original = _pingRequests.Find(request.Target);
+                if (original != null)
+                {
+                    original.PingResponded();
+                    _pingRequests.Remove(original);
+                    _incoming.Enqueue(new Message(ClientId.None, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{original}));
+                }
+            }
+            else
+            {
+                var target = _clientData.Find(request.Target);
+                var source = _clientData.Find(request.Source);
+                if (target == ClientData.None || source == ClientData.None)
+                    return;
+                
+                var packet = request.Received ? source.tcpPacket : target.tcpPacket;
+                var span = packet.GetSpan(PingRequestLength);
+                PingRequestEncode(span, request);
+                HasClientEvent = true;
             }
         }
 

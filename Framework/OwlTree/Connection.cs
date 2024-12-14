@@ -555,6 +555,11 @@ namespace OwlTree
                             _logger.Write($"Failed to run {(message.rpcId == RpcId.NETWORK_OBJECT_SPAWN ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
                     }
                 }
+                else if (message.rpcId == RpcId.PING_REQUEST)
+                {
+                    var request = (PingRequest)message.args[0];
+                    request.PingResolved();
+                }
                 else if (TryGetObject(message.target, out var target))
                 {
                     try
@@ -645,7 +650,7 @@ namespace OwlTree
 
         internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, object[] args)
         {
-            var message = new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol, args);
+            var message = new NetworkBuffer.Message(LocalId, callee, rpcId, target, protocol);
 
             if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
             {
@@ -696,6 +701,28 @@ namespace OwlTree
                 throw new InvalidOperationException("Cannot perform send operation on a threaded connection. This is handled for you in a dedicated thread.");
             if (IsActive && _buffer.HasOutgoing)
                 _buffer.Send();
+        }
+
+        /// <summary>
+        /// Ping the target client. A target of <c>ClientId.None</c> will ping the server.
+        /// Returns a PingRequest, which is similar to a promise. The ping value will only be known
+        /// once the ping request has been resolved.
+        /// </summary>
+        public PingRequest Ping(ClientId target)
+        {
+            if (target == LocalId)
+            {
+                var request = new PingRequest(LocalId, LocalId);
+                request.PingReceived();
+                request.PingResponded();
+                request.PingResolved();
+                return request;
+            }
+
+            if (target != ClientId.None && !ContainsClient(target))
+                throw new ArgumentException("Cannot ping a client that doesn't exist in this session.");
+            
+            return _buffer.Ping(target);
         }
 
         /// <summary>

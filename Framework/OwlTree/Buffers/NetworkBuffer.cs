@@ -84,6 +84,17 @@ namespace OwlTree
                 bytes = null;
             }
 
+            public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol)
+            {
+                this.caller = caller;
+                this.callee = callee;
+                this.rpcId = rpcId;
+                this.target = target;
+                this.protocol = protocol;
+                this.args = null;
+                bytes = null;
+            }
+
             public Message(ClientId callee, RpcId rpcId, object[] args)
             {
                 this.caller = ClientId.None;
@@ -309,6 +320,40 @@ namespace OwlTree
         /// Buffers are cleared after writing.
         /// </summary>
         public abstract void Send();
+
+        protected PingRequestList _pingRequests;
+
+        /// <summary>
+        /// Send a ping to the targeted client.
+        /// </summary>
+        public PingRequest Ping(ClientId target)
+        {
+            var request = _pingRequests.Add(LocalId, target);
+            var message = new Message(LocalId, target, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp);
+            message.bytes = new byte[PingRequestLength];
+            PingRequestEncode(message.bytes, request);
+            AddMessage(message);
+            return request;
+        }
+
+        /// <summary>
+        /// Used by connections receiving a ping request to send the response back to ping sender.
+        /// </summary>
+        protected void PingResponse(PingRequest request)
+        {
+            request.PingReceived();
+            var message = new Message(LocalId, request.Source, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp);
+            message.bytes = new byte[PingRequestLength];
+            PingRequestEncode(message.bytes, request);
+            AddMessage(message);
+        }
+
+        protected void PingTimeout(PingRequest request)
+        {
+            request.PingFailed();
+            var message = new Message(LocalId, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{request});
+            _incoming.Enqueue(message);
+        }
         
         /// <summary>
         /// Function signature for transformer steps. Should return the same span of bytes
@@ -425,6 +470,8 @@ namespace OwlTree
         /// </summary>
         protected static int ConnectionRequestLength { get { return RpcId.MaxLength() + ConnectionRequest.MaxLength(); } }
 
+        protected static int PingRequestLength { get { return RpcId.MaxLength() + PingRequest.MaxLength(); } }
+
         protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
         {
             var rpcId = new RpcId(RpcId.CLIENT_CONNECTED_MESSAGE_ID);
@@ -465,15 +512,22 @@ namespace OwlTree
             newHost.InsertBytes(bytes.Slice(ind, newHost.ByteLength()));
         }
 
-        protected static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest request)
+        protected static void PingRequestEncode(Span<byte> bytes, PingRequest request)
+        {
+            var rpcId = new RpcId(RpcId.PING_REQUEST);
+            rpcId.InsertBytes(bytes);
+            request.InsertBytes(bytes.Slice(rpcId.ByteLength()));
+        }
+
+        protected static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest connectRequest)
         {
             RpcId result = RpcId.None;
             result.FromBytes(bytes);
-            request = new ConnectionRequest();
+            connectRequest = new ConnectionRequest();
             switch (result.Id)
             {
                 case RpcId.CONNECTION_REQUEST:
-                    request.FromBytes(bytes.Slice(result.ByteLength()));
+                    connectRequest.FromBytes(bytes.Slice(result.ByteLength()));
                     break;
             }
             return result;
@@ -491,6 +545,16 @@ namespace OwlTree
                     return true;
             }
             return false;
+        }
+
+        protected static bool TryPingRequestDecode(ReadOnlySpan<byte> bytes, out PingRequest request)
+        {
+            var rpcId = new RpcId(bytes);
+            request = null;
+            if (rpcId.Id != RpcId.PING_REQUEST)
+                return false;
+            request = new PingRequest(bytes.Slice(rpcId.ByteLength()));
+            return true;
         }
     }
 }
