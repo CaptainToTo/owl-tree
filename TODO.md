@@ -7,5 +7,3 @@
 
 
 # Bug Fixes
-
-- Exception handling for malformed RPCs.
