@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Text;
 using System.Threading;
 
 namespace OwlTree
@@ -200,9 +201,13 @@ namespace OwlTree
 
             Protocols = IsRelay ? null : RpcProtocols.GetProjectImplementation();
 
-            if (!IsRelay && _logger.includes.allRpcProtocols)
+            if (!IsRelay)
             {
-                _logger.Write(Protocols.GetAllProtocolSummaries());
+                if (Protocols == null)
+                    throw new MissingMemberException("No RPC protocols implementation found. Ensure the OwlTree source generator is properly included in the project.");
+
+                if (_logger.includes.allRpcProtocols)
+                    _logger.Write(Protocols.GetAllProtocolSummaries());
             }
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
@@ -245,6 +250,9 @@ namespace OwlTree
             if (!IsRelay)
             {
                 var factory = ProxyFactory.GetProjectImplementation();
+
+                if (factory == null)
+                    throw new MissingMemberException("No proxy factory implementation found.  Ensure the OwlTree source generator is properly included in the project.");
 
                 if (_logger.includes.allTypeIds)
                     _logger.Write(factory.GetAllIdAssignments());
@@ -621,28 +629,52 @@ namespace OwlTree
             {
                 if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
                 {
-                    var bytes = buffer.GetSpan(NetworkSpawner.SpawnByteLength);
-                    _spawner.SpawnEncode(bytes, (Type)message.args[0], (NetworkId)message.args[1]);
-                    if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("RELAYING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                    try
+                    {
+                        var bytes = buffer.GetSpan(NetworkSpawner.SpawnByteLength);
+                        _spawner.SpawnEncode(bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                        if (_logger.includes.rpcCallEncodings)
+                            _logger.Write("RELAYING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to relay spawn instruction from {message.caller}. Thrown exception:\n{e}");
+                    }
                 }
                 else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
                 {
-                    var bytes = buffer.GetSpan(NetworkSpawner.DespawnByteLength);
-                    _spawner.DespawnEncode(bytes, (NetworkId)message.args[0]);
-                    if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("RELAYING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                    try
+                    {
+                        var bytes = buffer.GetSpan(NetworkSpawner.DespawnByteLength);
+                        _spawner.DespawnEncode(bytes, (NetworkId)message.args[0]);
+                        if (_logger.includes.rpcCallEncodings)
+                            _logger.Write("RELAYING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to relay despawn instruction from {message.caller}. Thrown exception:\n{e}");
+                    }
                 }
                 else
                 {
-                    var bytes = buffer.GetSpan(Protocols.GetRpcByteLength(message.rpcId, message.args));
-                    Protocols.EncodeRpc(bytes, message.rpcId, message.caller, message.callee, message.target, message.args);
-                    if (_logger.includes.rpcCalls)
+                    try
                     {
-                        var output = $"RELAYING:\n{Protocols.GetRpcName(message.rpcId.Id)} {message.rpcId}, Called on Object {message.target}";
-                        if (_logger.includes.rpcCallEncodings)
-                            output += ":\n" + Protocols.GetEncodingSummary(message.rpcId, message.caller, message.callee, message.target, message.args);
-                        _logger.Write(output);
+                        var bytes = buffer.GetSpan(Protocols.GetRpcByteLength(message.rpcId, message.args));
+                        Protocols.EncodeRpc(bytes, message.rpcId, message.caller, message.callee, message.target, message.args);
+                        if (_logger.includes.rpcCalls)
+                        {
+                            var output = $"RELAYING:\n{Protocols.GetRpcName(message.rpcId.Id)} {message.rpcId}, Called on Object {message.target}";
+                            if (_logger.includes.rpcCallEncodings)
+                                output += ":\n" + Protocols.GetEncodingSummary(message.rpcId, message.caller, message.callee, message.target, message.args);
+                            _logger.Write(output);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to relay RPC from {message.caller}, sending to {message.callee}. Thrown exception:\n{e}");
                     }
                 }
             }
@@ -654,28 +686,57 @@ namespace OwlTree
 
             if (message.rpcId == RpcId.NETWORK_OBJECT_SPAWN)
             {
-                message.bytes = new byte[NetworkSpawner.SpawnByteLength];
-                _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
-                if (_logger.includes.rpcCallEncodings)
-                    _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                try
+                {
+                    message.bytes = new byte[NetworkSpawner.SpawnByteLength];
+                    _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                    if (_logger.includes.rpcCallEncodings)
+                        _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                }
+                catch (Exception e)
+                {
+                    if (_logger.includes.exceptions)
+                        _logger.Write($"Failed to encode spawn instruction. Thrown exception:\n{e}");
+                }
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
             {
-                message.bytes = new byte[NetworkSpawner.DespawnByteLength];
-                _spawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
-                if (_logger.includes.rpcCallEncodings)
-                    _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                try
+                {
+                    message.bytes = new byte[NetworkSpawner.DespawnByteLength];
+                    _spawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
+                    if (_logger.includes.rpcCallEncodings)
+                        _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                }
+                catch (Exception e)
+                {
+                    if (_logger.includes.exceptions)
+                        _logger.Write($"Failed to encode despawn instruction. Thrown exception:\n{e}");
+                }
             }
             else
             {
-                message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, message.args)];
-                Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
-                if (_logger.includes.rpcCalls)
+                try
                 {
-                    var output = $"SENDING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
-                    if (_logger.includes.rpcCallEncodings)
-                        output += ":\n" + Protocols.GetEncodingSummary(rpcId, LocalId, callee, target, args);
-                    _logger.Write(output);
+                    message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, message.args)];
+                    Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
+                    if (_logger.includes.rpcCalls)
+                    {
+                        var output = $"SENDING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, Called on Object {target}";
+                        if (_logger.includes.rpcCallEncodings)
+                            output += ":\n" + Protocols.GetEncodingSummary(rpcId, LocalId, callee, target, args);
+                        _logger.Write(output);
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (_logger.includes.exceptions)
+                    {
+                        var str = new StringBuilder();
+                        for (int i = 0; i < args.Length; i++)
+                            str.Append($"{i + 1}: {args[i]}\n");
+                        _logger.Write($"Failed to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
+                    }
                 }
             }
 

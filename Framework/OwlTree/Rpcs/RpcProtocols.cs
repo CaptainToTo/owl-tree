@@ -17,11 +17,12 @@ namespace OwlTree
         /// </summary>
         internal static RpcProtocols GetProjectImplementation()
         {
-            return (RpcProtocols)Activator.CreateInstance(
-                AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .Where(t => t.IsClass && !t.IsAbstract && typeof(RpcProtocols).IsAssignableFrom(t)).FirstOrDefault()
-                );
+            var implementation = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract && typeof(RpcProtocols).IsAssignableFrom(t)).FirstOrDefault();
+            if (implementation == null)
+                return null;
+            return (RpcProtocols)Activator.CreateInstance(implementation);
         }
 
         // overrides generated at compile time ==

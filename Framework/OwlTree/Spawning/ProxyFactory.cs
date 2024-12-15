@@ -16,11 +16,12 @@ namespace OwlTree
         /// </summary>
         internal static ProxyFactory GetProjectImplementation()
         {
-            return (ProxyFactory)Activator.CreateInstance(
-                AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .Where(t => t.IsClass && !t.IsAbstract && typeof(ProxyFactory).IsAssignableFrom(t)).FirstOrDefault()
-                );
+            var implementation = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract && typeof(ProxyFactory).IsAssignableFrom(t)).FirstOrDefault();
+            if (implementation == null)
+                return null;
+            return (ProxyFactory)Activator.CreateInstance(implementation);
         }
 
         /// <summary>
