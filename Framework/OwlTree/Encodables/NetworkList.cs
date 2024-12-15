@@ -7,7 +7,7 @@ namespace OwlTree
     /// <summary>
     /// A variable length list of IEncodable objects. NetworkLists have a fixed capacity.
     /// </summary>
-    public class NetworkList<C, T> : IEncodable, IVariableLength, IEnumerable<T> where C : ICapacity, new()
+    public class NetworkList<C, T> : IEncodable, IVariableLength, IEnumerable<T> where C : ICapacity, new() where T : new()
     {
         private List<T> _list;
 
@@ -32,7 +32,7 @@ namespace OwlTree
                 throw new ArgumentException("NetworkList capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcEncoding.IsEncodable(typeof(T)))
+            if (!RpcEncoding.IsEncodable<T>())
             {
                 throw new ArgumentException("NetworkList must have an encodable type.");
             }

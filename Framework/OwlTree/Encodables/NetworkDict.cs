@@ -10,7 +10,7 @@ namespace OwlTree
     /// A Dictionary wrapper that implements the IEncodable interface.
     /// NetworkDicts have a fixed capacity.
     /// </summary>
-    public class NetworkDict<C, K, V> : IEncodable, IVariableLength, IEnumerable<KeyValuePair<K, V>> where C : ICapacity
+    public class NetworkDict<C, K, V> : IEncodable, IVariableLength, IEnumerable<KeyValuePair<K, V>> where C : ICapacity, new() where K : new() where V : new()
     {
         private Dictionary<K, V> _dict;
 
@@ -30,17 +30,17 @@ namespace OwlTree
 
         public NetworkDict()
         {
-            int capacity = ((ICapacity)Activator.CreateInstance(typeof(C))).Capacity();
+            int capacity = new C().Capacity();
             if (capacity <= 0)
                 throw new ArgumentException("NetworkDict capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcEncoding.IsEncodable(typeof(K)))
+            if (!RpcEncoding.IsEncodable<K>())
             {
                 throw new ArgumentException("NetworkDict keys must be an encodable type.");
             }
 
-            if (!RpcEncoding.IsEncodable(typeof(V)))
+            if (!RpcEncoding.IsEncodable<V>())
             {
                 throw new ArgumentException("NetworkDict values must be an encodable type.");
             }

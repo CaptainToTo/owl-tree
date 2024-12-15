@@ -123,96 +123,60 @@ namespace OwlTree
         public static object DecodeObject(ReadOnlySpan<byte> bytes, Type t, out int len)
         {
             if (t == typeof(string))
-            {
-                var length = bytes[0];
-                var str = Encoding.UTF8.GetString(bytes.ToArray(), 1, length);
-                len = length + 1;
-                return str;
-            }
+                return DecodeString(bytes, out len);
 
-            object result = Activator.CreateInstance(t);
-            if (t == typeof(int))
-            {
-                result = BitConverter.ToInt32(bytes);
-                len = 4;
-            }
+            else if (t == typeof(int))
+                return DecodeInt32(bytes, out len);
+
             else if (t == typeof(uint))
-            {
-                result = BitConverter.ToUInt32(bytes);
-                len = 4;
-            }
+                return DecodeUInt32(bytes, out len);
+
             else if (t == typeof(float))
-            {
-                result = BitConverter.ToSingle(bytes);
-                len = 4;
-            }
+                return DecodeFloat(bytes, out len);
+
             else if (t == typeof(double))
-            {
-                result = BitConverter.ToDouble(bytes);
-                len = 8;
-            }
+                return DecodeDouble(bytes, out len);
+
             else if (t == typeof(long))
-            {
-                result = BitConverter.ToInt64(bytes);
-                len = 8;
-            }
+                return DecodeInt64(bytes, out len);
+
             else if (t == typeof(ulong))
-            {
-                result = BitConverter.ToUInt64(bytes);
-                len = 8;
-            }
+                return DecodeUInt64(bytes, out len);
+
             else if (t == typeof(ushort))
-            {
-                result = BitConverter.ToUInt16(bytes);
-                len = 2;
-            }
+                return DecodeUInt16(bytes, out len);
+
             else if (t == typeof(short))
-            {
-                result = BitConverter.ToInt16(bytes);
-                len = 2;
-            }
+                return DecodeInt16(bytes, out len);
+
+            else if (t == typeof(bool))
+                return DecodeBool(bytes, out len);
+
             else if (t == typeof(byte))
             {
-                result = bytes[0];
                 len = 1;
-            }
-            else if (t == typeof(bool))
-            {
-                result = bytes[0] == 1;
-                len = 1;
+                return bytes[0];
             }
             else
             {
-                var encodable = typeof(IEncodable);
-                var variableLen = typeof(IVariableLength);
-                var encodableTypes = t.GetInterfaces();
-                bool isEncodable = false;
-                bool isVariable = false;
-                foreach (var a in encodableTypes)
-                {
-                    if (a == encodable)
-                    {
-                        isEncodable = true;
-                    }
-                    else if (a == variableLen)
-                    {
-                        isVariable = true;
-                    }
-                }
+                var result = Activator.CreateInstance(t);
+                bool isEncodable = result is IEncodable;
+                bool isVariable = result is IVariableLength;
 
                 if (isEncodable)
                 {
                     len = isVariable ? IVariableLength.GetLength(bytes) : ((IEncodable)result).ByteLength();
                     ((IEncodable)result).FromBytes(bytes.Slice(isVariable ? IVariableLength.LENGTH_ENCODING : 0, len));
                     len += isVariable ? IVariableLength.LENGTH_ENCODING : 0;
+                    return result;
                 }
                 else
                 {
                     len = -1;
+                    return null;
                 }
             }
 
-            return result;
         }
 
         public static int DecodeInt32(ReadOnlySpan<byte> bytes, out int len)
@@ -349,22 +313,8 @@ namespace OwlTree
             }
             else
             {
-                var encodable = typeof(IEncodable);
-                var variableLen = typeof(IVariableLength);
-                var encodableTypes = t.GetInterfaces();
-                bool isEncodable = false;
-                bool isVariable = false;
-                foreach (var a in encodableTypes)
-                {
-                    if (a == encodable)
-                    {
-                        isEncodable = true;
-                    }
-                    if (a == variableLen)
-                    {
-                        isVariable = true;
-                    }
-                }
+                bool isEncodable = arg is IEncodable;
+                bool isVariable = arg is IVariableLength;
 
                 if (isEncodable)
                 {
@@ -415,14 +365,14 @@ namespace OwlTree
         /// <summary>
         /// The constant byte count of header info for user made RPCs.
         /// </summary>
-        public static int RpcHeaderLength => ClientId.MaxLength() + ClientId.MaxLength() + RpcId.MaxLength() + NetworkId.MaxLength();
+        internal static int RpcHeaderLength => ClientId.MaxLength() + ClientId.MaxLength() + RpcId.MaxLength() + NetworkId.MaxLength();
 
         /// <summary>
         /// Gets the expected byte length of a full RPC encoding, given an array of the 
         /// RPC arguments. To get the length of just the arguments, use <c>GetExpectedLength()</c>
         /// If any of the arguments are not encodable, returns -1.
         /// </summary>
-        public static int GetExpectedRpcLength(object[] args, int callerInd = -1, int calleeInd = -1)
+        internal static int GetExpectedRpcLength(object[] args, int callerInd = -1, int calleeInd = -1)
         {
             var len = GetExpectedLength(args, callerInd, calleeInd);
             if (len == -1)
@@ -436,7 +386,7 @@ namespace OwlTree
         /// encoding, use <c>GetExpectedRpcLength()</c>.
         /// If any of the arguments are not encodable, returns -1.
         /// </summary>
-        public static int GetExpectedLength(object[] args, int callerInd = -1, int calleeInd = -1)
+        internal static int GetExpectedLength(object[] args, int callerInd = -1, int calleeInd = -1)
         {
             if (args == null)
                 return 0;
@@ -494,21 +444,13 @@ namespace OwlTree
             {
                 return 1 + Encoding.UTF8.GetByteCount((string)arg);
             }
-            else
+            else if (arg is IEncodable)
             {
-                var encodable = typeof(IEncodable);
-                var variableLen = typeof(IVariableLength);
-                var encodableTypes = t.GetInterfaces();
-                var len = -1;
-                foreach (var a in encodableTypes)
-                {
-                    if (a == encodable)
-                        len = ((IEncodable)arg).ByteLength();
-                    else if (a == variableLen)
-                        return ((IEncodable)arg).ByteLength() + IVariableLength.LENGTH_ENCODING;
-                }
-                return len;
+                if (arg is IVariableLength)
+                    return ((IEncodable)arg).ByteLength() + IVariableLength.LENGTH_ENCODING;
+                return ((IEncodable)arg).ByteLength();
             }
+            return -1;
         }
 
         public static int GetExpectedLength(int arg) => 4;
@@ -601,8 +543,9 @@ namespace OwlTree
         /// Returns whether or not the given type represents an encodable object,
         /// which can be used an RPC parameter.
         /// </summary>
-        public static bool IsEncodable(Type t)
+        public static bool IsEncodable<T>() where T : new()
         {
+            var t = typeof(T);
             if (
                 t == typeof(int) ||
                 t == typeof(uint) ||
@@ -625,14 +568,27 @@ namespace OwlTree
             }
             else
             {
-                var encodable = typeof(IEncodable);
-                var encodableTypes = t.GetInterfaces();
-                foreach (var a in encodableTypes)
-                {
-                    if (a == encodable)
-                        return true;
-                }
-                return false;
+                var a = new T();
+                return a is IEncodable;
+            }
+        }
+
+        /// <summary>
+        /// Calculates the byte length for an IEncodable, based on the properties
+        /// you want to have encoded.
+        /// </summary>
+        public static int AutoByteLength(params object[] members)
+        {
+            return GetExpectedLength(members);
+        }
+
+        public static void AutoInsertBytes(Span<byte> bytes, params object[] members)
+        {
+            int ind = 0;
+            foreach (var m in members)
+            {
+                InsertBytes(bytes.Slice(ind), m);
+                ind += GetExpectedLength(m);
             }
         }
     }
