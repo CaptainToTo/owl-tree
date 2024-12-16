@@ -235,6 +235,7 @@ namespace OwlTree.Generator
         {
             _usings.Clear();
             _usings.Add(Helpers.Tk_OwlTree, true);
+            _usings.Add(Helpers.Tk_System, true);
         }
 
         public static void AddUsings(SyntaxList<UsingDirectiveSyntax> usings)

@@ -26,6 +26,7 @@ namespace OwlTree.Generator
 
         // classes and namespaces
         public const string Tk_CompilerServices = "System.Runtime.CompilerServices"; // for the compiler generated attribute
+        public const string Tk_System = "System";
         public const string Tk_OwlTree = "OwlTree";
         public const string Tk_NetworkObject = "NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";

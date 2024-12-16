@@ -56,6 +56,9 @@ namespace OwlTree.Generator
             if (name != null)
                 usings = usings.Add(UsingDirective(IdentifierName(name)));
             
+            if (!Helpers.IsUsing(usings, Helpers.Tk_System))
+                usings = usings.Add(UsingDirective(IdentifierName(Helpers.Tk_System)));
+            
             if (!Helpers.IsUsing(usings, Helpers.Tk_OwlTree))
                 usings = usings.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
             

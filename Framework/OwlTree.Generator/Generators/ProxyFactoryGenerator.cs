@@ -29,6 +29,7 @@ namespace OwlTree.Generator
             _typeId.Clear();
             _namespaces.Clear();
             _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
+            _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_System)));
         }
 
         public static CompilationUnitSyntax GetFactory()
