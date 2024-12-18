@@ -13,8 +13,4 @@
     <InternalsVisibleTo Include="OwlTree.Tests" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Memory" Version="4.6.0" />
-  </ItemGroup>
-
 </Project>
