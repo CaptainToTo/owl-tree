@@ -58,6 +58,16 @@ namespace OwlTree
         /// </summary>
         public bool Failed { get; private set; } = false;
 
+        public override string ToString()
+        {
+            var resolution = "sent at " + SendTime.ToString();
+            if (Resolved && Failed)
+                resolution = "failed";
+            else if (Resolved && !Failed)
+                resolution = Ping + " ms";
+            return $"<PingRequest by {Source} to {Target}: {resolution}>";
+        }
+
         /// <summary>
         /// Invoked on the source connection when the ping request has resolved, whether that's successfully or in failure.
         /// </summary>
@@ -130,9 +140,9 @@ namespace OwlTree
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             int ind = 0;
-            Source.FromBytes(bytes);
+            Source = new ClientId(bytes);
             ind += Source.ByteLength();
-            Target.FromBytes(bytes.Slice(ind));
+            Target = new ClientId(bytes.Slice(ind));
             ind += Target.ByteLength();
             SendTime = BitConverter.ToInt64(bytes.Slice(ind));
             ind += 8;

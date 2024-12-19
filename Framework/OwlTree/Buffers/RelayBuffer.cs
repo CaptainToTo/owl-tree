@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -75,6 +76,9 @@ namespace OwlTree
 
         public override void Read()
         {
+            if (!IsActive)
+                return;
+            
             _readList.Clear();
             _readList.Add(_tcpRelay);
             _readList.Add(_udpRelay);
@@ -107,14 +111,12 @@ namespace OwlTree
                     clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.udpPacket.header.appVer = AppVersion;
 
-                    _clientData.Add(clientData);
-
                     if (Logger.includes.connectionAttempts)
                     {
                         Logger.Write($"TCP handshake made with {((IPEndPoint)tcpClient.RemoteEndPoint).Address} (tcp port: {((IPEndPoint)tcpClient.RemoteEndPoint).Port}) (udp port: {udpPort}). Assigned: {clientData.id}");
                     }
 
-                    if (_hostAddr == null || _hostAddr.Equals(((IPEndPoint)tcpClient.RemoteEndPoint).Address))
+                    if (Authority == ClientId.None && (_hostAddr == null || _hostAddr.Equals(((IPEndPoint)tcpClient.RemoteEndPoint).Address)))
                     {
                         _hostAddr = ((IPEndPoint)tcpClient.RemoteEndPoint).Address;
                         Authority = clientData.id;
@@ -305,7 +307,7 @@ namespace OwlTree
                         if (dataLen <= 0)
                         {
                             Disconnect(client);
-                            continue;
+                            break;
                         }
 
                         if (Logger.includes.tcpPreTransform)
@@ -418,6 +420,38 @@ namespace OwlTree
 
         public override void Send()
         {
+            while (_outgoing.TryDequeue(out var message))
+            {
+
+                if (message.callee != ClientId.None)
+                {
+                    var client = _clientData.Find(message.callee);
+                    if (client != ClientData.None)
+                    {
+                        if (message.protocol == Protocol.Tcp)
+                            Encode(message, client.tcpPacket);
+                        else
+                            Encode(message, client.udpPacket);
+                    }
+                }
+                else
+                {
+                    if (message.protocol == Protocol.Tcp)
+                    {
+                        foreach (var client in _clientData)
+                        {
+                            Encode(message, client.tcpPacket);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var client in _clientData)
+                        {
+                            Encode(message, client.udpPacket);
+                        }
+                    }
+                }
+            }
             foreach (var client in _clientData)
             {
                 if (!client.tcpPacket.IsEmpty)
@@ -485,17 +519,25 @@ namespace OwlTree
             Disconnect(Authority);
             _tcpRelay.Close();
             _udpRelay.Close();
+            IsReady = false;
+            IsActive = false;
+            OnClientDisconnected?.Invoke(LocalId);
         }
 
         public override void Disconnect(ClientId id)
         {
             var client = _clientData.Find(id);
             if (client != ClientData.None)
+            {
                 Disconnect(client);
+            }
         }
 
         private void Disconnect(ClientData client)
         {
+            if (client == ClientData.None)
+                return;
+            
             _clientData.Remove(client);
             client.tcpSocket.Close();
             OnClientDisconnected?.Invoke(client.id);

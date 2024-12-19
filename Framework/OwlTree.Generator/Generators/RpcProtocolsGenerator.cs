@@ -129,6 +129,14 @@ namespace OwlTree.Generator
                             ReturnStatement(
                                 LiteralExpression(
                                     SyntaxKind.FalseLiteralExpression)))));
+            
+            _invokeRpc.Add(SwitchSection()
+                .WithLabels(
+                    SingletonList<SwitchLabelSyntax>(
+                        DefaultSwitchLabel()))
+                .WithStatements(
+                    SingletonList<StatementSyntax>(
+                        ReturnStatement())));
         }
 
         public static CompilationUnitSyntax GetRpcProtocols()

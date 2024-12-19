@@ -298,7 +298,7 @@ namespace OwlTree
                 Threaded = true;
                 _threadUpdateDelta = args.threadUpdateDelta;
                 _clientRequests = new();
-                _bufferThread = new Thread(new ThreadStart(NetworkLoop));
+                _bufferThread = new Thread(NetworkLoop);
                 _bufferThread.Start();
             }
         }
@@ -322,7 +322,7 @@ namespace OwlTree
                 _buffer.Read();
                 Thread.Sleep(_threadUpdateDelta);
             }
-            while (true)
+            while (_buffer.IsActive)
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _buffer.Read();
@@ -347,7 +347,7 @@ namespace OwlTree
                     _buffer.Send();
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
-                Thread.Sleep(Math.Max(0, (int)(_threadUpdateDelta - diff)));
+                Thread.Sleep(Math.Max(0, _threadUpdateDelta - (int)diff));
             }
         }
 
@@ -391,6 +391,11 @@ namespace OwlTree
         private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientRequests = null;
 
         private List<ClientId> _clients = new List<ClientId>();
+
+        /// <summary>
+        /// The number of connected clients.
+        /// </summary>
+        public int ClientCount => _clients.Count;
 
         /// <summary>
         /// Iterable of all connected clients.
@@ -441,7 +446,7 @@ namespace OwlTree
         /// <summary>
         /// The client id assigned to this local instance. Servers will have a LocalId of <c>ClientId.None</c>
         /// </summary>
-        public ClientId LocalId { get { return _buffer.LocalId; } }
+        public ClientId LocalId { get { return IsReady ? _buffer.LocalId : ClientId.None; } }
 
         /// <summary>
         /// the client id of the instance assigned as the authority of the session. 
@@ -453,6 +458,11 @@ namespace OwlTree
         /// Returns true if the local connection is the authority of this session.
         /// </summary>
         public bool IsAuthority { get { return !IsRelay && _buffer.LocalId == _buffer.Authority; } }
+
+        /// <summary>
+        /// Returns true if the current session supports host migration.
+        /// </summary>
+        public bool Migratable { get { return IsRelay ? ((RelayBuffer)_buffer).Migratable : false; } }
 
         /// <summary>
         /// Receive any RPCs that have been sent to this connection. Execute them with <c>ExecuteQueue()</c>.
@@ -489,6 +499,9 @@ namespace OwlTree
         /// </summary>
         public void ExecuteQueue()
         {
+            if (!IsActive)
+                return;
+
             while (_clientEvents.TryDequeue(out var result))
             {
                 switch (result.t)
@@ -496,9 +509,15 @@ namespace OwlTree
                     case ConnectionEventType.OnConnect:
                         if (_logger.includes.clientEvents)
                             _logger.Write("New client connected: " + result.id.ToString());
-                        if (NetRole == Role.Server)
+                        if (IsServer)
                         {
                             _spawner.SendNetworkObjects(result.id);
+                        }
+                        else if (IsRelay && result.id == _buffer.Authority)
+                        {
+                            Authority = result.id;
+                            if (_logger.includes.clientEvents)
+                                _logger.Write("Host client has been assigned to: " + result.id.ToString());
                         }
 
                         _clients.Add(result.id);
@@ -508,11 +527,11 @@ namespace OwlTree
                         if (result.id == LocalId)
                         {
                             if (_logger.includes.clientEvents)
-                                _logger.Write("Local client disconnected.");
+                                _logger.Write(IsServer || IsRelay ? "Local server shutdown." : "Local client disconnected.");
                             IsActive = false;
                             IsReady = false;
                             OnLocalDisconnect?.Invoke(LocalId);
-                            _spawner.DespawnAll();
+                            _spawner?.DespawnAll();
                         }
                         else
                         {
@@ -526,7 +545,19 @@ namespace OwlTree
                         IsReady = true;
                         Authority = _buffer.Authority;
                         if (_logger.includes.clientEvents)
-                            _logger.Write("Connection is ready. Local client id is: " + result.id.ToString());
+                            _logger.Write($"Connection is ready. Local client id is: {LocalId}, authority id is: {Authority}");
+                        if (LocalId == Authority && IsClient)
+                        {
+                            NetRole = Role.Host;
+                            if (_logger.includes.clientEvents)
+                                _logger.Write("Local client assigned as host, this connection now has authority privileges.");
+                        }
+                        else if (LocalId != Authority && IsHost)
+                        {
+                            NetRole = Role.Client;
+                            if (_logger.includes.clientEvents)
+                                _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
+                        }
                         _clients.Add(result.id);
                         OnReady?.Invoke(result.id);
                         break;
@@ -792,10 +823,14 @@ namespace OwlTree
         /// </summary>
         public void Disconnect()
         {
-            _buffer.Disconnect();
+            if (!IsActive)
+                return;
+            if (_buffer.IsActive)
+                _buffer.Disconnect();
             IsActive = false;
             IsReady = false;
-            _spawner.DespawnAll();
+            OnLocalDisconnect?.Invoke(LocalId);
+            _spawner?.DespawnAll();
         }
 
         /// <summary>

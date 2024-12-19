@@ -71,7 +71,7 @@ namespace OwlTree.Generator
             GeneratorState.ClearRpcData();
             GeneratorState.ClearUsings();
 
-            if (list.Length == 0) return;
+            // if (list.Length == 0) return;
 
             NetworkObjectAnalyzer.AssignTypeIds(context, list);
             // File.WriteAllText(outputPath + "/types-out.txt", GeneratorState.GetTypeIdsString());

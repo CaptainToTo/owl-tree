@@ -400,6 +400,7 @@ namespace OwlTree
         public override void Disconnect()
         {
             IsActive = false;
+            IsReady = false;
             _tcpClient.Close();
             _udpClient.Close();
             OnClientDisconnected?.Invoke(LocalId);

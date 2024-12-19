@@ -72,8 +72,6 @@ namespace OwlTree
 
         public int Count => _data.Count;
 
-        public void Add(ClientData data) => _data.Add(data);
-
         public ClientData Add(Socket tcpSocket, IPEndPoint udpEndPoint)
         {
             var data = new ClientData() {
@@ -88,7 +86,17 @@ namespace OwlTree
             return data;
         }
 
-        public void Remove(ClientData data) => _data.Remove(data);
+        public void Remove(ClientData data) 
+        {
+            for (int i = 0; i < _data.Count; i++)
+            {
+                if (_data[i].id == data.id)
+                {
+                    _data.RemoveAt(i);
+                    return;
+                }
+            }
+        }
 
         public ClientData Find(Socket s)
         {

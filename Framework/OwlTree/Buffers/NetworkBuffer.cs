@@ -187,6 +187,8 @@ namespace OwlTree
             Encode = args.encoder;
             ReadPacket = new Packet(BufferSize);
 
+            _pingRequests = new PingRequestList(3000);
+
             Logger = args.logger;
             IsActive = true;
         }

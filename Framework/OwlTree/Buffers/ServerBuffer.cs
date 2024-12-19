@@ -467,6 +467,9 @@ namespace OwlTree
             }
             _tcpServer.Close();
             _udpServer.Close();
+            IsReady = false;
+            IsActive = false;
+            OnClientDisconnected?.Invoke(LocalId);
         }
 
 
