@@ -85,12 +85,12 @@ namespace OwlTree.Generator
                 var proxy = ProxyGenerator.CreateProxy(c);
                 ProxyFactoryGenerator.AddClass(c);
                 context.AddSource(ProxyGenerator.GetProxyName(c) + Helpers.Tk_CsFile, proxy.ToString());
-                // File.WriteAllText(outputPath + "/" + ProxyGenerator.GetProxyName(c) + Helpers.Tk_DebugFile, proxy.ToString());
+                File.WriteAllText("path/" + ProxyGenerator.GetProxyName(c) + Helpers.Tk_DebugFile, proxy.ToString());
             }
 
             var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
             context.AddSource(Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
-            // File.WriteAllText(outputPath + "/" + Helpers.Tk_ProjectProxies + Helpers.Tk_DebugFile, factory.ToString());
+            File.WriteAllText("path/" + Helpers.Tk_ProjectProxies + Helpers.Tk_DebugFile, factory.ToString());
 
             RpcProtocolsGenerator.Reset();
 
@@ -102,6 +102,17 @@ namespace OwlTree.Generator
             var protocols = RpcProtocolsGenerator.GetRpcProtocols();
             context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
             // File.WriteAllText(outputPath + "/" + Helpers.Tk_ProjectProtocols + Helpers.Tk_DebugFile, protocols.ToString());
+
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    "OwlTree",
+                    "Source Generation Complete",
+                    "Generator complete.",
+                    "Completion",
+                    DiagnosticSeverity.Info,
+                    isEnabledByDefault: true), null);
+
+            context.ReportDiagnostic(diagnostic);
         }
 
         
