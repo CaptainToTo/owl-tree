@@ -28,7 +28,7 @@ namespace OwlTree.Generator
             _typeFromId.Clear();
             _typeId.Clear();
             _namespaces.Clear();
-            _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
+            // _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_OwlTree)));
             _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_System)));
             _namespaces.Add(UsingDirective(IdentifierName(Helpers.Tk_CompilerServices)));
         }
