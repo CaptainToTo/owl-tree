@@ -69,10 +69,14 @@ namespace OwlTree
 
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
+        /// If the given type is not a known NetworkObject type, throws an error.
         /// </summary>
         public T Spawn<T>() where T : NetworkObject, new()
         {
-            var newObj = (T)_proxyFactory.CreateProxy(typeof(T));
+            var newObj = (T)_proxyFactory?.CreateProxy(typeof(T));
+            if (newObj == null)
+                throw new InvalidOperationException("Failed to create new instance.");
+
             newObj.SetIdInternal(NextNetworkId());
             newObj.SetActiveInternal(true);
             newObj.SetConnectionInternal(_connection);
@@ -86,13 +90,14 @@ namespace OwlTree
 
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
+        /// If the given type is not a known NetworkObject type, throws an error.
         /// </summary>
         public NetworkObject Spawn(Type t)
         {
-            if (!_proxyFactory.HasTypeId(t))
+            if (!(_proxyFactory?.HasTypeId(t) ?? false))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
             
-            var newObj = _proxyFactory.CreateProxy(t);
+            var newObj = _proxyFactory?.CreateProxy(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -122,13 +127,13 @@ namespace OwlTree
         // run spawn on client
         private void ReceiveSpawn(Type t, NetworkId id)
         {
-            if (!_proxyFactory.HasTypeId(t))
+            if (!(_proxyFactory?.HasTypeId(t) ?? false))
                 throw new ArgumentException("The given type must inherit from NetworkObject.");
 
             if (_netObjects.ContainsKey(id))
                 return;
             
-            var newObj = _proxyFactory.CreateProxy(t);
+            var newObj = _proxyFactory?.CreateProxy(t);
 
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
@@ -157,7 +162,7 @@ namespace OwlTree
             rpcId.InsertBytes(rpcSpan);
             ind += rpcId.ByteLength();
 
-            bytes[rpcId.ByteLength()] = _proxyFactory.TypeId(objType);
+            bytes[rpcId.ByteLength()] = _proxyFactory?.TypeId(objType) ?? 0;
             ind += 1;
 
             var idSpan = bytes.Slice(ind, id.ByteLength());
@@ -176,7 +181,7 @@ namespace OwlTree
 
         internal string SpawnEncodingSummary(byte objType, NetworkId id)
         {
-            return SpawnEncodingSummary(_proxyFactory.TypeFromId(objType), id);
+            return SpawnEncodingSummary(_proxyFactory?.TypeFromId(objType) ?? typeof(NetworkObject), id);
         }
 
         /// <summary>
@@ -249,7 +254,7 @@ namespace OwlTree
             switch(rpcId.Id)
             {
                 case RpcId.NETWORK_OBJECT_SPAWN:
-                    var objType = _proxyFactory.TypeFromId((byte)args[0]);
+                    var objType = _proxyFactory?.TypeFromId((byte)args[0]) ?? typeof(NetworkObject);
                     var id = (NetworkId)args[1];
                     ReceiveSpawn(objType, id);
                     break;

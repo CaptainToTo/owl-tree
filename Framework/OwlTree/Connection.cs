@@ -201,14 +201,11 @@ namespace OwlTree
 
             Protocols = IsRelay ? null : RpcProtocols.GetProjectImplementation();
 
-            if (!IsRelay)
-            {
-                if (Protocols == null)
-                    throw new MissingMemberException("No RPC protocols implementation found. Ensure the OwlTree source generator is properly included in the project.");
+            if (Protocols == null)
+                    _logger.Write("WARNING: No project RPC protocols found. Ensure the OwlTree source generator is included in your project properly.");
 
-                if (_logger.includes.allRpcProtocols)
-                    _logger.Write(Protocols.GetAllProtocolSummaries());
-            }
+            if (Protocols != null && _logger.includes.allRpcProtocols)
+                _logger.Write(Protocols.GetAllProtocolSummaries());
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -252,9 +249,9 @@ namespace OwlTree
                 var factory = ProxyFactory.GetProjectImplementation();
 
                 if (factory == null)
-                    throw new MissingMemberException("No proxy factory implementation found.  Ensure the OwlTree source generator is properly included in the project.");
+                    _logger.Write("WARNING: No project network object factory found. Ensure the OwlTree source generator is included in your project properly.");
 
-                if (_logger.includes.allTypeIds)
+                if (factory != null && _logger.includes.allTypeIds)
                     _logger.Write(factory.GetAllIdAssignments());
 
                 _spawner = new NetworkSpawner(this, factory);
@@ -608,7 +605,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (_logger.includes.exceptions)
-                            _logger.Write($"Failed to run RPC {Protocols.GetRpcName(message.rpcId)} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
+                            _logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
                     }
                 }
             }
@@ -629,7 +626,7 @@ namespace OwlTree
                 }
                 return true;
             }
-            else if (Protocols.TryDecodeRpc(bytes, out rpcId, out var caller, out var callee, out var target, out args))
+            else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out var caller, out var callee, out var target, out args))
             {
                 message = new NetworkBuffer.Message(caller, callee, rpcId, target, Protocol.Tcp, args);
                 if (_logger.includes.rpcReceives)
