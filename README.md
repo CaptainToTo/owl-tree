@@ -6,7 +6,7 @@ View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tre
 Or check out example projects here:
 - [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club) - under construction
 - Farming With Friends (Unity multiplayer farming game) - under construction
-- DrawDot (Godot relayed peer-to-peer drawing app) - under construction
+- DrawDot (Godot drawing app) - under construction
 
 # C# 
 
