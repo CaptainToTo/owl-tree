@@ -76,7 +76,7 @@ public static class Huffman
 
         public int Size()
         {
-            return 1 + (left?.Size() ?? 0) + (right?.Size() ?? 0);
+            return (!isLeaf ? 1 : 8) + (left?.Size() ?? 0) + (right?.Size() ?? 0);
         }
 
         public bool IsEqual(Node other)
@@ -162,8 +162,8 @@ public static class Huffman
         var compression = Compress(bytes, table, out var bitLen);
 
         var size = tree.Size();
-        if (bytes.Length < 13 + (size * 2) + (bitLen / 8) + 1)
-            return;
+        if (bytes.Length < 13 + (size / 8) + (bitLen / 8) + 2)
+            return;// throw new Exception($"tree size is {(size/8) + 1}, compression size is {compression.Length}");
 
         packet.header.compressionEnabled = true;
         BitConverter.TryWriteBytes(bytes, bytes.Length);

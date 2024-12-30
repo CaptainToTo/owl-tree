@@ -24,7 +24,7 @@ public class PacketTests
         var final = packet.GetPacket();
 
         var packet2 = new Packet(50);
-        packet2.FromBytes(final.ToArray());
+        packet2.FromBytes(final.ToArray(), 0);
 
         Assert.True(packet2.header.owlTreeVer == packet.header.owlTreeVer, 
             "owl tree ver mismatch (r, s): " + packet2.header.owlTreeVer + ", " + packet.header.owlTreeVer);
@@ -75,7 +75,7 @@ public class PacketTests
         int iters = 0;
         do {
             var readBuffer = final.Slice(iters * 50, Math.Min(final.Length - (iters * 50), 50)).ToArray();
-            readPacket.FromBytes(readBuffer);
+            readPacket.FromBytes(readBuffer, 0);
             iters++;
         } while (readPacket.Incomplete);
 
@@ -126,7 +126,7 @@ public class PacketTests
         int iters = 0;
         do {
             var readBuffer = final;
-            readPacket.FromBytes(readBuffer);
+            readPacket.FromBytes(readBuffer, 0);
             iters++;
         } while (readPacket.Incomplete);
 

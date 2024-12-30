@@ -32,4 +32,38 @@ public class HuffmanTests
 
         Assert.Fail("\n" + BitConverter.ToString(bytes1) + "\n\n" + BitConverter.ToString(bytes3) + "\n\n" + BitConverter.ToString(bytes2));
     }
+
+    [Fact]
+    public void QuantizationTest()
+    {
+        var noQuant = new Packet(6000);
+        var withQuant = new Packet(6000);
+
+        var bytes1 = noQuant.GetSpan(4 * 600);
+        var bytes2 = withQuant.GetSpan(600);
+        var rand = new Random();
+        var floats = new float[20];
+        for (int i = 0; i < floats.Length; i++)
+        {
+            floats[i] = rand.NextSingle();
+        }
+
+        for (int i = 0; i < bytes2.Length; i++)
+        {
+            var next = floats[i % floats.Length];
+            BitConverter.TryWriteBytes(bytes1.Slice(i * 4), next);
+            bytes2[i] = (byte)(next * 255);
+        }
+
+        var originalPacket = noQuant.GetPacket().ToArray();
+        var quantPacket = withQuant.GetPacket().ToArray();
+
+        Huffman.Encode(noQuant);
+        Huffman.Encode(withQuant);
+
+        var compressed = noQuant.GetPacket().ToArray();
+        var compWithQuant = withQuant.GetPacket().ToArray();
+
+        Assert.Fail($"Results:\n   Original: {originalPacket.Length} vs {quantPacket.Length}\n   Compress: {compressed.Length} vs {compWithQuant.Length}\n   Factor: {(float)compressed.Length / originalPacket.Length} vs {(float)compWithQuant.Length / quantPacket.Length}\n");
+    }
 }
