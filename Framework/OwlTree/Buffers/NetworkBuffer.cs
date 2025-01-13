@@ -126,7 +126,7 @@ namespace OwlTree
             public string appId;
 
             public string addr;
-            public int tcpPort;
+            public int serverTcpPort;
             public int serverUdpPort;
 
             public int bufferSize;
@@ -147,10 +147,13 @@ namespace OwlTree
         protected Packet ReadPacket;
 
         // ip and port number this client is bound to
-        public int TcpPort { get; private set; } 
-        public int ServerUdpPort { get; private set; }
-        public int ClientUdpPort { get; private set; }
+        public int ServerTcpPort { get; protected set; } 
+        public int ServerUdpPort { get; protected set; }
         public IPAddress Address { get; private set; }
+
+        public abstract int LocalTcpPort();
+
+        public abstract int LocalUdpPort();
 
         public ushort OwlTreeVersion { get; private set; }
         public ushort MinOwlTreeVersion { get; private set; }
@@ -179,7 +182,7 @@ namespace OwlTree
             ApplicationId = new AppId(args.appId);
 
             Address = IPAddress.Parse(args.addr);
-            TcpPort = args.tcpPort;
+            ServerTcpPort = args.serverTcpPort;
             ServerUdpPort = args.serverUdpPort;
             BufferSize = args.bufferSize;
             ReadBuffer = new byte[BufferSize];
@@ -284,9 +287,11 @@ namespace OwlTree
         /// <summary>
         /// True if there are messages that are waiting to be sent.
         /// </summary>
-        public bool HasOutgoing { get { return _outgoing.Count > 0 || HasClientEvent; } }
+        public bool HasOutgoing { get { return _outgoing.Count > 0 || HasClientEvent || HasRelayMessages; } }
 
         protected bool HasClientEvent = false;
+
+        protected bool HasRelayMessages = false;
         
         /// <summary>
         /// Get the next message in the read queue.

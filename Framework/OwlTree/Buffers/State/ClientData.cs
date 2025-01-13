@@ -18,6 +18,8 @@ namespace OwlTree
         public Packet udpPacket;
         public IPEndPoint udpEndPoint;
 
+        public IPAddress Address => udpEndPoint.Address;
+
         /// <summary>
         /// Represents an empty client data instance.
         /// </summary>

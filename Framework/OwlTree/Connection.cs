@@ -1,7 +1,9 @@
 
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -58,7 +60,7 @@ namespace OwlTree
             /// <summary>
             /// The port the server will listen to for UDP packets. <b>Default = 9000</b>
             /// </summary>
-            public int serverUdpPort = 9000;
+            public int udpPort = 9000;
             /// <summary>
             /// The maximum number of clients the server will allow to be connected at once.
             /// <b>Default = 4</b>
@@ -76,6 +78,13 @@ namespace OwlTree
             /// <b>Default = false</b>
             /// </summary>
             public bool migratable = false;
+            /// <summary>
+            /// Whether or not to automatically shutdown a relay connection if it becomes empty after
+            /// the host disconnects. If false, then the relay must also allow host migration. This is 
+            /// controlled with the <c>migratable</c> argument, and will be set to true for you.
+            /// <b>Default = true</b>
+            /// </summary>
+            public bool shutdownWhenEmpty = true;
             /// <summary>
             /// Provide a server a list of IP addresses that will be the only IPs allowed to connect as clients.
             /// If left as null, then any IP address will be allowed to connect.
@@ -136,8 +145,25 @@ namespace OwlTree
             /// A unique, max 64 ASCII character id used for simple client verification. <b>Default = "MyOwlTreeApp"</b>
             /// </summary>
             public string appId = "MyOwlTreeApp";
+            
+            /// <summary>
+            /// A unique, max 64 ASCII character id used to distinguish different sessions of the same app. <b>Default = "MyAppSession"</b>
+            /// </summary>
+            public string sessionId = "MyAppSession";
 
             // buffer transformers
+
+            /// <summary>
+            /// Records how much data is being send and received. Adds a read step with a priority of 0, and a send step with a priority of 200.
+            /// <b>Default = false</b>
+            /// </summary>
+            public bool measureBandwidth = false;
+
+            /// <summary>
+            /// A callback to output bandwidth recordings.
+            /// <b>Default = printer</b>
+            /// </summary>
+            public Action<Bandwidth> bandwidthReporter = null;
 
             /// <summary>
             /// Add custom transformers that will be apply to data read from sockets. Steps will be sorted by priority, least to greatest,
@@ -214,8 +240,8 @@ namespace OwlTree
                 minAppVer = args.minAppVersion,
                 appId = args.appId,
                 addr = args.serverAddr,
-                tcpPort = args.tcpPort,
-                serverUdpPort = args.serverUdpPort,
+                serverTcpPort = args.tcpPort,
+                serverUdpPort = args.udpPort,
                 bufferSize = args.bufferSize,
                 encoder = EncodeRpc,
                 decoder = TryDecodeRpc,
@@ -229,7 +255,7 @@ namespace OwlTree
                     IsReady = true;
                     break;
                 case Role.Relay:
-                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable, args.whitelist);
+                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable, args.shutdownWhenEmpty, args.whitelist);
                     IsReady = true;
                     break;
                 case Role.Client:
@@ -268,16 +294,35 @@ namespace OwlTree
                 };
             }
 
+            _buffer.AddReadStep(new NetworkBuffer.Transformer{
+                priority = 100,
+                step = Huffman.Decode
+            });
             if (args.useCompression)
             {
-                _buffer.AddReadStep(new NetworkBuffer.Transformer{
-                    priority = 100,
-                    step = Huffman.Decode
-                });
-
                 _buffer.AddSendStep(new NetworkBuffer.Transformer{
                     priority = 100,
                     step = Huffman.Encode
+                });
+            }
+
+            if (args.measureBandwidth)
+            {
+                Bandwidth = new Bandwidth(args.bandwidthReporter == null ? (b) => {
+                    var str = $"Bandwidth report at {DateTimeOffset.Now.ToUnixTimeMilliseconds()}:\n";
+                    str += $"   Incoming: {b.IncomingKbPerSecond()} KB/s\n";
+                    str += $"   Outgoing: {b.OutgoingKbPerSecond()} KB/s";
+                    _logger.Write(str);
+                } : args.bandwidthReporter);
+
+                _buffer.AddReadStep(new NetworkBuffer.Transformer{
+                    priority = 0,
+                    step = Bandwidth.RecordIncoming
+                });
+
+                _buffer.AddSendStep(new NetworkBuffer.Transformer{
+                    priority = 200,
+                    step = Bandwidth.RecordOutgoing
                 });
             }
 
@@ -306,6 +351,10 @@ namespace OwlTree
         public RpcProtocols Protocols { get; private set; }
 
         private Logger _logger;
+
+        public void Log(string message) => _logger.Write(message);
+
+        public Bandwidth Bandwidth { get; private set; } = null;
 
         private Thread _bufferThread = null;
 
@@ -373,6 +422,18 @@ namespace OwlTree
         /// </summary>
         public bool IsRelay { get => NetRole == Role.Relay; }
 
+        public int ServerTcpPort { get => _buffer.ServerTcpPort; }
+
+        public int ServerUdpPort { get => _buffer.ServerUdpPort; }
+
+        public int LocalTcpPort { get => _buffer.LocalTcpPort(); }
+
+        public int LocalUdpPort { get => _buffer.LocalUdpPort(); }
+
+        public string AppId { get; private set; }
+
+        public string SessionId { get; private set; }
+
         private NetworkBuffer _buffer;
 
         private enum ConnectionEventType
@@ -393,6 +454,8 @@ namespace OwlTree
         /// The number of connected clients.
         /// </summary>
         public int ClientCount => _clients.Count;
+
+        public int MaxClients { get; private set; }
 
         /// <summary>
         /// Iterable of all connected clients.
@@ -560,9 +623,9 @@ namespace OwlTree
                         break;
                     case ConnectionEventType.OnHostMigration:
                         Authority = result.id;
-                        if (NetRole == Role.Host)
+                        if (NetRole == Role.Host && Authority != LocalId)
                             NetRole = Role.Client;
-                        if (result.id == LocalId)
+                        if (NetRole != Role.Relay && result.id == LocalId)
                             NetRole = Role.Host;
                         if (_logger.includes.clientEvents)
                             _logger.Write("Host migrated, new authority is: " + result.id.ToString());
@@ -607,6 +670,22 @@ namespace OwlTree
                         if (_logger.includes.exceptions)
                             _logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
                     }
+                }
+            }
+
+            for (int i = 0; i < _idSearches.Count; i++)
+            {
+                var search = _idSearches[i];
+                try {
+                    if (search.SearchForObject(this))
+                    {
+                        _idSearches.RemoveAt(i);
+                        i--;
+                    }
+                }
+                catch (Exception e) {
+                    if (_logger.includes.exceptions)
+                        _logger.Write($"FAILED to find object with id {search.Id()}, threw exception:\n{e}");
                 }
             }
         }
@@ -717,14 +796,15 @@ namespace OwlTree
                 try
                 {
                     message.bytes = new byte[NetworkSpawner.SpawnByteLength];
-                    _spawner.SpawnEncode(message.bytes, (Type)message.args[0], (NetworkId)message.args[1]);
+                    _spawner.SpawnEncode(message.bytes, (Type)args[0], (NetworkId)args[1]);
                     if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)message.args[0], (NetworkId)message.args[1]));
+                        _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)args[0], (NetworkId)args[1]));
                 }
                 catch (Exception e)
                 {
                     if (_logger.includes.exceptions)
-                        _logger.Write($"Failed to encode spawn instruction. Thrown exception:\n{e}");
+                        _logger.Write($"FAILED to encode spawn instruction. Thrown exception:\n{e}");
+                    return;
                 }
             }
             else if (message.rpcId == RpcId.NETWORK_OBJECT_DESPAWN)
@@ -732,21 +812,22 @@ namespace OwlTree
                 try
                 {
                     message.bytes = new byte[NetworkSpawner.DespawnByteLength];
-                    _spawner.DespawnEncode(message.bytes, (NetworkId)message.args[0]);
+                    _spawner.DespawnEncode(message.bytes, (NetworkId)args[0]);
                     if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)message.args[0]));
+                        _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
                 }
                 catch (Exception e)
                 {
                     if (_logger.includes.exceptions)
-                        _logger.Write($"Failed to encode despawn instruction. Thrown exception:\n{e}");
+                        _logger.Write($"FAILED to encode despawn instruction. Thrown exception:\n{e}");
+                    return;
                 }
             }
             else
             {
                 try
                 {
-                    message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, message.args)];
+                    message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, args)];
                     Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
                     if (_logger.includes.rpcCalls)
                     {
@@ -763,8 +844,9 @@ namespace OwlTree
                         var str = new StringBuilder();
                         for (int i = 0; i < args.Length; i++)
                             str.Append($"{i + 1}: {args[i]}\n");
-                        _logger.Write($"Failed to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
+                        _logger.Write($"FAILED to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
                     }
+                    return;
                 }
             }
 
@@ -881,6 +963,19 @@ namespace OwlTree
                 throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
             return _spawner.TryGetObject(id, out obj);
         }
+
+        public bool TryGetObject<T>(NetworkId id, out T objT) where T : NetworkObject
+        {
+            if (IsRelay)
+                throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
+            if (_spawner.TryGetObject(id, out var obj) && obj is T)
+            {
+                objT = (T)obj;
+                return true;
+            }
+            objT = null;
+            return false;
+        }
         
         /// <summary>
         /// Get an object with the given id. Returns null if none exist.
@@ -890,6 +985,14 @@ namespace OwlTree
             if (IsRelay)
                 throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
             return _spawner.GetNetworkObject(id);
+        }
+
+        public T GetNetworkObject<T>(NetworkId id) where T : NetworkObject
+        {
+            if (IsRelay)
+                throw new InvalidOperationException("Relay servers do not manage any state beyond client connections, no network objects exist on this connection.");
+            var obj = _spawner.GetNetworkObject(id);
+            return obj is T ? (T)obj : null;
         }
 
         /// <summary>
@@ -908,7 +1011,7 @@ namespace OwlTree
         /// <summary>
         /// Spawns a new instance of the given NetworkObject sub-type across all clients.
         /// </summary>
-        public object Spawn(Type t)
+        public NetworkObject Spawn(Type t)
         {
             if (IsClient)
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
@@ -927,6 +1030,188 @@ namespace OwlTree
             else if (IsRelay)
                 throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
             _spawner.Despawn(target);
+        }
+
+        private struct Pair
+        {
+            public Type k;
+            public Type v;
+
+            public Pair(Type k, Type v)
+            {
+                this.k = k;
+                this.v = v;
+            }
+
+            public static bool operator ==(Pair a, Pair b)
+            {
+                return a.k == b.k && a.v == b.v;
+            }
+
+            public static bool operator !=(Pair a, Pair b)
+            {
+                return a.k != b.k || a.v != b.v;
+            }
+
+            public override bool Equals(object obj) => obj != null && obj.GetType() == typeof(Pair) && (Pair)obj == this;
+            public override int GetHashCode() => base.GetHashCode();
+        }
+
+        private Dictionary<Pair, IDictionary> _objectMaps = new();
+
+        public void AddObjectMap<K, V>()
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair))
+                _objectMaps.Add(pair, new Dictionary<K, V>());
+        }
+
+        public void AddObjectToMap<K, V>(K key, V val)
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair))
+                throw new InvalidOperationException($"No map has pairing {typeof(K)}: {typeof(V)}");
+            _objectMaps[pair][key] = val;
+        }
+
+        public bool TryGetObject<K, V>(K key, out V val)
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair) || !_objectMaps[pair].Contains(key))
+            {
+                val = default;
+                return false;
+            }
+            val = (V)_objectMaps[pair][key];
+            return true;
+        }
+
+        public bool TryGetObject(Type k, object key, out object val)
+        {
+            var map = _objectMaps.FirstOrDefault(m => m.Key.k == k).Value;
+            if (map == null || map.Contains(key))
+            {
+                val = default;
+                return false;
+            }
+            val = map[key];
+            return true;
+        }
+
+        public V GetObject<K, V>(K key)
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair) || !_objectMaps[pair].Contains(key))
+                return default;
+            return (V)_objectMaps[pair][key];
+        }
+
+        public bool HasKey<K>(K key)
+        {
+            var t = typeof(K);
+            var map = _objectMaps.FirstOrDefault(m => m.Key.k == t).Value;
+            if (map == null)
+                return false;
+            return map.Contains(key);
+        }
+
+        public IEnumerable<V> GetObjects<K, V>()
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair))
+                throw new ArgumentException($"No map has pairing {typeof(K)}: {typeof(V)}");
+            return _objectMaps[pair].Cast<KeyValuePair<K, V>>().Select(p => p.Value);
+        }
+
+        public void RemoveObject<K>(K key)
+        {
+            var t = typeof(K);
+            var map = _objectMaps.FirstOrDefault(m => m.Key.k == t).Value;
+            if (map == null)
+                return;
+            map.Remove(key);
+        }
+
+        public void ClearMap<K, V>()
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair))
+                return;
+            _objectMaps[pair].Clear();
+        }
+
+        public void RemoveMap<K, V>()
+        {
+            var pair = new Pair(typeof(K), typeof(V));
+            if (!_objectMaps.ContainsKey(pair))
+                return;
+            _objectMaps.Remove(pair);
+        }
+
+        private interface ISearch
+        {
+            public object Id();
+            public bool SearchForObject(Connection connection);
+        }
+
+        private struct NetSearch : ISearch
+        {
+            public NetworkId id;
+            public Action<NetworkObject> callback;
+
+            public NetSearch(NetworkId id, Action<NetworkObject> callback)
+            {
+                this.id = id;
+                this.callback = callback;
+            }
+
+            public object Id() => id;
+
+            public bool SearchForObject(Connection connection)
+            {
+                if (connection.TryGetObject(id, out var obj))
+                {
+                    callback.Invoke(obj);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        private struct IdSearch<K, V> : ISearch
+        {
+            public K id;
+            public Action<V> callback;
+
+            public IdSearch(K id, Action<V> callback)
+            {
+                this.id = id;
+                this.callback = callback;
+            }
+
+            public object Id() => id;
+
+            public bool SearchForObject(Connection connection)
+            {
+                if (connection.TryGetObject(id, out V obj))
+                {
+                    callback.Invoke(obj);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        private List<ISearch> _idSearches = new();
+
+        public void WaitForObject(NetworkId id, Action<NetworkObject> callback)
+        {
+            _idSearches.Add(new NetSearch(id, callback));
+        }
+
+        public void WaitForObject<K, V>(K id, Action<V> callback)
+        {
+            _idSearches.Add(new IdSearch<K, V>(id, callback));
         }
     }
 }

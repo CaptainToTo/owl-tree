@@ -212,7 +212,6 @@ namespace OwlTree
             foreach (var obj in netObjs)
             {
                 obj.SetActiveInternal(false);
-                _netObjects.Remove(obj.Id);
                 obj.OnDespawn();
             }
             _netObjects.Clear();
