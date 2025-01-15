@@ -45,12 +45,12 @@ namespace OwlTree.Generator
         private static void SolveConstValues(SourceProductionContext context, IEnumerable<FieldDeclarationSyntax> fields)
         {
             // add built in first id consts
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcId, (int)Helpers.FIRST_RPC_ID);
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithClass, (int)Helpers.FIRST_RPC_ID);
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithNamespace, (int)Helpers.FIRST_RPC_ID);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeId, (int)Helpers.FIRST_TYPE_ID);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithClass, (int)Helpers.FIRST_TYPE_ID);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithNamespace, (int)Helpers.FIRST_TYPE_ID);
+            GeneratorState.AddConst(Helpers.Tk_FirstRpcId, (int)Helpers.FirstRpcId);
+            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithClass, (int)Helpers.FirstRpcId);
+            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithNamespace, (int)Helpers.FirstRpcId);
+            GeneratorState.AddConst(Helpers.Tk_FirstTypeId, (int)Helpers.FirstTypeId);
+            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithClass, (int)Helpers.FirstTypeId);
+            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithNamespace, (int)Helpers.FirstTypeId);
 
             var names = new List<string>();
             foreach (var field in fields)

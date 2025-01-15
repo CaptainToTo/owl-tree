@@ -9,12 +9,14 @@ namespace OwlTree
     /// </summary>
     public struct ClientId : IEncodable
     {
+        public const int MaxByteLength = 4;
+
         /// <summary>
         /// Basic function signature for passing ClientIds.
         /// </summary>
         public delegate void Delegate(ClientId id);
 
-        public const UInt32 FIRST_CLIENT_ID = 1;
+        public const UInt32 FirstClientId = 1;
 
         // the actual id
         private UInt32 _id;
@@ -39,15 +41,15 @@ namespace OwlTree
         /// <summary>
         /// The id value.
         /// </summary>
-        public uint Id { get { return _id; } }
+        public uint Id => _id;
 
         /// <summary>
         /// Gets the client id from the given bytes.
         /// </summary>
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            if (bytes.Length < 4)
-                throw new ArgumentException("Span must have 4 bytes to decode a ClientId from.");
+            if (bytes.Length < MaxByteLength)
+                throw new ArgumentException($"Span must have {MaxByteLength} bytes to decode a ClientId from.");
 
             _id = BitConverter.ToUInt32(bytes);
         }
@@ -57,12 +59,12 @@ namespace OwlTree
         /// </summary>
         public void InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < 4)
+            if (bytes.Length < MaxByteLength)
                 return;
             BitConverter.TryWriteBytes(bytes, _id);
         }
 
-        public int ByteLength() { return 4; }
+        public int ByteLength() => MaxByteLength;
 
         /// <summary>
         /// The client id used to signal that there is no client. Id value is 0.
@@ -97,11 +99,6 @@ namespace OwlTree
         public override int GetHashCode()
         {
             return _id.GetHashCode();
-        }
-
-        public static int MaxLength()
-        {
-            return 4;
         }
     }
 }

@@ -9,40 +9,47 @@ namespace OwlTree
     public struct ConnectionRequest : IEncodable
     {
         /// <summary>
-        /// The AppId associated with this connection.
+        /// The app id associated with this connection.
         /// </summary>
-        public AppId appId;
+        public StringId appId;
+        /// <summary>
+        /// The session id associated with this connection.
+        /// </summary>
+        public StringId sessionId;
         /// <summary>
         /// True if the connecting client is a host.
         /// </summary>
         public bool isHost;
 
-        public ConnectionRequest(AppId id, bool host)
+        public ConnectionRequest(StringId app, StringId session, bool host)
         {
-            appId = id;
+            appId = app;
+            sessionId = session;
             isHost = host;
         }
 
         public int ByteLength()
         {
-            return appId.ByteLength() + 1;
+            return appId.ByteLength() + sessionId.ByteLength() + 1;
         }
 
         public static int MaxLength()
         {
-            return AppId.MaxLength() + 1;
+            return StringId.MaxByteLength + StringId.MaxByteLength + 1;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
             appId.FromBytes(bytes);
-            isHost = bytes[appId.ByteLength()] == 1;
+            sessionId.FromBytes(bytes.Slice(appId.ByteLength()));
+            isHost = bytes[appId.ByteLength() + sessionId.ByteLength()] == 1;
         }
 
         public void InsertBytes(Span<byte> bytes)
         {
             appId.InsertBytes(bytes);
-            bytes[appId.ByteLength()] = (byte)(isHost ? 1 : 0);
+            sessionId.InsertBytes(bytes.Slice(appId.ByteLength()));
+            bytes[appId.ByteLength() + sessionId.ByteLength()] = (byte)(isHost ? 1 : 0);
         }
     }
 
@@ -98,11 +105,17 @@ namespace OwlTree
         /// </summary>
         public uint assignedHash;
 
-        public ClientIdAssignment(ClientId assigned, ClientId authority, uint hash)
+        /// <summary>
+        /// The max number of clients allowed in this session at once.
+        /// </summary>
+        public int maxClients;
+
+        public ClientIdAssignment(ClientId assigned, ClientId authority, uint hash, int maxClients)
         {
             assignedId = assigned;
             authorityId = authority;
             assignedHash = hash;
+            this.maxClients = maxClients;
         }
 
         public ClientIdAssignment(ReadOnlySpan<byte> bytes)
@@ -110,17 +123,18 @@ namespace OwlTree
             assignedId = ClientId.None;
             authorityId = ClientId.None;
             assignedHash = 0;
+            maxClients = int.MaxValue;
             FromBytes(bytes);
         }
 
         public static int MaxLength()
         {
-            return ClientId.MaxLength() + ClientId.MaxLength() + 4;
+            return ClientId.MaxByteLength + ClientId.MaxByteLength + 4 + 4;
         }
 
         public int ByteLength()
         {
-            return assignedId.ByteLength() + authorityId.ByteLength() + 4;
+            return assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
@@ -128,6 +142,7 @@ namespace OwlTree
             assignedId.FromBytes(bytes);
             authorityId.FromBytes(bytes.Slice(assignedId.ByteLength()));
             assignedHash = BitConverter.ToUInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()));
+            maxClients = BitConverter.ToInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4));
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -135,6 +150,7 @@ namespace OwlTree
             assignedId.InsertBytes(bytes);
             authorityId.InsertBytes(bytes.Slice(assignedId.ByteLength()));
             BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()), assignedHash);
+            BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4), maxClients);
         }
     }
 }

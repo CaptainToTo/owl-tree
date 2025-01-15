@@ -1,5 +1,6 @@
 
 
+using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -42,7 +43,8 @@ namespace OwlTree.Generator
             NonStaticRegistry,
             NonEncodableRpcParam,
             NonClientIdRpcCallee,
-            NonClientIdRpcCaller
+            NonClientIdRpcCaller,
+            InvalidLoopbackRpc
         }
 
         public static string GetId(Ids id)
@@ -255,6 +257,22 @@ namespace OwlTree.Generator
                     isEnabledByDefault: true),
                 p.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText);
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        internal static void InvalidLoopbackRpc(SourceProductionContext context, MethodDeclarationSyntax m, AttributeSyntax attr)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.InvalidLoopbackRpc),
+                    "Invalid Loopback RPC",
+                    "RPC method '{0}' has a caller and callee that will result a loopback message, only executing on the caller.",
+                    Cat_Syntax,
+                    DiagnosticSeverity.Error,
+                    isEnabledByDefault: true),
+                attr.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m));
 
             context.ReportDiagnostic(diagnostic);
         }

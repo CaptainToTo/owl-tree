@@ -40,13 +40,14 @@ namespace OwlTree
     }
 
     /// <summary>
-    /// Manages a list of ClientData.
+    /// Manages a list of ClientData. Used by servers to keep track of all data associated 
+    /// with each client at the socket level.
     /// </summary>
     internal class ClientDataList : IEnumerable<ClientData>
     {
         private List<ClientData> _data = new();
 
-        private uint _curId = ClientId.FIRST_CLIENT_ID;
+        private uint _curId = ClientId.FirstClientId;
         private ClientId NextClientId()
         {
             var id = new ClientId(_curId);
@@ -74,6 +75,9 @@ namespace OwlTree
 
         public int Count => _data.Count;
 
+        /// <summary>
+        /// Creates new client data, including packet buffers, client id, and hash.
+        /// </summary>
         public ClientData Add(Socket tcpSocket, IPEndPoint udpEndPoint)
         {
             var data = new ClientData() {
@@ -88,6 +92,9 @@ namespace OwlTree
             return data;
         }
 
+        /// <summary>
+        /// Remove client data from this list. Use when a client disconnects.
+        /// </summary>
         public void Remove(ClientData data) 
         {
             for (int i = 0; i < _data.Count; i++)
@@ -128,6 +135,9 @@ namespace OwlTree
             return ClientData.None;
         }
 
+        /// <summary>
+        /// Returns an array of client ids currently in the list.
+        /// </summary>
         public ClientId[] GetIds()
         {
             ClientId[] ids = new ClientId[_data.Count];

@@ -160,11 +160,13 @@ namespace OwlTree.Generator
             }
         }
 
-        public enum RpcCaller
+        public enum RpcPerms
         {
-            Server,
-            Client,
-            Any
+            AuthorityToClients,
+            ClientsToAuthority,
+            ClientsToClients,
+            ClientsToAll,
+            AnyToAll
         }
 
         public class RpcData
@@ -172,7 +174,7 @@ namespace OwlTree.Generator
             public uint id;
             public string name;
             public string parentClass;
-            public RpcCaller caller;
+            public RpcPerms perms;
             public bool invokeOnCaller;
             public bool useTcp;
             public ParamData[] paramData;
@@ -186,7 +188,7 @@ namespace OwlTree.Generator
     id: {id}
     name: {name}
     class: {parentClass}
-    caller: {caller}
+    caller: {perms}
     invoke on caller: {invokeOnCaller}
     protocol: {(useTcp ? "TCP" : "UDP")}
     params: 

@@ -13,7 +13,7 @@ public interface IVariableLength
     /// <summary>
     /// The number of bytes an IVariableLength length number will take up in the encoding.
     /// </summary>
-    internal const int LENGTH_ENCODING = 4;
+    internal const int LengthEncoding = 4;
 
     internal static void InsertLength(Span<byte> bytes, int length)
     {

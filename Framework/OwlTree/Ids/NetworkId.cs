@@ -7,7 +7,14 @@ namespace OwlTree
     /// </summary>
     public struct NetworkId : IEncodable
     {
-        public const UInt32 FIRST_NETWORK_ID = 1;
+        public const int MaxByteLength = 4;
+
+        /// <summary>
+        /// Basic function signature for passing NetworkIds.
+        /// </summary>
+        public delegate void Delegate(NetworkId id);
+
+        public const UInt32 FirstNetworkId = 1;
 
         // the actual id
         private UInt32 _id;
@@ -32,15 +39,15 @@ namespace OwlTree
         /// <summary>
         /// The id value.
         /// </summary>
-        public uint Id { get { return _id; } }
+        public uint Id => _id;
 
         /// <summary>
         /// Gets the network id from the given bytes.
         /// </summary>
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            if (bytes.Length < 4)
-                throw new ArgumentException("Span must have 4 bytes from ind to decode a ClientId from.");
+            if (bytes.Length < MaxByteLength)
+                throw new ArgumentException($"Span must have {MaxByteLength} bytes from ind to decode a ClientId from.");
 
             _id = BitConverter.ToUInt32(bytes);
         }
@@ -50,12 +57,12 @@ namespace OwlTree
         /// </summary>
         public void InsertBytes(Span<byte> bytes)
         {
-            if (bytes.Length < 4)
+            if (bytes.Length < MaxByteLength)
                 return;
             BitConverter.TryWriteBytes(bytes, _id);
         }
 
-        public int ByteLength() { return 4; }
+        public int ByteLength() => MaxByteLength;
 
         /// <summary>
         /// The network object id used to signal that there is no object. Id value is 0.
@@ -90,11 +97,6 @@ namespace OwlTree
         public override int GetHashCode()
         {
             return _id.GetHashCode();
-        }
-
-        public static int MaxLength()
-        {
-            return 4;
         }
     }
 }

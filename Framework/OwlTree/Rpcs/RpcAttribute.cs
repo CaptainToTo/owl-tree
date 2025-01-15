@@ -6,33 +6,45 @@ namespace OwlTree
     /// <summary>
     /// Who is allowed to call the RPC.
     /// </summary>
-    public enum RpcCaller
+    public enum RpcPerms
     {
         /// <summary>
-        /// Only the server is allowed to call this RPC, meaning it will be executed on clients.
+        /// Only the authority, whether server or host, is allowed to call this RPC.
+        /// It can be sent any and all clients.
         /// </summary>
-        Server,
+        AuthorityToClients,
         /// <summary>
-        /// Only clients are allowed to call this RPC, meaning it will be executed on the server.
+        /// Only clients are allowed to call this RPC.
+        /// It can only be sent to the authority.
         /// </summary>
-        Client,
+        ClientsToAuthority,
         /// <summary>
-        /// Both server and client connections can call this RPC.
+        /// Only clients are allowed to call this RPC.
+        /// It cannot be sent to the authority, only to other clients.
         /// </summary>
-        Any
+        ClientsToClients,
+        /// <summary>
+        /// Only clients are allowed to call this RPC.
+        /// It can be sent to every- and anyone.
+        /// </summary>
+        ClientsToAll,
+        /// <summary>
+        /// Anyone can call this RPC, and send it to every- and anyone.
+        /// </summary>
+        AnyToAll
     }
 
     /// <summary>
     /// Provides the callee the ClientId of the caller.
     /// </summary>
     [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
-    public class RpcCallerAttribute : Attribute { }
+    public class CallerIdAttribute : Attribute { }
 
     /// <summary>
     /// Provides the caller a way to specify a specific client as the callee.
     /// </summary>
     [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
-    public class RpcCalleeAttribute : Attribute { }
+    public class CalleeIdAttribute : Attribute { }
 
     /// <summary>
     /// Manually assign an id value to RPCs.
@@ -61,12 +73,12 @@ namespace OwlTree
     public class IdRegistryAttribute : Attribute { }
 
     /// <summary>
-    /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
+    /// Tag a method as an RPC. All parameters must be encodable, the method must be virtual, and the return type must be void.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public class RpcAttribute : Attribute
     {
-        public RpcCaller caller = RpcCaller.Any;
+        public RpcPerms caller = RpcPerms.AnyToAll;
 
         /// <summary>
         /// Whether this RPC is delivered through TCP or UDP.
@@ -79,9 +91,9 @@ namespace OwlTree
         public bool InvokeOnCaller = false;
 
         /// <summary>
-        /// Tag a method as an RPC. All parameters must be encodable as a byte array, and the return type must be void.
+        /// Tag a method as an RPC. All parameters must be encodable, the method must be virtual, and the return type must be void.
         /// </summary>
-        public RpcAttribute(RpcCaller caller = RpcCaller.Any)
+        public RpcAttribute(RpcPerms caller = RpcPerms.AnyToAll)
         {
             this.caller = caller;
         }

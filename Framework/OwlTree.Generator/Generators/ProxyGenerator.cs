@@ -274,7 +274,7 @@ namespace OwlTree.Generator
                                             InitializerExpression(
                                                 SyntaxKind.ArrayInitializerExpression,
                                                 SeparatedList<ExpressionSyntax>(CreateArgArray(m))))))))),
-                        // int calleeArg = Connection.Protocols.GetRpcCalleeParam(RpcId);
+                        // int calleeArg = Connection.Protocols.GetCalleeIdParam(RpcId);
                         LocalDeclarationStatement(
                         VariableDeclaration(
                             PredefinedType(
@@ -292,7 +292,7 @@ namespace OwlTree.Generator
                                                     SyntaxKind.SimpleMemberAccessExpression,
                                                     IdentifierName(Helpers.MTk_Connection),
                                                     IdentifierName(Helpers.MTk_ConnectionProtocols)),
-                                                IdentifierName(Helpers.Tk_GetRpcCalleeParam)))
+                                                IdentifierName(Helpers.Tk_GetCalleeIdParam)))
                                         .WithArgumentList(
                                             ArgumentList(
                                                 SingletonSeparatedList<ArgumentSyntax>(
@@ -502,7 +502,7 @@ namespace OwlTree.Generator
             {
                 if (i % 2 == 0)
                 {
-                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCaller))
+                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCallerId))
                     {
                         arr[i] = MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
@@ -529,7 +529,7 @@ namespace OwlTree.Generator
             for (int i = 0; i < arr.Length; i++)
             {
                 if (i % 2 == 0)
-                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCaller))
+                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCallerId))
                     {
                         arr[i] = Argument(MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,

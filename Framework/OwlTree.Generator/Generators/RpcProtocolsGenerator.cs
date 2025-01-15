@@ -12,9 +12,9 @@ namespace OwlTree.Generator
     public static class RpcProtocolsGenerator
     {
         private static List<SwitchSectionSyntax> _getProtocol = new();
-        private static List<SwitchSectionSyntax> _getRpcCaller = new();
-        private static List<SwitchSectionSyntax> _getRpcCallerParam = new();
-        private static List<SwitchSectionSyntax> _getRpcCalleeParam = new();
+        private static List<SwitchSectionSyntax> _getRpcPerms = new();
+        private static List<SwitchSectionSyntax> _getCallerIdParam = new();
+        private static List<SwitchSectionSyntax> _getCalleeIdParam = new();
         private static List<SwitchSectionSyntax> _getRpcName = new();
         private static List<SwitchSectionSyntax> _getRpcParamName = new();
         private static List<SwitchSectionSyntax> _getSendProtocol = new();
@@ -25,9 +25,9 @@ namespace OwlTree.Generator
         public static void Reset()
         {
             _getProtocol.Clear();
-            _getRpcCaller.Clear();
-            _getRpcCallerParam.Clear();
-            _getRpcCalleeParam.Clear();
+            _getRpcPerms.Clear();
+            _getCallerIdParam.Clear();
+            _getCalleeIdParam.Clear();
             _getRpcName.Clear();
             _getRpcParamName.Clear();
             _getSendProtocol.Clear();
@@ -48,7 +48,7 @@ namespace OwlTree.Generator
                                 LiteralExpression(
                                     SyntaxKind.NullLiteralExpression)))));
             
-            _getRpcCaller.Add(SwitchSection()
+            _getRpcPerms.Add(SwitchSection()
                     .WithLabels(
                         SingletonList<SwitchLabelSyntax>(
                             DefaultSwitchLabel()))
@@ -57,10 +57,10 @@ namespace OwlTree.Generator
                             ReturnStatement(
                                 MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
-                                    IdentifierName(Helpers.Tk_RpcCaller),
+                                    IdentifierName(Helpers.Tk_RpcPerms),
                                     IdentifierName(Helpers.Tk_AnyCaller))))));
             
-            _getRpcCalleeParam.Add(SwitchSection()
+            _getCalleeIdParam.Add(SwitchSection()
                     .WithLabels(
                         SingletonList<SwitchLabelSyntax>(
                             DefaultSwitchLabel()))
@@ -73,7 +73,7 @@ namespace OwlTree.Generator
                                         SyntaxKind.NumericLiteralExpression,
                                         Literal(1)))))));
             
-            _getRpcCallerParam.Add(SwitchSection()
+            _getCallerIdParam.Add(SwitchSection()
                     .WithLabels(
                         SingletonList<SwitchLabelSyntax>(
                             DefaultSwitchLabel()))
@@ -223,7 +223,7 @@ namespace OwlTree.Generator
                                 MethodDeclaration(
                                     PredefinedType(
                                         Token(SyntaxKind.IntKeyword)),
-                                    Identifier(Helpers.Tk_GetRpcCalleeParam))
+                                    Identifier(Helpers.Tk_GetCalleeIdParam))
                                 .WithModifiers(
                                     TokenList(
                                         new []{
@@ -242,11 +242,11 @@ namespace OwlTree.Generator
                                         SingletonList<StatementSyntax>(
                                             SwitchStatement(
                                                 IdentifierName(Helpers.ArgTk_RpcId))
-                                            .WithSections(List(_getRpcCalleeParam))))),
+                                            .WithSections(List(_getCalleeIdParam))))),
                                 // =======================================
                                 MethodDeclaration(
-                                    IdentifierName(Helpers.Tk_RpcCaller),
-                                    Identifier(Helpers.Tk_GetRpcCaller))
+                                    IdentifierName(Helpers.Tk_RpcPerms),
+                                    Identifier(Helpers.Tk_GetRpcPerms))
                                 .WithModifiers(
                                     TokenList(
                                         new []{
@@ -265,12 +265,12 @@ namespace OwlTree.Generator
                                         SingletonList<StatementSyntax>(
                                             SwitchStatement(
                                                 IdentifierName(Helpers.ArgTk_RpcId))
-                                            .WithSections(List(_getRpcCaller))))),
+                                            .WithSections(List(_getRpcPerms))))),
                                 // =======================================
                                 MethodDeclaration(
                                     PredefinedType(
                                         Token(SyntaxKind.IntKeyword)),
-                                    Identifier(Helpers.Tk_GetRpcCallerParam))
+                                    Identifier(Helpers.Tk_GetCallerIdParam))
                                 .WithModifiers(
                                     TokenList(
                                         new []{
@@ -289,7 +289,7 @@ namespace OwlTree.Generator
                                         SingletonList<StatementSyntax>(
                                             SwitchStatement(
                                                 IdentifierName(Helpers.ArgTk_RpcId))
-                                            .WithSections(List(_getRpcCallerParam))))),
+                                            .WithSections(List(_getCallerIdParam))))),
                                 // =======================================
                                 MethodDeclaration(
                                     PredefinedType(
@@ -467,7 +467,7 @@ namespace OwlTree.Generator
                                         SeparatedList<ExpressionSyntax>(
                                             GetParamTypesList(data.paramData))))))));
             
-            _getRpcCalleeParam.Add(SwitchSection()
+            _getCalleeIdParam.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(
                         CaseSwitchLabel(
@@ -481,7 +481,7 @@ namespace OwlTree.Generator
                                 SyntaxKind.NumericLiteralExpression,
                                 Literal(GetRpcCalleeParam(data.paramData)))))));
             
-            _getRpcCallerParam.Add(SwitchSection()
+            _getCallerIdParam.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(
                         CaseSwitchLabel(
@@ -495,7 +495,7 @@ namespace OwlTree.Generator
                                 SyntaxKind.NumericLiteralExpression,
                                 Literal(GetRpcCallerParam(data.paramData)))))));
             
-            _getRpcCaller.Add(SwitchSection()
+            _getRpcPerms.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(
                         CaseSwitchLabel(
@@ -507,8 +507,8 @@ namespace OwlTree.Generator
                         ReturnStatement(
                             MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
-                                IdentifierName(Helpers.Tk_RpcCaller),
-                                IdentifierName(GetRpcCallerToken(data.caller)))))));
+                                IdentifierName(Helpers.Tk_RpcPerms),
+                                IdentifierName(GetRpcPermsToken(data.perms)))))));
 
             _getRpcName.Add(SwitchSection()
                 .WithLabels(
@@ -666,15 +666,19 @@ namespace OwlTree.Generator
             return -1;
         }
 
-        private static string GetRpcCallerToken(GeneratorState.RpcCaller caller)
+        private static string GetRpcPermsToken(GeneratorState.RpcPerms caller)
         {
             switch (caller)
             {
-                case GeneratorState.RpcCaller.Server:
-                    return Helpers.Tk_ServerCaller;
-                case GeneratorState.RpcCaller.Client:
+                case GeneratorState.RpcPerms.AuthorityToClients:
+                    return Helpers.Tk_AuthorityCaller;
+                case GeneratorState.RpcPerms.ClientsToAuthority:
                     return Helpers.Tk_ClientCaller;
-                case GeneratorState.RpcCaller.Any:
+                case GeneratorState.RpcPerms.ClientsToClients:
+                    return Helpers.Tk_ClientToClient;
+                case GeneratorState.RpcPerms.ClientsToAll:
+                    return Helpers.Tk_ClientToAll;
+                case GeneratorState.RpcPerms.AnyToAll:
                 default:
                     return Helpers.Tk_AnyCaller;
             }

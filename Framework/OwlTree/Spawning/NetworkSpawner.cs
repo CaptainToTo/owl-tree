@@ -59,7 +59,7 @@ namespace OwlTree
         /// </summary>
         public NetworkObject.Delegate OnObjectDespawn;
 
-        private uint _curId = NetworkId.FIRST_NETWORK_ID;
+        private uint _curId = NetworkId.FirstNetworkId;
         private NetworkId NextNetworkId()
         {
             var id = new NetworkId(_curId);
@@ -77,14 +77,14 @@ namespace OwlTree
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
 
-            newObj.SetIdInternal(NextNetworkId());
-            newObj.SetActiveInternal(true);
-            newObj.SetConnectionInternal(_connection);
+            newObj.Id = NextNetworkId();
+            newObj.IsActive = true;
+            newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{typeof(T), newObj.Id});
+            _connection.AddRpc(new RpcId(RpcId.NetworkObjectSpawnId), new object[]{typeof(T), newObj.Id});
             return newObj;
         }
 
@@ -102,13 +102,13 @@ namespace OwlTree
             if (newObj == null)
                 throw new InvalidOperationException("Failed to create new instance.");
             
-            newObj.SetIdInternal(NextNetworkId());
-            newObj.SetActiveInternal(true);
-            newObj.SetConnectionInternal(_connection);
+            newObj.Id = NextNetworkId();
+            newObj.IsActive = true;
+            newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
 
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_SPAWN), new object[]{t, newObj.Id});
+            _connection.AddRpc(new RpcId(RpcId.NetworkObjectSpawnId), new object[]{t, newObj.Id});
 
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
@@ -120,7 +120,7 @@ namespace OwlTree
         {
             foreach (var pair in _netObjects)
             {
-                _connection.AddRpc(callee, new RpcId(RpcId.NETWORK_OBJECT_SPAWN), Protocol.Tcp, new object[]{pair.Value.GetType(), pair.Key});
+                _connection.AddRpc(callee, new RpcId(RpcId.NetworkObjectSpawnId), Protocol.Tcp, new object[]{pair.Value.GetType(), pair.Key});
             }
         }
 
@@ -141,23 +141,23 @@ namespace OwlTree
             if (_curId <= id.Id)
                 _curId = id.Id + 1;
             
-            newObj.SetIdInternal(id);
-            newObj.SetActiveInternal(true);
-            newObj.SetConnectionInternal(_connection);
+            newObj.Id = id;
+            newObj.IsActive = true;
+            newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
         }
 
-        internal static int SpawnByteLength { get { return RpcId.MaxLength() + 1 + NetworkId.MaxLength(); } }
+        internal static int SpawnByteLength => RpcId.MaxByteLength + 1 + NetworkId.MaxByteLength;
 
         // encodes spawn into byte array for send
         internal void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
         {
             int ind = 0;
 
-            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_SPAWN);
+            var rpcId = new RpcId(RpcId.NetworkObjectSpawnId);
             var rpcSpan = bytes.Slice(ind, rpcId.ByteLength());
             rpcId.InsertBytes(rpcSpan);
             ind += rpcId.ByteLength();
@@ -190,8 +190,8 @@ namespace OwlTree
         public void Despawn(NetworkObject target)
         {
             _netObjects.Remove(target.Id);
-            target.SetActiveInternal(false);
-            _connection.AddRpc(new RpcId(RpcId.NETWORK_OBJECT_DESPAWN), new object[]{target.Id});
+            target.IsActive = false;
+            _connection.AddRpc(new RpcId(RpcId.NetworkObjectDespawnId), new object[]{target.Id});
             target.OnDespawn();
             OnObjectDespawn?.Invoke(target);
         }
@@ -201,7 +201,7 @@ namespace OwlTree
         {
             var target = _netObjects[id];
             _netObjects.Remove(id);
-            target.SetActiveInternal(false);
+            target.IsActive = false;
             target.OnDespawn();
             OnObjectDespawn?.Invoke(target);
         }
@@ -211,20 +211,20 @@ namespace OwlTree
             var netObjs = _netObjects.Values;
             foreach (var obj in netObjs)
             {
-                obj.SetActiveInternal(false);
+                obj.IsActive = false;
                 obj.OnDespawn();
             }
             _netObjects.Clear();
         }
 
-        internal static int DespawnByteLength { get { return RpcId.MaxLength() + NetworkId.MaxLength(); } }
+        internal static int DespawnByteLength => RpcId.MaxByteLength + NetworkId.MaxByteLength;
 
         // encodes destroy into byte array for send
         internal void DespawnEncode(Span<byte> bytes, NetworkId id)
         {
             var ind = 0;
 
-            var rpcId = new RpcId(RpcId.NETWORK_OBJECT_DESPAWN);
+            var rpcId = new RpcId(RpcId.NetworkObjectDespawnId);
             var rpcSpan = bytes.Slice(0, rpcId.ByteLength());
             rpcId.InsertBytes(rpcSpan);
             ind += rpcId.ByteLength();
@@ -252,12 +252,12 @@ namespace OwlTree
             if (args == null) return;
             switch(rpcId.Id)
             {
-                case RpcId.NETWORK_OBJECT_SPAWN:
+                case RpcId.NetworkObjectSpawnId:
                     var objType = _proxyFactory?.TypeFromId((byte)args[0]) ?? typeof(NetworkObject);
                     var id = (NetworkId)args[1];
                     ReceiveSpawn(objType, id);
                     break;
-                case RpcId.NETWORK_OBJECT_DESPAWN:
+                case RpcId.NetworkObjectDespawnId:
                     ReceiveDespawn((NetworkId)args[0]);
                     break;
             }
@@ -270,11 +270,11 @@ namespace OwlTree
             rpcId = new RpcId(message);
             switch(rpcId.Id)
             {
-                case RpcId.NETWORK_OBJECT_SPAWN:
+                case RpcId.NetworkObjectSpawnId:
                     ind += 1;
-                    args = new object[]{message[RpcId.MaxLength()], new NetworkId(message.Slice(rpcId.ByteLength() + 1))};
+                    args = new object[]{message[RpcId.MaxByteLength], new NetworkId(message.Slice(rpcId.ByteLength() + 1))};
                     break;
-                case RpcId.NETWORK_OBJECT_DESPAWN:
+                case RpcId.NetworkObjectDespawnId:
                     args = new object[]{new NetworkId(message.Slice(rpcId.ByteLength()))};
                     break;
                 default:

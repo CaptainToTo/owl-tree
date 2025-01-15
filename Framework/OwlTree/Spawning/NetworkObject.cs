@@ -14,11 +14,11 @@ namespace OwlTree
         /// <summary>
         /// The id reserved for signifying the base NetworkObject type.
         /// </summary>
-        public const byte NETWORK_BASE_TYPE_ID = 1;
+        public const byte NetworkBaseTypeId = 1;
         /// <summary>
         /// The first valid id for derived network object types.
         /// </summary>
-        public const byte FIRST_TYPE_ID = 2;
+        public const byte FirstTypeId = 2;
 
         /// <summary>
         /// Basic function signature for passing NetworkObjects.
@@ -34,50 +34,23 @@ namespace OwlTree
         /// <summary>
         /// The object's network id. This is synchronized across clients.
         /// </summary>
-        public NetworkId Id { get; private set; }
+        public NetworkId Id { get; internal set; }
 
         /// <summary>
         /// Whether or not the object is currently being managed across clients. If false, 
         /// then the object has been "destroyed".
         /// </summary>
-        public bool IsActive { get; private set; }
+        public bool IsActive { get; internal set; }
         
         /// <summary>
         /// The connection this object associated with, and managed by.
         /// </summary>
-        public Connection Connection { get; private set; }
+        public Connection Connection { get; internal set; }
 
         /// <summary>
         /// FOR INTERNAL USE ONLY. Used to flag an object as receiving an RPC call from a remote source.
         /// </summary>
         public uint i_ReceivingRpc {get; internal set; } = 0;
-
-        /// <summary>
-        /// FOR INTERNAL FRAMEWORK USE ONLY. Sets the object's network id.
-        /// </summary>
-        internal void SetIdInternal(NetworkId id)
-        {
-            Id = id;
-        }
-
-        /// <summary>
-        /// FOR INTERNAL USE ONLY. Sets whether the object is active. If false, 
-        /// then the object has been "destroyed".
-        /// </summary>
-        /// <param name="state"></param>
-        internal void SetActiveInternal(bool state)
-        {
-            IsActive = state;
-        }
-
-        /// <summary>
-        /// FOR INTERNAL USE ONLY. Sets the connection this object is associated with.
-        /// </summary>
-        /// <param name="connection"></param>
-        internal void SetConnectionInternal(Connection connection)
-        {
-            Connection = connection;
-        }
 
         /// <summary>
         /// Create a new NetworkObject, and assign it the given network id.

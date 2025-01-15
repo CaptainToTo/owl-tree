@@ -51,21 +51,21 @@ namespace OwlTree
         public abstract string GetRpcParamName(uint rpcId, int paramInd);
         
         /// <summary>
-        /// Gets the RpcCallee parameter index on the given RPC. If the RPC doesn't have 
+        /// Gets the CalleeId parameter index on the given RPC. If the RPC doesn't have 
         /// a RpcCallee parameter, returns -1.
         /// </summary>
-        public abstract int GetRpcCalleeParam(uint rpcId);
+        public abstract int GetCalleeIdParam(uint rpcId);
 
         /// <summary>
-        /// Gets the RpcCaller parameter index on the given RPC. If the RPC doesn't have 
+        /// Gets the CallerId parameter index on the given RPC. If the RPC doesn't have 
         /// a RpcCaller parameter, returns -1.
         /// </summary>
-        public abstract int GetRpcCallerParam(uint rpcId);
+        public abstract int GetCallerIdParam(uint rpcId);
 
         /// <summary>
         /// Returns who is allowed to call the given RPC.
         /// </summary>
-        public abstract RpcCaller GetRpcCaller(uint rpcId);
+        public abstract RpcPerms GetRpcPerms(uint rpcId);
 
         /// <summary>
         /// Returns whether the given RPC is sent through UDP or TCP.
@@ -86,47 +86,57 @@ namespace OwlTree
 
         /// <summary>
         /// Checks if the parameter at the given index, for the given RPC, is a
-        /// <c>RpcCallee</c> parameter.
+        /// <c>CalleeId</c> parameter.
         /// </summary>
-        public bool IsRpcCalleeParam(uint rpcId, int paramInd)
+        public bool IsCalleeIdParam(uint rpcId, int paramInd)
         {
-            var ind = GetRpcCalleeParam(rpcId);
+            var ind = GetCalleeIdParam(rpcId);
+            return ind != -1 && ind == paramInd;
+        }
+        
+        /// <summary>
+        /// Returns true if the given RPC has a <c>CalleeId</c> parameter.
+        /// </summary>
+        public bool HasCalleeIdParam(uint rpcId) => GetCalleeIdParam(rpcId) != -1;
+
+        /// <summary>
+        /// Checks if the parameter at the given index, for the given RPC, is a
+        /// <c>CallerId</c> parameter.
+        /// </summary>
+        public bool IsCallerIdParam(uint rpcId, int paramInd)
+        {
+            var ind = GetCallerIdParam(rpcId);
             return ind != -1 && ind == paramInd;
         }
 
         /// <summary>
-        /// Checks if the parameter at the given index, for the given RPC, is a
-        /// <c>RpcCaller</c> parameter.
+        /// Returns true if the given RPC has a <c>CallerId</c> parameter.
         /// </summary>
-        public bool IsRpcCallerParam(uint rpcId, int paramInd)
-        {
-            var ind = GetRpcCallerParam(rpcId);
-            return ind != -1 && ind == paramInd;
-        }
+        public bool HasCallerIdParam(uint rpcId) => GetCallerIdParam(rpcId) != -1;
 
         /// <summary>
         /// Returns whether or not a connection with the given role has permission to call the RPC
         /// with the given id.
         /// </summary>
-        public bool CanCallRpc(Connection.Role role, uint rpcId)
+        public bool CanCallRpc(NetRole role, uint rpcId)
         {
-            var perms = GetRpcCaller(rpcId);
-            return perms == RpcCaller.Any || 
-                ( (role == Connection.Role.Server || role == Connection.Role.Host) && perms == RpcCaller.Server) ||
-                (role == Connection.Role.Client && perms == RpcCaller.Client);
+            var perms = GetRpcPerms(rpcId);
+            return perms == RpcPerms.AnyToAll || 
+                ( (role == NetRole.Server || role == NetRole.Host) && perms == RpcPerms.AuthorityToClients) ||
+                (role == NetRole.Client && (perms == RpcPerms.ClientsToAuthority || perms == RpcPerms.ClientsToClients || perms == RpcPerms.ClientsToAll));
         }
 
         public int GetRpcByteLength(RpcId rpcId, object[] args)
         {
-            return RpcEncoding.GetExpectedRpcLength(args, GetRpcCallerParam(rpcId), GetRpcCalleeParam(rpcId));
+            return RpcEncoding.GetExpectedRpcLength(args, GetCallerIdParam(rpcId), GetCalleeIdParam(rpcId));
         }
 
         public void EncodeRpc(Span<byte> bytes, RpcId rpcId, ClientId caller, ClientId callee, NetworkId target, object[] args)
         {
             if (!ValidateArgs(rpcId, args))
                 throw new ArgumentException("Invalid RPC arguments given to RPC " + rpcId.ToString());
-            var callerInd = GetRpcCallerParam(rpcId.Id);
-            var calleeInd = GetRpcCalleeParam(rpcId.Id);
+            var callerInd = GetCallerIdParam(rpcId.Id);
+            var calleeInd = GetCalleeIdParam(rpcId.Id);
             RpcEncoding.EncodeRpc(bytes, rpcId, caller, callee, target, args, callerInd, calleeInd);
         }
 
@@ -143,13 +153,13 @@ namespace OwlTree
                 return false;
             }
 
-            if (rpcId < RpcId.FIRST_RPC_ID)
+            if (rpcId < RpcId.FirstRpcId)
             {
                 args = null;
                 return true;
             }
 
-            args = RpcEncoding.DecodeRpcArgs(bytes.Slice(RpcEncoding.RpcHeaderLength), caller, callee, paramTypes, GetRpcCallerParam(rpcId.Id), GetRpcCalleeParam(rpcId.Id));
+            args = RpcEncoding.DecodeRpcArgs(bytes.Slice(RpcEncoding.RpcHeaderLength), caller, callee, paramTypes, GetCallerIdParam(rpcId.Id), GetCalleeIdParam(rpcId.Id));
             return true;
         }
         
@@ -161,10 +171,10 @@ namespace OwlTree
             if (!ValidateArgs(id, args))
                 throw new ArgumentException("Provided arguments do not match the RPC function signature.");
             
-            var ind = GetRpcCallerParam(id.Id);
+            var ind = GetCallerIdParam(id.Id);
             if (ind != -1)
                 args[ind] = caller;
-            ind = GetRpcCalleeParam(id.Id);
+            ind = GetCalleeIdParam(id.Id);
             if (ind != -1)
                 args[ind] = callee;
 
@@ -218,7 +228,7 @@ namespace OwlTree
             string title = GetRpcName(id.Id) + " " + id + ":\n";
             var encoding = new StringBuilder();
             encoding.Append(
-                $"  Bytes: [ RpcId:{RpcId.MaxLength()}b ][ Caller:{ClientId.MaxLength()}b ][ Callee:{ClientId.MaxLength()}b ][ NetId:{NetworkId.MaxLength()}b ]");
+                $"  Bytes: [ RpcId:{RpcId.MaxByteLength}b ][ Caller:{ClientId.MaxByteLength}b ][ Callee:{ClientId.MaxByteLength}b ][ NetId:{NetworkId.MaxByteLength}b ]");
             var paramStr = new StringBuilder();
 
             int maxSize = RpcEncoding.RpcHeaderLength;
@@ -229,13 +239,13 @@ namespace OwlTree
                 var param = parameters[i];
                 int size = RpcEncoding.GetMaxLength(param);
                 maxSize += size;
-                if (!IsRpcCalleeParam(id.Id, i) && !IsRpcCallerParam(id.Id, i))
+                if (!IsCalleeIdParam(id.Id, i) && !IsCallerIdParam(id.Id, i))
                     encoding.Append($"[ {i + 1}:{size}b ]");
                 paramStr.Append($"   {i + 1}: {param} ").Append(GetRpcParamName(id.Id, i));
 
-                if (IsRpcCalleeParam(id.Id, i))
+                if (IsCalleeIdParam(id.Id, i))
                     paramStr.Append(" [Callee]");
-                else if (IsRpcCallerParam(id.Id, i))
+                else if (IsCallerIdParam(id.Id, i))
                     paramStr.Append(" [Caller]");
                 
                 paramStr.Append("\n");
@@ -255,11 +265,11 @@ namespace OwlTree
             if (!ValidateArgs(id, args))
                 return "Invalid Args...";
 
-            int len = RpcEncoding.GetExpectedRpcLength(args, GetRpcCallerParam(id), GetRpcCalleeParam(id));
+            int len = RpcEncoding.GetExpectedRpcLength(args, GetCallerIdParam(id), GetCalleeIdParam(id));
             byte[] bytes = new byte[len];
 
-            var callerInd = GetRpcCallerParam(id.Id);
-            var calleeInd = GetRpcCalleeParam(id.Id);
+            var callerInd = GetCallerIdParam(id.Id);
+            var calleeInd = GetCalleeIdParam(id.Id);
 
             RpcEncoding.EncodeRpc(bytes, id, caller, callee, target, args, callerInd, calleeInd);
 
@@ -278,7 +288,7 @@ namespace OwlTree
                     int strLen = (size * 2) + (size - 1);
                     string iStr = (i + 1).ToString();
 
-                    if (!IsRpcCallerParam(id.Id, i) && !IsRpcCalleeParam(id.Id, i))
+                    if (!IsCallerIdParam(id.Id, i) && !IsCalleeIdParam(id.Id, i))
                     {
                         if (size > 1)
                         {
@@ -292,9 +302,9 @@ namespace OwlTree
                         }
                     }
                     argsStr.Append($"    ({iStr}) {arg.GetType()} {GetRpcParamName(id.Id, i)}: {arg}");
-                    if (IsRpcCalleeParam(id.Id, i))
+                    if (IsCalleeIdParam(id.Id, i))
                         argsStr.Append(" [Callee]");
-                    else if (IsRpcCallerParam(id.Id, i))
+                    else if (IsCallerIdParam(id.Id, i))
                         argsStr.Append(" [Caller]");
                     argsStr.Append("\n");
                 }

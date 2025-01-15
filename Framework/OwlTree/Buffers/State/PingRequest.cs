@@ -134,7 +134,7 @@ namespace OwlTree
 
         public static int MaxLength()
         {
-            return ClientId.MaxLength() + ClientId.MaxLength() + 8 + 8 + 8;
+            return ClientId.MaxByteLength + ClientId.MaxByteLength + 8 + 8 + 8;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)

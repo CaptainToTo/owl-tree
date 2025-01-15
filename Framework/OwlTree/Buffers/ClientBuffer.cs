@@ -71,7 +71,7 @@ namespace OwlTree
             if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
             {
                 var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
-                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, _requestAsHost));
+                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
                 _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                 _udpPacket.Clear();
                 _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -139,7 +139,7 @@ namespace OwlTree
         /// Reads any data currently on the socket. Putting new messages in the queue.
         /// Blocks infinitely while waiting for the server to initially assign the buffer a ClientId.
         /// </summary>
-        public override void Read()
+        public override void Recv()
         {
             if (!_acceptedRequest && _remainingRequests > 0)
             {
@@ -218,7 +218,7 @@ namespace OwlTree
                             {
                                 if (TryClientMessageDecode(bytes, out var rpcId))
                                 {
-                                    HandleClientConnectionMessage(rpcId, bytes.Slice(RpcId.MaxLength()));
+                                    HandleClientConnectionMessage(rpcId, bytes.Slice(RpcId.MaxByteLength));
                                 }
                                 else if (TryPingRequestDecode(bytes, out var request))
                                 {
@@ -302,26 +302,27 @@ namespace OwlTree
         {
             switch (messageType.Id)
             {
-                case RpcId.CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcId.ClientConnectedId:
                     var id = new ClientId(bytes);
                     _clients.Add(id);
                     OnClientConnected?.Invoke(id);
                     break;
-                case RpcId.LOCAL_CLIENT_CONNECTED_MESSAGE_ID:
+                case RpcId.LocalClientConnectedId:
                     var assignment = new ClientIdAssignment(bytes);
                     _clients.Add(assignment.assignedId);
                     LocalId = assignment.assignedId;
                     Authority = assignment.authorityId;
                     _hash = assignment.assignedHash;
+                    MaxClients = assignment.maxClients;
                     IsReady = true;
                     OnReady?.Invoke(LocalId);
                     break;
-                case RpcId.CLIENT_DISCONNECTED_MESSAGE_ID:
+                case RpcId.ClientDisconnectedId:
                     id = new ClientId(bytes);
                     _clients.Remove(id);
                     OnClientDisconnected?.Invoke(id);
                     break;
-                case RpcId.HOST_MIGRATION:
+                case RpcId.HostMigrationId:
                     Authority = new ClientId(bytes);
                     OnHostMigration?.Invoke(Authority);
                     break;
@@ -342,7 +343,14 @@ namespace OwlTree
                 {
                     original.PingResponded();
                     _pingRequests.Remove(original);
-                    _incoming.Enqueue(new Message(ClientId.None, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{original}));
+                    _incoming.Enqueue(new Message(
+                        ClientId.None, 
+                        LocalId, 
+                        new RpcId(RpcId.PingRequestId), 
+                        NetworkId.None, 
+                        Protocol.Tcp, 
+                        RpcPerms.AnyToAll, 
+                        new object[]{original}));
                 }
             }
         }

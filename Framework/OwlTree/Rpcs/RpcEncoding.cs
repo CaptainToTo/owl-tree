@@ -26,6 +26,17 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// Creates a copy of the given byte array, and replaces the callee bytes with the given callee id
+        /// in the copy.
+        /// </summary>
+        internal static byte[] ChangeRpcCallee(Span<byte> bytes, ClientId callee)
+        {
+            var newBytes = bytes.ToArray();
+            callee.InsertBytes(newBytes.AsSpan(RpcId.MaxByteLength + ClientId.MaxByteLength, callee.ByteLength()));
+            return newBytes;
+        }
+
+        /// <summary>
         /// Encodes an RPC call into the given span of bytes. This span must have enough space, which can be verified
         /// using <c>GetExpectedRpcLength()</c>.
         /// </summary>
@@ -80,7 +91,7 @@ namespace OwlTree
             callee = new ClientId(bytes.Slice(ind));
             ind += callee.ByteLength();
 
-            if (rpc.Id >= RpcId.FIRST_RPC_ID)
+            if (rpc.Id >= RpcId.FirstRpcId)
                 target = new NetworkId(bytes.Slice(ind));
             else
                 target = NetworkId.None;
@@ -166,8 +177,8 @@ namespace OwlTree
                 if (isEncodable)
                 {
                     len = isVariable ? IVariableLength.GetLength(bytes) : ((IEncodable)result).ByteLength();
-                    ((IEncodable)result).FromBytes(bytes.Slice(isVariable ? IVariableLength.LENGTH_ENCODING : 0, len));
-                    len += isVariable ? IVariableLength.LENGTH_ENCODING : 0;
+                    ((IEncodable)result).FromBytes(bytes.Slice(isVariable ? IVariableLength.LengthEncoding : 0, len));
+                    len += isVariable ? IVariableLength.LengthEncoding : 0;
                     return result;
                 }
                 else
@@ -247,8 +258,8 @@ namespace OwlTree
             var isVariable = result is IVariableLength;
 
             len = isVariable ? IVariableLength.GetLength(bytes) : result.ByteLength();
-            result.FromBytes(bytes.Slice(isVariable ? IVariableLength.LENGTH_ENCODING : 0, len));
-            len += isVariable ? IVariableLength.LENGTH_ENCODING : 0;
+            result.FromBytes(bytes.Slice(isVariable ? IVariableLength.LengthEncoding : 0, len));
+            len += isVariable ? IVariableLength.LengthEncoding : 0;
 
             return result;
         }
@@ -321,7 +332,7 @@ namespace OwlTree
                     if (isVariable)
                     {
                         IVariableLength.InsertLength(bytes, ((IEncodable)arg).ByteLength());
-                        bytes = bytes.Slice(IVariableLength.LENGTH_ENCODING);
+                        bytes = bytes.Slice(IVariableLength.LengthEncoding);
                     }
                     ((IEncodable)arg).InsertBytes(bytes);
                 }
@@ -357,7 +368,7 @@ namespace OwlTree
             if (arg is IVariableLength)
             {
                 IVariableLength.InsertLength(bytes, arg.ByteLength());
-                bytes = bytes.Slice(IVariableLength.LENGTH_ENCODING);
+                bytes = bytes.Slice(IVariableLength.LengthEncoding);
             }
             arg.InsertBytes(bytes);
         }
@@ -365,7 +376,7 @@ namespace OwlTree
         /// <summary>
         /// The constant byte count of header info for user made RPCs.
         /// </summary>
-        internal static int RpcHeaderLength => ClientId.MaxLength() + ClientId.MaxLength() + RpcId.MaxLength() + NetworkId.MaxLength();
+        internal static int RpcHeaderLength => ClientId.MaxByteLength + ClientId.MaxByteLength + RpcId.MaxByteLength + NetworkId.MaxByteLength;
 
         /// <summary>
         /// Gets the expected byte length of a full RPC encoding, given an array of the 
@@ -447,7 +458,7 @@ namespace OwlTree
             else if (arg is IEncodable)
             {
                 if (arg is IVariableLength)
-                    return ((IEncodable)arg).ByteLength() + IVariableLength.LENGTH_ENCODING;
+                    return ((IEncodable)arg).ByteLength() + IVariableLength.LengthEncoding;
                 return ((IEncodable)arg).ByteLength();
             }
             return -1;
@@ -472,7 +483,7 @@ namespace OwlTree
         public static int GetExpectedLength(IEncodable arg)
         {
             if (arg is IVariableLength)
-                return arg.ByteLength() + IVariableLength.LENGTH_ENCODING;
+                return arg.ByteLength() + IVariableLength.LengthEncoding;
             return arg.ByteLength();
         }
 

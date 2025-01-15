@@ -48,11 +48,6 @@ namespace OwlTree
 
         public override int LocalUdpPort() => ServerUdpPort;
 
-        /// <summary>
-        /// The maximum number of clients allowed to be connected at once on this connection.
-        /// </summary>
-        public int MaxClients { get; private set; }
-
         // server state
         private Socket _tcpServer;
         private Socket _udpServer;
@@ -74,7 +69,7 @@ namespace OwlTree
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
         /// </summary>
-        public override void Read()
+        public override void Recv()
         {
             _readList.Clear();
             _readList.Add(_tcpServer);
@@ -117,7 +112,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients));
 
                     foreach (var otherClient in _clientData)
                     {
@@ -185,8 +180,8 @@ namespace OwlTree
                             {
                                 var rpcId = ServerMessageDecode(bytes, out var request);
                                 if (
-                                    rpcId == RpcId.CONNECTION_REQUEST && 
-                                    request.appId == ApplicationId && !request.isHost &&
+                                    rpcId == RpcId.ConnectionRequestId && 
+                                    request.appId == ApplicationId && request.sessionId == SessionId && !request.isHost &&
                                     _clientData.Count < MaxClients && _requests.Count < MaxClients
                                 )
                                 {
@@ -243,11 +238,7 @@ namespace OwlTree
                             {
                                 if (TryDecode(client.id, bytes, out var message))
                                 {
-                                    message.protocol = Protocol.Udp;
-                                    if (message.callee != ClientId.None)
-                                        _outgoing.Enqueue(message);
-                                    else
-                                        _incoming.Enqueue(message);
+                                    _incoming.Enqueue(message);
                                 }
                             }
                             catch (Exception e)
@@ -338,11 +329,7 @@ namespace OwlTree
                                 }
                                 else if (TryDecode(client.id, bytes, out var message))
                                 {
-                                    message.protocol = Protocol.Tcp;
-                                    if (message.callee != ClientId.None)
-                                        _outgoing.Enqueue(message);
-                                    else
-                                        _incoming.Enqueue(message);
+                                    _incoming.Enqueue(message);
                                 }
                             }
                             catch (Exception e)
@@ -369,7 +356,14 @@ namespace OwlTree
                 {
                     original.PingResponded();
                     _pingRequests.Remove(original);
-                    _incoming.Enqueue(new Message(ClientId.None, LocalId, new RpcId(RpcId.PING_REQUEST), NetworkId.None, Protocol.Tcp, new object[]{original}));
+                    _incoming.Enqueue(new Message(
+                        ClientId.None, 
+                        LocalId, 
+                        new RpcId(RpcId.PingRequestId), 
+                        NetworkId.None, 
+                        Protocol.Tcp, 
+                        RpcPerms.AnyToAll,
+                        new object[]{original}));
                 }
             }
             else
@@ -412,6 +406,7 @@ namespace OwlTree
                     {
                         foreach (var client in _clientData)
                         {
+                            if (message.caller == client.id) continue;
                             Encode(message, client.tcpPacket);
                         }
                     }
@@ -419,6 +414,7 @@ namespace OwlTree
                     {
                         foreach (var client in _clientData)
                         {
+                            if (message.caller == client.id) continue;
                             Encode(message, client.udpPacket);
                         }
                     }
