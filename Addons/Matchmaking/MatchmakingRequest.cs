@@ -135,7 +135,6 @@ namespace OwlTree.Matchmaking
             try
             {
                 var requestStr = request.Serialize();
-                Console.WriteLine(request);
                 var content = new StringContent(requestStr, Encoding.UTF8, "application/json");
 
                 var response = await client.PostAsync(EndpointDomain + "/matchmaking", content);
@@ -143,7 +142,6 @@ namespace OwlTree.Matchmaking
                 if (response.IsSuccessStatusCode)
                 {
                     string responseContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine(responseContent);
                     return MatchmakingResponse.Deserialize(responseContent);
                 }
                 else
