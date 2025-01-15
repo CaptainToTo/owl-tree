@@ -459,8 +459,10 @@ namespace OwlTree.Generator
         /// If a parameter is found that isn't encodable, returns that parameter in the err argument.
         /// err = 0 for success, err = 1 for non-encodable, err = 2 for non-ClientId RpcCallee, err = 3 for non-ClientId RpcCaller.
         /// </summary>
-        public static bool IsEncodable(ParameterListSyntax paramList, out int err, out ParameterSyntax pErr)
+        public static bool IsEncodable(ParameterListSyntax paramList, out int err, out ParameterSyntax pErr, out ParameterSyntax calleeId, out ParameterSyntax callerId)
         {
+            calleeId = null;
+            callerId = null;
             foreach (var p in paramList.Parameters)
             {
                 if (!GeneratorState.HasEncodable(RemoveTemplateType(p.Type.ToString())))
@@ -469,17 +471,25 @@ namespace OwlTree.Generator
                     err = 1;
                     return false;
                 }
-                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCalleeId) && !IsClientId(p))
+                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCalleeId))
                 {
-                    pErr = p;
-                    err = 2;
-                    return false;
+                    calleeId = p;
+                    if (!IsClientId(p))
+                    {
+                        pErr = p;
+                        err = 2;
+                        return false;
+                    }
                 }
-                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCallerId) && !IsClientId(p))
+                else if (HasAttribute(p.AttributeLists, AttrTk_RpcCallerId))
                 {
-                    pErr = p;
-                    err = 3;
-                    return false;
+                    callerId = p;
+                    if (!IsClientId(p))
+                    {
+                        pErr = p;
+                        err = 3;
+                        return false;
+                    }
                 }
             }
             pErr = null;
@@ -493,6 +503,11 @@ namespace OwlTree.Generator
         public static bool IsClientId(ParameterSyntax p)
         {
             return p.Type.ToString() == Tk_ClientId || p.Type.ToString() == Tk_OwlTree + "." + Tk_ClientId;
+        }
+
+        public static bool IsClientId(string type)
+        {
+            return type == Tk_ClientId || type == Tk_OwlTree + "." + Tk_ClientId;
         }
 
         /// <summary>

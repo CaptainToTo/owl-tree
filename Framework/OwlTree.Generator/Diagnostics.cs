@@ -44,7 +44,7 @@ namespace OwlTree.Generator
             NonEncodableRpcParam,
             NonClientIdRpcCallee,
             NonClientIdRpcCaller,
-            InvalidLoopbackRpc
+            UnnecessaryCalleeIdParam
         }
 
         public static string GetId(Ids id)
@@ -235,7 +235,7 @@ namespace OwlTree.Generator
                 new DiagnosticDescriptor(
                     GetId(Ids.NonEncodableRpcParam),
                     "RpcCallee RPC Parameter Is Not ClientId",
-                    "RPC method '{0}' has a RpcCallee parameter '{1}' which is not of type 'ClientId'. All RpCallee parameters must be of type 'ClientId'.",
+                    "RPC method '{0}' has a CalleeId parameter '{1}' which is not of type 'ClientId'. All CalleeId parameters must be of type 'ClientId'.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
@@ -251,7 +251,7 @@ namespace OwlTree.Generator
                 new DiagnosticDescriptor(
                     GetId(Ids.NonEncodableRpcParam),
                     "RpcCaller RPC Parameter Is Not ClientId",
-                    "RPC method '{0}' has a RpcCaller parameter '{1}' which is not of type 'ClientId'. All RpCaller parameters must be of type 'ClientId'.",
+                    "RPC method '{0}' has a CallerId parameter '{1}' which is not of type 'ClientId'. All CallerId parameters must be of type 'ClientId'.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
@@ -261,18 +261,18 @@ namespace OwlTree.Generator
             context.ReportDiagnostic(diagnostic);
         }
 
-        internal static void InvalidLoopbackRpc(SourceProductionContext context, MethodDeclarationSyntax m, AttributeSyntax attr)
+        internal static void UnnecessaryCalleeIdParam(SourceProductionContext context, MethodDeclarationSyntax m, ParameterSyntax p)
         {
             var diagnostic = Diagnostic.Create(
                 new DiagnosticDescriptor(
-                    GetId(Ids.InvalidLoopbackRpc),
-                    "Invalid Loopback RPC",
-                    "RPC method '{0}' has a caller and callee that will result a loopback message, only executing on the caller.",
+                    GetId(Ids.UnnecessaryCalleeIdParam),
+                    "Unnecessary Callee Id Param",
+                    "RPC method '{0}' has a CalleeId param '{1}', but it can only be sent to the authority. This parameter is redundant.",
                     Cat_Syntax,
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
-                attr.GetLocation(),
-                Helpers.GetFullName(m.Identifier.ValueText, m));
+                p.GetLocation(),
+                Helpers.GetFullName(m.Identifier.ValueText, m), p.Identifier.ValueText);
 
             context.ReportDiagnostic(diagnostic);
         }

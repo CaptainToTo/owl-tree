@@ -108,7 +108,7 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                if (!Helpers.IsEncodable(m.ParameterList, out var err, out var pErr))
+                if (!Helpers.IsEncodable(m.ParameterList, out var err, out var pErr, out var calleeId, out var callerId))
                 {
                     if (err == 1)
                         Diagnostics.NonEncodableRpcParam(context, m, pErr);
@@ -143,12 +143,12 @@ namespace OwlTree.Generator
                 }
 
                 Helpers.GetRpcAttrArgs(Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_Rpc),
-                    out var caller, out var callee, out var invokeOnCaller, out var useTcp
+                    out var caller, out var invokeOnCaller, out var useTcp
                 );
 
-                if (caller == GeneratorState.RpcPerms.AuthorityToClients && callee == GeneratorState.RpcCallee.Authority)
+                if (caller == GeneratorState.RpcPerms.ClientsToAuthority && calleeId != null)
                 {
-                    Diagnostics.InvalidLoopbackRpc(context, m, attr);
+                    Diagnostics.UnnecessaryCalleeIdParam(context, m, calleeId);
                     continue;
                 }
 
@@ -157,7 +157,6 @@ namespace OwlTree.Generator
                     id = curId,
                     name = m.Identifier.ValueText,
                     perms = caller,
-                    callee = callee,
                     invokeOnCaller = invokeOnCaller,
                     useTcp = useTcp,
                     parentClass = Helpers.GetParentClassName(m),
