@@ -162,7 +162,7 @@ namespace OwlTree
                 }
                 else if (socket == _udpRelay) // receive client udp messages
                 {
-                    do
+                    while (_udpRelay.Available > 0)
                     {
                         Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
                         ReadPacket.Clear();
@@ -288,7 +288,7 @@ namespace OwlTree
                                     Logger.Write($"FAILED to relay UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
                             }
                         }
-                    } while (_udpRelay.Available > 0);
+                    }
                 }
                 else // receive client tcp messages
                 {

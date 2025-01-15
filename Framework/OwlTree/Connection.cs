@@ -239,6 +239,7 @@ namespace OwlTree
                 appVer = args.appVersion,
                 minAppVer = args.minAppVersion,
                 appId = args.appId,
+                sessionId = args.sessionId,
                 addr = args.serverAddr,
                 serverTcpPort = args.tcpPort,
                 serverUdpPort = args.udpPort,
@@ -866,7 +867,7 @@ namespace OwlTree
                     switch (perms)
                     {
                         case RpcPerms.ClientsToAuthority:
-                            AddRpc(Authority, rpcId, target, protocol, args);
+                            AddRpcTo(Authority, rpcId, target, protocol, perms, args);
                             break;
                         case RpcPerms.ClientsToClients:
                             if (Protocols.HasCalleeIdParam(rpcId))

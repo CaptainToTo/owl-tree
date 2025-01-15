@@ -283,6 +283,13 @@ namespace OwlTree
                             dataLen = -1;
                         }
 
+                        // disconnect if receive fails
+                        if (dataLen <= 0)
+                        {
+                            Disconnect(_clientData.Find(socket));
+                            break;
+                        }
+
                         if (client == ClientData.None)
                         {
                             client = _clientData.Find(socket);
@@ -293,13 +300,6 @@ namespace OwlTree
                                     Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
                                 continue;
                             }
-                        }
-
-                        // disconnect if receive fails
-                        if (dataLen <= 0)
-                        {
-                            Disconnect(client);
-                            break;
                         }
 
                         if (Logger.includes.tcpPreTransform)
