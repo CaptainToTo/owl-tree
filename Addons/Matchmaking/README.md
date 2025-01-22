@@ -13,7 +13,7 @@ Dictionary<string, Connection> connections = new();
 ...
 
 var endpoint = new MatchmakingEndpoint(
-    "http://localhost:3000", // replace with server's URL
+    "http://127.0.0.1:5000", // replace with server's URL
     HandleRequest
 );
 endpoint.Start();
@@ -21,7 +21,7 @@ endpoint.Start();
 ...
 
 // handle requests to create and join relayed sessions
-MatchmakingResponse HandleRequest(MatchmakingRequest request)
+MatchmakingResponse HandleRequest(IPAddress client, MatchmakingRequest request)
 {
     Connection connection = null;
 
@@ -39,6 +39,7 @@ MatchmakingResponse HandleRequest(MatchmakingRequest request)
             // port no. of 0 will select any available port
             tcpPort = 0,
             udpPort = 0,
+            hostAddr = client.ToString(),
             maxClients = request.maxClients,
             migratable = request.migratable,
             owlTreeVersion = request.owlTreeVersion,
@@ -72,7 +73,7 @@ MatchmakingResponse HandleRequest(MatchmakingRequest request)
 Create a new `MatchmakingClient`, send a request, and await a response:
 
 ```cs
-var requestClient = new MatchmakingClient("http://localhost:3000");
+var requestClient = new MatchmakingClient("http://127.0.0.1:5000");
 
 var response = await requestClient.MakeRequest(new MatchmakingRequest{
     appId = "MyOwlTreeApp",

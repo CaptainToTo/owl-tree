@@ -15,7 +15,7 @@ namespace OwlTree.Matchmaking
         /// <summary>
         /// Function signature used to inject request handling into the endpoint.
         /// </summary>
-        public delegate MatchmakingResponse ProcessRequest(MatchmakingRequest request);
+        public delegate MatchmakingResponse ProcessRequest(IPAddress client, MatchmakingRequest request);
 
         private HttpListener _listener;
         private ProcessRequest _callback;
@@ -61,6 +61,7 @@ namespace OwlTree.Matchmaking
                 var context = await _listener.GetContextAsync();
                 var request = context.Request;
                 var response = context.Response;
+                var source = request.RemoteEndPoint.Address;
 
                 if (request.Url?.AbsolutePath == "/matchmaking")
                 {
@@ -68,7 +69,7 @@ namespace OwlTree.Matchmaking
                     {
                         string requestBody = new StreamReader(request.InputStream, Encoding.UTF8).ReadToEnd();
                         var requestObj = MatchmakingRequest.Deserialize(requestBody);
-                        var responseObj = _callback.Invoke(requestObj);
+                        var responseObj = _callback.Invoke(source, requestObj);
                         string responseBody = responseObj.Serialize();
                         response.StatusCode = (int)responseObj.responseCode;
                         byte[] buffer = Encoding.UTF8.GetBytes(responseBody);
