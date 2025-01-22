@@ -122,7 +122,7 @@ namespace OwlTree
             /// This value can be lowered from the default to use older formats of Owl Tree. 
             /// <b>Default = Current Version</b>
             /// </summary>
-            public ushort owlTreeVersion = 1;
+            public ushort owlTreeVersion = 2;
 
             /// <summary>
             /// The minimum Owl Tree version that will be supported. If clients using an older version attempt to connect,

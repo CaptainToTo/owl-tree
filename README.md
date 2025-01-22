@@ -1,21 +1,21 @@
-# Owl Tree (v0.1.0)
+# OwlTree (v0.2.0)
 A C# framework for server-client RPCs intended for games.
 
 View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki). - under construction
 
 Or check out example projects here:
 - [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club) - under construction
-- Farming With Friends (Unity multiplayer farming game) - under construction
+- [Farming With Friends 2 (Unity multiplayer farming game)](https://github.com/CaptainToTo/Farming-With-Friends-2) - under construction
 - DrawDot (Godot drawing app) - under construction
 
 # C# 
 
-Owl Tree uses .net standard 2.1, with the goal of being as engine/runtime agnostic as possible.\
+OwlTree uses .net standard 2.1, with the goal of being as engine/runtime agnostic as possible.\
 Feel free to use it in anything you like. :)
 
 # Setting Up
 
-To start using Owl Tree, you can download the Framework folder from this repository (release to be made soon). This contains both the OwlTree project, and the Owl Tree source generator. Include both in your project's .csproj file:
+To start using OwlTree, you can download the Framework folder from this repository (release to be made soon). This contains both the OwlTree project, and the OwlTree source generator. Include both in your project's .csproj file:
 
 ```xml
 <ItemGroup>
@@ -38,7 +38,9 @@ See specific set-up procedures for other environments:
 
 # Creating a Connection
 
-Owl Tree's main interface is the `Connection` class. To open a server, or connect as a client, create a new `Connection`:
+OwlTree's main interface is the `Connection` class. OwlTree supports both server authoritative, and relayed peer-to-peer architecture. The following example shows how to create a server authoritative session.
+
+To open a server, or connect as a client, create a new `Connection`:
 
 ```cs
 using OwlTree;
@@ -52,10 +54,12 @@ class Program
             // Open server on localhost
             var server = new Connection(new Connection.Args
             {
-                appId = "MyOwlTreeApp", // max 64 byte identifier for your app
+                appId = "MyOwlTreeApp", // max 64 ASCII character identifier for your app
+                sessionId = "MyAppSessionId", // max 64 ASCII character identifier for a session of your app
                 role = Connection.Role.Server,
                 serverAddr = "127.0.0.1",
-                tcpPort = 8080
+                tcpPort = 8000,
+                udpPort = 9000,
             });
             server.OnClientConnected += (ClientId id) => 
                 Console.WriteLine("new client w/ id: " + id);
@@ -67,9 +71,11 @@ class Program
             var client = new Connection(new Connection.Args
             {
                 appId = "MyOwlTreeApp", // if app id doesn't match server's id, connection will be rejected
+                sessionId = "MyAppSessionId", // if session id doesn't match server's id, connection will be rejected
                 role = Connection.Role.Client,
                 serverAddr = "127.0.0.1",
-                tcpPort = 8080
+                tcpPort = 8000,
+                udpPort = 9000
             });
             client.OnReady += (ClientId localId) => 
                 Console.WriteLine("connected to server, assigned id: " + localId);
@@ -88,9 +94,9 @@ class Program
 }
 ```
 
-Connections can be configured with the `Args` struct passed to the constructor. There can be multiple connections running at the same time in the same program, and will each manage their own state independently of each other. The primary way Connections manage state is through `NetworkObject`s, which allow you to create remote procedure calls (RPCs).
+Connections can be configured with the `Args` object passed to the constructor. There can be multiple connections running at the same time in the same program, and will each manage their own state independently of each other. The primary way Connections manage state is through `NetworkObject`s, which allow you to create remote procedure calls (RPCs).
 
-In the below example, a Radio class can be used to repeatedly send a small message back-and-forth between a client and a server. RPCs must be public, virtual, and cannot have a return type. RPCs are marked using the `Rpc` attribute. Optionally, the `Rpc` can be passed a `RpcCaller` argument that specifies what type of connections are allowed to call it. If no argument is given, or the `RpcCaller.Any` value is given, then either server or client can call it. Using the `RpcCaller` parameter attribute exposes which client called the RPC. The `RpcCallee` parameter attribute allows you to specify a single client to receive an RPC call, while the others do not.
+In the below example, a Radio class can be used to repeatedly send a small message back-and-forth between a client and a server. RPCs must be public, virtual, and cannot have a return type. RPCs are marked using the `Rpc` attribute. Optionally, the `Rpc` can be passed a `RpcPerms` argument that specifies what type of connections are allowed to call it. If no argument is given, or the `RpcPerms.AnyToAll` value is given, then either server or client can call it. Using the `CallerId` parameter attribute exposes which client called the RPC. The `CalleeId` parameter attribute allows you to specify a single client to receive an RPC call, while the others do not.
 
 ```cs
 using OwlTree;
@@ -98,16 +104,16 @@ using OwlTree;
 public class Radio : NetworkObject
 {
     // rpc can only be called by clients
-    [Rpc(RpcCaller.Client)]
-    public virtual void PingServer(string message, [RpcCaller] ClientId client = default)
+    [Rpc(RpcCaller.ClientsToAuthority)]
+    public virtual void PingServer(string message, [CallerId] ClientId client = default)
     {
         Console.WriteLine("message from " + client + ": " + message);
         PingClient(client, "hello from server");
     }
 
     // rpc can only be called by servers
-    [Rpc(RpcCaller.Server)]
-    public virtual void PingClient([RpcCallee] ClientId targetClient, string message)
+    [Rpc(RpcCaller.AuthorityToClients)]
+    public virtual void PingClient([CalleeId] ClientId targetClient, string message)
     {
         Console.WriteLine("message from server: " + message);
         PingServer("hello from client " + Connection.LocalId);
