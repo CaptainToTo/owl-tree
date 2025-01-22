@@ -79,7 +79,7 @@ namespace OwlTree
 
                 if (Logger.includes.connectionAttempts)
                 {
-                    Logger.Write("Connection request made to " + Address.ToString() + " at " + DateTime.UtcNow);
+                    Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}");
                 }
             }
 

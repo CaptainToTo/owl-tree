@@ -551,7 +551,7 @@ namespace OwlTree
         /// <summary>
         /// Returns true if the local connection is the authority of this session.
         /// </summary>
-        public bool IsAuthority => !IsRelay && _buffer.LocalId == _buffer.Authority;
+        public bool IsAuthority => !IsRelay && LocalId == Authority;
 
         /// <summary>
         /// Returns true if the current session supports host migration.
@@ -606,10 +606,9 @@ namespace OwlTree
                     case ConnectionEventType.OnConnect:
                         if (_logger.includes.clientEvents)
                             _logger.Write("New client connected: " + result.id.ToString());
-                        if (IsServer)
-                        {
+
+                        if (IsAuthority)
                             _spawner.SendNetworkObjects(result.id);
-                        }
                         else if (IsRelay && result.id == _buffer.Authority)
                         {
                             Authority = result.id;

@@ -572,6 +572,21 @@ namespace OwlTree
             if (client == ClientData.None)
                 return;
             
+            // migrate before disconnect
+            if (client.id == Authority && Migratable)
+            {
+                if (!ShutdownWhenEmpty && _clientData.Count <= 1)
+                {
+                    Authority = ClientId.None;
+                    _hostAddr = null;
+                    OnHostMigration?.Invoke(Authority);
+                }
+                else if (_clientData.Count > 1)
+                {
+                    MigrateHost(FindNewHost());
+                }
+            }
+            
             _clientData.Remove(client);
             client.tcpSocket.Close();
             OnClientDisconnected?.Invoke(client.id);
@@ -583,26 +598,13 @@ namespace OwlTree
             }
             HasClientEvent = true;
 
+            // shutdown after disconnect
             if (client.id == Authority)
             {
                 if (!Migratable)
-                {
                     Disconnect();
-                }
                 else if (ShutdownWhenEmpty && _clientData.Count <= 0)
-                {
                     Disconnect();
-                }
-                else if (!ShutdownWhenEmpty && _clientData.Count <= 0)
-                {
-                    Authority = ClientId.None;
-                    _hostAddr = null;
-                    OnHostMigration?.Invoke(Authority);
-                }
-                else
-                {
-                    MigrateHost(FindNewHost());
-                }
             }
         }
 
