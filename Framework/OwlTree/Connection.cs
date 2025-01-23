@@ -354,6 +354,11 @@ namespace OwlTree
         private Logger _logger;
 
         /// <summary>
+        /// The logger used by this connection.
+        /// </summary>
+        internal Logger Logger => _logger;
+
+        /// <summary>
         /// Uses this connection's logger to output a message.
         /// </summary>
         public void Log(string message) => _logger.Write(message);

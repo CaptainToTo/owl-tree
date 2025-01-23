@@ -53,7 +53,7 @@ namespace OwlTree.Generator
         {
             var name = Helpers.GetNamespaceName(c);
             var usings = Helpers.GetAllUsings(c);
-            if (name != null)
+            if (name != null && !Helpers.IsUsing(usings, name))
                 usings = usings.Add(UsingDirective(IdentifierName(name)));
             
             if (!Helpers.IsUsing(usings, Helpers.Tk_System))

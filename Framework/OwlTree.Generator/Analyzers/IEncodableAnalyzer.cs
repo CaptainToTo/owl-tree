@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OwlTree.Generator
 {
@@ -89,6 +90,8 @@ namespace OwlTree.Generator
                 {
                     foreach (var name in names)
                         GeneratorState.AddEncodable(name, isVariable);
+                    var ns = Helpers.GetNamespace(encodable);
+                    GeneratorState.AddUsing(UsingDirective(IdentifierName(ns.Name.ToString())));
                 }
             }
         }

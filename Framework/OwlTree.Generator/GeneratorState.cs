@@ -240,16 +240,17 @@ namespace OwlTree.Generator
             _usings.Add(Helpers.Tk_System, true);
         }
 
+        public static void AddUsing(UsingDirectiveSyntax u)
+        {
+            var name = u.Name.ToString();
+            if (!_usings.ContainsKey(name))
+                _usings.Add(name, true);
+        }
+
         public static void AddUsings(SyntaxList<UsingDirectiveSyntax> usings)
         {
             foreach (var u in usings)
-            {
-                var name = u.Name.ToString();
-                if (!_usings.ContainsKey(name))
-                {
-                    _usings.Add(name, true);
-                }
-            }
+                AddUsing(u);
         }
 
         public static UsingDirectiveSyntax[] GetUsings()
