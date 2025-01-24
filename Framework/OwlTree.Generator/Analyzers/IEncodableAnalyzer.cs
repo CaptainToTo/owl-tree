@@ -91,7 +91,8 @@ namespace OwlTree.Generator
                     foreach (var name in names)
                         GeneratorState.AddEncodable(name, isVariable);
                     var ns = Helpers.GetNamespace(encodable);
-                    GeneratorState.AddUsing(UsingDirective(IdentifierName(ns.Name.ToString())));
+                    if (ns != null)
+                        GeneratorState.AddUsing(UsingDirective(IdentifierName(ns.Name.ToString())));
                 }
             }
         }
