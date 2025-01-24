@@ -15,12 +15,12 @@ Feel free to use it in anything you like. :)
 
 # Setting Up
 
-To start using OwlTree, you can download the Framework folder from this repository (release to be made soon). This contains both the OwlTree project, and the OwlTree source generator. Include both in your project's .csproj file:
+To start using OwlTree, you can download the latest release [here](https://github.com/CaptainToTo/owl-tree/releases/download/v0.2.0/OwlTree-v0.2.0.zip). This contains both the OwlTree project, and the OwlTree source generator. Include both in your project's .csproj file:
 
 ```xml
 <ItemGroup>
     <ProjectReference Include="../OwlTree/OwlTree.csproj" />
-    <ProjectReference Include="../OwlTree.Generator/OwlTree.Generator.csproj" OutputItemType="analyzer" ReferenceOutputAssembly="false" />
+    <Analyzer Include="../OwlTree.Generator/OwlTree.Generator.dll" />
 </ItemGroup>
 ```
 
@@ -33,7 +33,7 @@ and enable source generators:
 ```
 
 See specific set-up procedures for other environments:
-- Unity - under construction
+- [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki/OwlTree-Unity-Add%E2%80%90On) - under construction
 - Godot - under construction
 
 # Creating a Connection
