@@ -33,7 +33,7 @@ and enable source generators:
 ```
 
 See specific set-up procedures for other environments:
-- [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki/OwlTree-Unity-Add%E2%80%90On) - under construction
+- [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki) - under construction
 - Godot - under construction
 
 # Creating a Connection
