@@ -80,7 +80,7 @@ public static class Commands
         Console.WriteLine("disconnecting " + clientId);
     }
 
-    internal static void RelayList(RelayManager? relays)
+    internal static void RelayList(RelayManager relays)
     {
         if (relays == null) return;
         Console.WriteLine("Relays:");

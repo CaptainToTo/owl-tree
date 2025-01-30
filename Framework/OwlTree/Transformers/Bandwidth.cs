@@ -26,6 +26,8 @@ namespace OwlTree
             _report.Invoke(this);
         }
 
+        public (int bytes, long time) LastOutgoing() => _outgoingRecords.Count == 0 ? (0, 0) : _outgoingRecords.Last();
+
         public void RecordIncoming(Packet packet)
         {
             _incomingRecords.Add((packet.GetPacket().Length, DateTimeOffset.Now.ToUnixTimeMilliseconds()));
@@ -33,6 +35,8 @@ namespace OwlTree
                 _incomingRecords.RemoveAt(0);
             _report.Invoke(this);
         }
+
+        public (int bytes, long time) LastIncoming() => _incomingRecords.Count == 0 ? (0, 0) : _incomingRecords.Last();
 
         public float OutgoingBytesPerSecond()
         {
