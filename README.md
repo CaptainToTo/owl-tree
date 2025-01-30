@@ -1,11 +1,11 @@
 # OwlTree (v0.2.0)
 A C# framework for server-client RPCs intended for games.
 
-View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki). - under construction
+View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki).
 
 Or check out example projects here:
-- [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club) - under construction
-- [Farming With Friends 2 (Unity multiplayer farming game)](https://github.com/CaptainToTo/Farming-With-Friends-2) - under construction
+- [Checkers Club (.NET CLI checkers server)](https://github.com/CaptainToTo/checkers-club)
+- [Farming With Friends 2 (Unity multiplayer farming game)](https://github.com/CaptainToTo/Farming-With-Friends-2)
 - DrawDot (Godot drawing app) - under construction
 
 # C# 
@@ -33,7 +33,7 @@ and enable source generators:
 ```
 
 See specific set-up procedures for other environments:
-- [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki) - under construction
+- [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki)
 - Godot - under construction
 
 # Creating a Connection
