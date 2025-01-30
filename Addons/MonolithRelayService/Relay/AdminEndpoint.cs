@@ -42,6 +42,7 @@ public class AdminEndpoint
             response.AddHeader("Access-Control-Allow-Origin", "*");
             response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
             response.AddHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            response.AddHeader("Strict-Transport-Security", "max-age=31536000; includeSubdomains");
 
             if (request.HttpMethod == "OPTIONS")
             {
