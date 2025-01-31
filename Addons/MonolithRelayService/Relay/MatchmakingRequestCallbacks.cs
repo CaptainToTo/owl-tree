@@ -59,6 +59,16 @@ public static class MatchmakingRequestCallbacks
             connection.OnClientDisconnected += (id) => File.AppendAllTextAsync(clientsFile, $"disconnected {id.Id} @ {DateTimeOffset.Now.ToUnixTimeSeconds()}\n");
             connection.OnHostMigration += (id) => File.AppendAllTextAsync(clientsFile, $"migrated {id.Id} @ {DateTimeOffset.Now.ToUnixTimeSeconds()}\n");
 
+            connection.OnLocalDisconnect += async (id) => {
+                await Task.Delay(86400000); // wait 1 day before deleting logs
+                if (File.Exists(logFile))
+                    File.Delete(logFile);
+                if (File.Exists(bandwidthFile))
+                    File.Delete(bandwidthFile);
+                if (File.Exists(clientsFile))
+                    File.Delete(clientsFile);
+            };
+
             connection.Log($"New Relay: {connection.SessionId} for App {connection.AppId}\nTCP: {connection.LocalTcpPort}\nUDP: {connection.LocalUdpPort}\nRequested Host: {client}");
         }
         // reject if the session already exists
