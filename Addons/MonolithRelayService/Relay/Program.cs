@@ -20,8 +20,8 @@ public static class Program
     public static void Main(string[] args)
     {
         var ip = args.Length > 1 ? args[0] : "127.0.0.1";
-        var domain = "http://" + ip + (args.Length > 2 ? args[1] : "5000") + "/";
-        var adminDomain = "http://" + ip + (args.Length > 3 ? args[2] : "5001") + "/";
+        var domain = "http://" + ip + ":" + (args.Length > 2 ? args[1] : "5000") + "/";
+        var adminDomain = "http://" + ip + ":" + (args.Length > 3 ? args[2] : "5001") + "/";
         var username = ip + ":" + (args.Length > 3 ? args[2] : "5001");
         var password = args.Length > 4 ? args[3] : "OwlTreeAdmin";
 
