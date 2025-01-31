@@ -10,7 +10,7 @@ public static class Program
         if (!Directory.Exists("logs"))
             Directory.CreateDirectory("logs");
 
-        if (args.Length == 3)
+        if (args.Length == 3 || args.Length == 4)
             UseMatchmaking(args);
         else if (args.Length == 5)
             DirectConnect(args);
@@ -79,7 +79,7 @@ public static class Program
         var request = new MatchmakingClient("http://" + args[1]);
         var promise = request.MakeRequest(new MatchmakingRequest{
             appId = args[0],
-            sessionId = logId.ToString(),
+            sessionId = args.Length == 4 ? args[3] : logId.ToString(),
             serverType = ServerType.Relay,
             clientRole = args[2] == "host" ? ClientRole.Host : ClientRole.Client,
             maxClients = 6,

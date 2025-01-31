@@ -20,14 +20,13 @@ public static class AdminRequestCallbacks
         };
 
         var clients = relay.Clients.ToArray();
-        int c = 0;
-        foreach (var client in clients)
+        for (int i = 0; i < clients.Length; i++)
         {
-            response.clients[c].clientId = client.Id;
-            var ping = relay.Ping(client);
+            response.clients[i].clientId = clients[i].Id;
+            var ping = relay.Ping(clients[i]);
             while (!ping.Resolved)
                 Thread.Sleep(50);
-            response.clients[c].ping = ping.Ping;
+            response.clients[i].ping = ping.Ping;
         }
 
         var clientEvents = File.ReadAllText($"logs/relay{relay.SessionId.Id}-clients.log").Split('\n');
