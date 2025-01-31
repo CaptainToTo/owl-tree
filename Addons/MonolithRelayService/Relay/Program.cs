@@ -15,15 +15,25 @@ using OwlTree.Matchmaking;
 public static class Program
 {
     public static RelayManager relays;
-    public static string ip = "127.0.0.1";
+    public static string ip = "*";
 
     public static void Main(string[] args)
     {
-        var ip = args.Length >= 1 ? args[0] : "127.0.0.1";
-        var domain = "http://" + ip + ":" + (args.Length >= 2 ? args[1] : "5000") + "/";
-        var adminDomain = "https://" + ip + ":" + (args.Length >= 3 ? args[2] : "5001") + "/";
-        var username = ip + ":" + (args.Length >= 4 ? args[3] : "5001");
-        var password = args.Length >= 5 ? args[4] : "OwlTreeAdmin";
+
+        if (args.Length != 4)
+        {
+            Console.WriteLine("Usage: dotnet run [ip address] [matchmaking port] [admin port] [admin password]");
+            return;
+        }
+
+        ip = args[0];
+        var matchmakingPort = int.Parse(args[1]);
+        var adminPort = int.Parse(args[2]);
+        var password = args[3];
+
+        var domain = "http://*:" + matchmakingPort + "/";
+        var adminDomain = "http://*:" + adminPort + "/";
+        var username = ip + ":" + adminPort;
 
         Console.WriteLine("matchmaking endpoint listening on: " + domain);
         Console.WriteLine("admin endpoint listening on: " + adminDomain);
