@@ -20,10 +20,10 @@ public static class Program
     public static void Main(string[] args)
     {
         var ip = args.Length > 1 ? args[0] : "127.0.0.1";
-        var domain = args.Length > 2 ? args[1] : "http://127.0.0.1:5000/";
-        var adminDomain = args.Length > 3 ? args[2] : "https://127.0.0.1:5001/";
-        var username = args.Length > 4 ? args[3] : "127.0.0.1:5001";
-        var password = args.Length > 5 ? args[4] : "OwlTreeAdmin";
+        var domain = "http://" + ip + (args.Length > 2 ? args[1] : "5000") + "/";
+        var adminDomain = "http://" + ip + (args.Length > 3 ? args[2] : "5001") + "/";
+        var username = ip + ":" + (args.Length > 3 ? args[2] : "5001");
+        var password = args.Length > 4 ? args[3] : "OwlTreeAdmin";
 
         if (!Directory.Exists("logs"))
             Directory.CreateDirectory("logs");
@@ -33,7 +33,7 @@ public static class Program
         admin.OnSessionListRequest = AdminRequestCallbacks.HandleSessionListRequest;
         admin.OnSessionDetailsRequest = AdminRequestCallbacks.HandleSessionDetailsRequest;
         relays = new RelayManager();
-        
+
         admin.Start();
         endpoint.Start();
         HandleCommands();
