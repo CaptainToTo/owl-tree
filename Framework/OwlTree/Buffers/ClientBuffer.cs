@@ -70,16 +70,22 @@ namespace OwlTree
 
             if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
             {
-                var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
-                ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
-                _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
-                _udpPacket.Clear();
-                _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                _remainingRequests--;
-
-                if (Logger.includes.connectionAttempts)
+                try
                 {
-                    Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}");
+                    var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
+                    ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
+                    _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
+                    _udpPacket.Clear();
+                    _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    _remainingRequests--;
+
+                    if (Logger.includes.connectionAttempts)
+                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}");
+                }
+                catch (Exception e)
+                {
+                    if (Logger.includes.exceptions)
+                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) failed with the exception:\n{e}");
                 }
             }
 
