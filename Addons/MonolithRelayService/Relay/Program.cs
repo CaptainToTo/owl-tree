@@ -25,6 +25,9 @@ public static class Program
         var username = ip + ":" + (args.Length > 3 ? args[2] : "5001");
         var password = args.Length > 4 ? args[3] : "OwlTreeAdmin";
 
+        Console.WriteLine("matchmaking endpoint listening on: " + domain);
+        Console.WriteLine("admin endpoint listening on: " + adminDomain);
+
         if (!Directory.Exists("logs"))
             Directory.CreateDirectory("logs");
 
