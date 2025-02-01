@@ -33,7 +33,6 @@ public static class Program
 
         var domain = "http://127.0.0.1:" + matchmakingPort + "/";
         var adminDomain = "http://127.0.0.1:" + adminPort + "/";
-        var username = ip + ":" + adminPort;
 
         Console.WriteLine("matchmaking endpoint listening on: " + domain);
         Console.WriteLine("admin endpoint listening on: " + adminDomain);
@@ -42,7 +41,7 @@ public static class Program
             Directory.CreateDirectory("logs");
 
         var endpoint = new MatchmakingEndpoint(domain, MatchmakingRequestCallbacks.HandleRequest);
-        var admin = new AdminEndpoint(adminDomain, username, password);
+        var admin = new AdminEndpoint(adminDomain, password);
         admin.OnSessionListRequest = AdminRequestCallbacks.HandleSessionListRequest;
         admin.OnSessionDetailsRequest = AdminRequestCallbacks.HandleSessionDetailsRequest;
         relays = new RelayManager();

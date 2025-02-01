@@ -6,23 +6,20 @@ using System.Text;
 public class AdminEndpoint
 {
     private HttpListener _listener;
-    private string _username;
     private string _password;
 
-    public AdminEndpoint(string domain, string username, string password)
+    public AdminEndpoint(string domain, string password)
     {
         _listener = new HttpListener();
         _listener.Prefixes.Add(domain);
-        _username = username;
         _password = password;
     }
 
-    public AdminEndpoint(IEnumerable<string> domains, string username, string password)
+    public AdminEndpoint(IEnumerable<string> domains, string password)
     {
         _listener = new HttpListener();
         foreach (var domain in domains)
             _listener.Prefixes.Add(domain);
-        _username = username;
         _password = password;
     }
 
@@ -113,10 +110,7 @@ public class AdminEndpoint
     {
         var authHeader = AuthenticationHeaderValue.Parse(request.Headers["Authorization"]);
         var credentialBytes = Convert.FromBase64String(authHeader.Parameter);
-        var credentials = Encoding.UTF8.GetString(credentialBytes).Split('-');
-        var username = credentials[0];
-        var password = credentials[1];
-        return username == _username && password == _password;
+        return Encoding.UTF8.GetString(credentialBytes) == _password;
     }
 
     public void Close()
