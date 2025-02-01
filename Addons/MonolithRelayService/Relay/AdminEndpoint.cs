@@ -38,7 +38,7 @@ public class AdminEndpoint
             var request = context.Request;
             var response = context.Response;
 
-            _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request made by {request.RemoteEndPoint} at {DateTime.Now}.\n");
+            _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request made by {request.RemoteEndPoint} to {request.Url?.AbsolutePath ?? "/"} at {DateTime.Now}.\n\n");
 
             response.AddHeader("Access-Control-Allow-Origin", "*");
             response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -59,13 +59,13 @@ public class AdminEndpoint
                 else
                 {
                     response.StatusCode = (int)AdminResponseCodes.IncorrectCredentials;
-                    _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request failed to authenticate.\n");
+                    _ = File.AppendAllTextAsync("logs/admin-endpoint.log", "admin request failed to authenticate.\n\n");
                 }
             }
             catch (Exception e)
             {
                 response.StatusCode = (int) AdminResponseCodes.RequestRejected;
-                _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"exception thrown at admin endpoint: {e}\n");
+                _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"exception thrown at admin endpoint: {e}\n\n");
             }
             response.OutputStream.Close();
         }
