@@ -61,7 +61,7 @@ namespace OwlTree.Matchmaking
                 var context = await _listener.GetContextAsync();
                 var request = context.Request;
                 var response = context.Response;
-                var source = request.RemoteEndPoint.Address;
+                var source = IPAddress.Parse(request.Headers["X-Real-IP"] ?? request.UserHostAddress);
 
                 if (request.Url?.AbsolutePath == "/matchmaking")
                 {
