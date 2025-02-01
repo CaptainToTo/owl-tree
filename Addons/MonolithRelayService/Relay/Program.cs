@@ -20,7 +20,7 @@ public static class Program
     public static void Main(string[] args)
     {
 
-        if (args.Length != 4)
+        if (args.Length != 5)
         {
             Console.WriteLine("Usage: dotnet run [ip] [api ip] [matchmaking port] [admin port] [admin password]");
             return;
