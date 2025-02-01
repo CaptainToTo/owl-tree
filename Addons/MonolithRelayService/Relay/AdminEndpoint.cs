@@ -81,7 +81,7 @@ public class AdminEndpoint
 
     private void HandleAdminRequest(HttpListenerRequest request, HttpListenerResponse response)
     {
-        if (request.Url?.AbsolutePath == "/login")
+        if (request.Url?.AbsolutePath == "/admin/login")
         {
             var responseObj = new LoginResponse{
                 accepted = true
@@ -93,7 +93,7 @@ public class AdminEndpoint
             response.OutputStream.Write(buffer, 0, buffer.Length);
 
         }
-        else if (request.Url?.AbsolutePath == "/session-list")
+        else if (request.Url?.AbsolutePath == "/admin/session-list")
         {
             var responseObj = OnSessionListRequest.Invoke();
             string responseBody = responseObj.Serialize();
@@ -102,7 +102,7 @@ public class AdminEndpoint
             response.ContentLength64 = buffer.Length;
             response.OutputStream.Write(buffer, 0, buffer.Length);
         }
-        else if (request.Url?.AbsolutePath.Contains("/sessions/") ?? false)
+        else if (request.Url?.AbsolutePath.Contains("/admin/sessions/") ?? false)
         {
             var sessionId = request.Url?.AbsolutePath.Split('/').Last();
             var responseObj = OnSessionDetailsRequest.Invoke(sessionId);
