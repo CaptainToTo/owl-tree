@@ -30,11 +30,15 @@ public class AdminEndpoint
         _listener.Start();
         IsActive = true;
 
+        File.WriteAllText("logs/admin-endpoint.log", "");
+
         while (IsActive)
         {
             var context = await _listener.GetContextAsync();
             var request = context.Request;
             var response = context.Response;
+
+            _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request made by {request.RemoteEndPoint} at {DateTime.Now}.\n");
 
             response.AddHeader("Access-Control-Allow-Origin", "*");
             response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -53,7 +57,10 @@ public class AdminEndpoint
                 if (Authenticate(request))
                     HandleAdminRequest(request, response);
                 else
+                {
                     response.StatusCode = (int)AdminResponseCodes.IncorrectCredentials;
+                    _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request failed to authenticate.\n");
+                }
             }
             catch (Exception e)
             {
@@ -84,6 +91,7 @@ public class AdminEndpoint
             byte[] buffer = Encoding.UTF8.GetBytes(responseBody);
             response.ContentLength64 = buffer.Length;
             response.OutputStream.Write(buffer, 0, buffer.Length);
+
         }
         else if (request.Url?.AbsolutePath == "/session-list")
         {
