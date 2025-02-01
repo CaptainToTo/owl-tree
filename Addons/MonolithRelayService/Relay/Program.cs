@@ -22,17 +22,18 @@ public static class Program
 
         if (args.Length != 4)
         {
-            Console.WriteLine("Usage: dotnet run [ip address] [matchmaking port] [admin port] [admin password]");
+            Console.WriteLine("Usage: dotnet run [ip] [api ip] [matchmaking port] [admin port] [admin password]");
             return;
         }
 
         ip = args[0];
-        var matchmakingPort = int.Parse(args[1]);
-        var adminPort = int.Parse(args[2]);
-        var password = args[3];
+        var apiIp = args[1];
+        var matchmakingPort = int.Parse(args[2]);
+        var adminPort = int.Parse(args[3]);
+        var password = args[4];
 
-        var domain = "http://127.0.0.1:" + matchmakingPort + "/";
-        var adminDomain = "http://127.0.0.1:" + adminPort + "/";
+        var domain = "http://" + apiIp + ":" + matchmakingPort + "/";
+        var adminDomain = "http://" + apiIp + ":" + adminPort + "/";
 
         Console.WriteLine("matchmaking endpoint listening on: " + domain);
         Console.WriteLine("admin endpoint listening on: " + adminDomain);
