@@ -65,7 +65,7 @@ public class AdminEndpoint
             catch (Exception e)
             {
                 response.StatusCode = (int) AdminResponseCodes.RequestRejected;
-                Console.WriteLine(e);
+                _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"exception thrown at admin endpoint: {e}\n");
             }
             response.OutputStream.Close();
         }
