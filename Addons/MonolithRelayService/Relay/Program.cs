@@ -31,8 +31,8 @@ public static class Program
         var adminPort = int.Parse(args[2]);
         var password = args[3];
 
-        var domain = "http://*:" + matchmakingPort + "/";
-        var adminDomain = "http://*:" + adminPort + "/";
+        var domain = "http://127.0.0.1:" + matchmakingPort + "/";
+        var adminDomain = "http://127.0.0.1:" + adminPort + "/";
         var username = ip + ":" + adminPort;
 
         Console.WriteLine("matchmaking endpoint listening on: " + domain);
