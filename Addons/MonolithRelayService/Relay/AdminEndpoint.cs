@@ -38,7 +38,7 @@ public class AdminEndpoint
             var request = context.Request;
             var response = context.Response;
 
-            _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request made by {request.RemoteEndPoint} to {request.Url?.AbsolutePath ?? "/"} at {DateTime.Now}.\n\n");
+            _ = File.AppendAllTextAsync("logs/admin-endpoint.log", $"admin request made by {request.RemoteEndPoint} to {request.LocalEndPoint}/{request.Url?.AbsolutePath ?? "/"} at {DateTime.Now}.\n\n");
 
             response.AddHeader("Access-Control-Allow-Origin", "*");
             response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
