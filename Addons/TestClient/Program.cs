@@ -16,7 +16,7 @@ public static class Program
             DirectConnect(args);
         else
         {
-            Console.WriteLine("Matchmaking Usage: dotnet run [appId] [endpoint] [client/host]");
+            Console.WriteLine("Matchmaking Usage: dotnet run [appId] [endpoint] [client/host] [sessionId]");
             Console.WriteLine("Direct Connect Usage: dotnet run [appId] [sessionId] [ip address] [tcp] [udp]");
         }
     }
@@ -76,7 +76,7 @@ public static class Program
         var logFile = $"logs/client{logId}.log";
         Console.WriteLine("client log id: " + logId.ToString());
 
-        var request = new MatchmakingClient("http://" + args[1]);
+        var request = new MatchmakingClient(args[1]);
         var promise = request.MakeRequest(new MatchmakingRequest{
             appId = args[0],
             sessionId = args.Length == 4 ? args[3] : logId.ToString(),

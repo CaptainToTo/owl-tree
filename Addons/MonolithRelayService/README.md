@@ -4,17 +4,16 @@ A monolith relay solution that provides matchmaking and relay management. This s
 
 ## On The Server:
 
-Build and run the relay service located in the Relay folder:
+Build and run the relay service:
 ```
 > dotnet build
-> dotnet run [server ip] [matchmaking domain]
+> dotnet run [server ip] [endpoint ip] [matchmaking port] [admin port] [admin password]
 ```
 
-Optionally provide the public ip address the server will use, and the URL the matchmaking service will listen to.
-
-If not provided the defaults are localhost:
-- server ip: `127.0.0.1`
-- matchmaking domain: `http://127.0.0.1:5000`
+For example:
+```
+> dotnet run 123.123.123.123 127.0.0.1 5000 5001 AdminPassword
+```
 
 The server will immediately start processing matchmaking requests, and creating relay connections accordingly. You can control the server using CLI commands:
 
@@ -30,7 +29,7 @@ Relay server commands:
 
 ## On The Client:
 
-The client can connect to the relay server by first sending a matchmaking request, and then connecting to the relay using data from the response.
+The client can connect to the relay server by first sending a matchmaking request using the matchmaking addon, and then connecting to the relay using data from the response.
 
 ```cs
 var requestClient = new MatchmakingClient("http://127.0.0.1:5000"); // the URL used by the server
