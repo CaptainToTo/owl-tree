@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="../../Framework/OwlTree/OwlTree.csproj" />
     <ProjectReference Include="../../Framework/OwlTree.Generator/OwlTree.Generator.csproj" OutputItemType="analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../Matchmaking/OwlTree.Matchmaking.csproj" />
   </ItemGroup>
 </Project>

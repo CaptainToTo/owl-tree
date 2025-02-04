@@ -126,7 +126,7 @@ public class RelayManager
     /// <summary>
     /// Gets a relay using the given session id. Returns null if no such relay is found.
     /// </summary>
-    public Connection? Get(string sessionId)
+    public Connection Get(string sessionId)
     {
         return _connections.GetValueOrDefault(sessionId);
     }
