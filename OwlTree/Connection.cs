@@ -299,10 +299,6 @@ namespace OwlTree
                     IsReady = false;
                     break;
             }
-            _buffer.OnClientConnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnConnect, id));
-            _buffer.OnClientDisconnected = (id) => _clientEvents.Enqueue((ConnectionEventType.OnDisconnect, id));
-            _buffer.OnReady = (id) => _clientEvents.Enqueue((ConnectionEventType.OnReady, id));
-            _buffer.OnHostMigration = (id) => _clientEvents.Enqueue((ConnectionEventType.OnHostMigration, id));
             IsActive = true;
 
             if (!IsRelay)
@@ -374,7 +370,6 @@ namespace OwlTree
             {
                 Threaded = true;
                 _threadUpdateDelta = args.threadUpdateDelta;
-                _clientRequests = new();
                 _bufferThread = new Thread(NetworkLoop);
                 _bufferThread.Start();
             }
@@ -424,26 +419,11 @@ namespace OwlTree
             while (_buffer.IsActive)
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
                 _buffer.Recv();
-
-                if (!IsClient)
-                {
-                    while (_clientRequests.TryDequeue(out var request))
-                    {
-                        switch (request.t)
-                        {
-                            case ConnectionEventType.OnDisconnect:
-                                _buffer.Disconnect(request.id);
-                                break;
-                            case ConnectionEventType.OnHostMigration:
-                                _buffer.MigrateHost(request.id);
-                                break;
-                        }
-                    }
-                }
-
                 if (_buffer.HasOutgoing)
                     _buffer.Send();
+                
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
                 Thread.Sleep(Math.Max(0, _threadUpdateDelta - (int)diff));
@@ -506,18 +486,6 @@ namespace OwlTree
         public StringId SessionId => _buffer.SessionId;
 
         private NetworkBuffer _buffer;
-
-        private enum ConnectionEventType
-        {
-            OnConnect,
-            OnDisconnect,
-            OnReady,
-            OnHostMigration
-        }
-
-        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientEvents = new();
-
-        private ConcurrentQueue<(ConnectionEventType t, ClientId id)> _clientRequests = null;
 
         private List<ClientId> _clients = new List<ClientId>();
 
@@ -642,87 +610,22 @@ namespace OwlTree
             if (!IsActive)
                 return;
 
-            while (_clientEvents.TryDequeue(out var result))
-            {
-                switch (result.t)
-                {
-                    case ConnectionEventType.OnConnect:
-                        if (_logger.includes.clientEvents)
-                            _logger.Write("New client connected: " + result.id.ToString());
-
-                        if (IsAuthority)
-                            _spawner.SendNetworkObjects(result.id);
-                        else if (IsRelay && result.id == _buffer.Authority)
-                        {
-                            Authority = result.id;
-                            if (_logger.includes.clientEvents)
-                                _logger.Write("Host client has been assigned to: " + result.id.ToString());
-                        }
-
-                        _clients.Add(result.id);
-                        OnClientConnected?.Invoke(result.id);
-                        break;
-                    case ConnectionEventType.OnDisconnect:
-                        if (result.id == LocalId)
-                        {
-                            if (_logger.includes.clientEvents)
-                                _logger.Write(IsServer || IsRelay ? "Local server shutdown." : "Local client disconnected.");
-                            IsActive = false;
-                            IsReady = false;
-                            OnLocalDisconnect?.Invoke(LocalId);
-                            _spawner?.DespawnAll();
-                        }
-                        else
-                        {
-                            if (_logger.includes.clientEvents)
-                                _logger.Write("Remote client disconnected: " + result.id.ToString());
-                            _clients.Remove(result.id);
-                            OnClientDisconnected?.Invoke(result.id);
-                        }
-                        break;
-                    case ConnectionEventType.OnReady:
-                        IsReady = true;
-                        Authority = _buffer.Authority;
-                        if (_logger.includes.clientEvents)
-                            _logger.Write($"Connection is ready. Local client id is: {LocalId}, authority id is: {Authority}");
-                        if (LocalId == Authority && IsClient)
-                        {
-                            NetRole = NetRole.Host;
-                            if (_logger.includes.clientEvents)
-                                _logger.Write("Local client assigned as host, this connection now has authority privileges.");
-                        }
-                        else if (LocalId != Authority && IsHost)
-                        {
-                            NetRole = NetRole.Client;
-                            if (_logger.includes.clientEvents)
-                                _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
-                        }
-                        _clients.Add(result.id);
-                        OnReady?.Invoke(result.id);
-                        break;
-                    case ConnectionEventType.OnHostMigration:
-                        Authority = result.id;
-                        if (NetRole == NetRole.Host && Authority != LocalId)
-                            NetRole = NetRole.Client;
-                        if (NetRole != NetRole.Relay && result.id == LocalId)
-                            NetRole = NetRole.Host;
-                        if (_logger.includes.clientEvents)
-                            _logger.Write("Host migrated, new authority is: " + result.id.ToString());
-                        OnHostMigration?.Invoke(result.id);
-                        break;
-                }
-            }
-
-            // if local connection was disconnected in a client event received, exit
-            if (!IsActive)
-                return;
 
             while (_simBuffer.GetNextMessage(out var message))
             {
-                if (
-                    NetRole == NetRole.Client && 
-                    (message.rpcId == RpcId.NetworkObjectSpawnId || message.rpcId == RpcId.NetworkObjectDespawnId)
-                )
+                if (message.rpcId.IsClientEvent())
+                {
+                    try
+                    {
+                        HandleClientEvent(message);
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write($"Failed to dispatch client event {RpcId.SpecialIdToString(message.rpcId)}. Exception Thrown:\n{e}");
+                    }
+                }
+                else if (NetRole == NetRole.Client && message.rpcId.IsObjectEvent())
                 {
                     try
                     {
@@ -751,6 +654,10 @@ namespace OwlTree
                             _logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
                     }
                 }
+
+                // if local connection was disconnected in a client event received, exit
+                if (!IsActive)
+                    return;
             }
 
             for (int i = 0; i < _idSearches.Count; i++)
@@ -770,6 +677,77 @@ namespace OwlTree
             }
 
             _simBuffer?.NextTick();
+        }
+
+        private void HandleClientEvent(Message m)
+        {
+            switch (m.rpcId)
+            {
+                case RpcId.ClientConnectedId:
+                    if (_logger.includes.clientEvents)
+                        _logger.Write("New client connected: " + m.caller.ToString());
+
+                    if (IsAuthority)
+                        _spawner.SendNetworkObjects(m.caller);
+                    else if (IsRelay && m.caller == _buffer.Authority)
+                    {
+                        Authority = m.caller;
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Host client has been assigned to: " + m.caller.ToString());
+                    }
+
+                    _clients.Add(m.caller);
+                    OnClientConnected?.Invoke(m.caller);
+                    break;
+                case RpcId.ClientDisconnectedId:
+                    if (m.caller == LocalId)
+                    {
+                        if (_logger.includes.clientEvents)
+                            _logger.Write(IsServer || IsRelay ? "Local server shutdown." : "Local client disconnected.");
+                        IsActive = false;
+                        IsReady = false;
+                        OnLocalDisconnect?.Invoke(LocalId);
+                        _spawner?.DespawnAll();
+                    }
+                    else
+                    {
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Remote client disconnected: " + m.caller.ToString());
+                        _clients.Remove(m.caller);
+                        OnClientDisconnected?.Invoke(m.caller);
+                    }
+                    break;
+                case RpcId.LocalReadyId:
+                    IsReady = true;
+                    Authority = _buffer.Authority;
+                    if (_logger.includes.clientEvents)
+                        _logger.Write($"Connection is ready. Local client id is: {LocalId}, authority id is: {Authority}");
+                    if (LocalId == Authority && IsClient)
+                    {
+                        NetRole = NetRole.Host;
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Local client assigned as host, this connection now has authority privileges.");
+                    }
+                    else if (LocalId != Authority && IsHost)
+                    {
+                        NetRole = NetRole.Client;
+                        if (_logger.includes.clientEvents)
+                            _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
+                    }
+                    _clients.Add(m.caller);
+                    OnReady?.Invoke(m.caller);
+                    break;
+                case RpcId.HostMigrationId:
+                    Authority = m.caller;
+                    if (NetRole == NetRole.Host && Authority != LocalId)
+                        NetRole = NetRole.Client;
+                    if (NetRole != NetRole.Relay && m.caller == LocalId)
+                        NetRole = NetRole.Host;
+                    if (_logger.includes.clientEvents)
+                        _logger.Write("Host migrated, new authority is: " + m.caller.ToString());
+                    OnHostMigration?.Invoke(m.caller);
+                    break;
+            }
         }
 
         private bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out Message message)
@@ -802,7 +780,7 @@ namespace OwlTree
                 if (IsClient || IsHost)
                     return true;
 
-                // non-relay servers can either receive RPCs
+                // authoritative servers can either receive RPCs
                 if (message.perms == RpcPerms.ClientsToAuthority)
                 {
                     return true;
@@ -1046,7 +1024,12 @@ namespace OwlTree
             if (IsClient)
                 throw new InvalidOperationException("Only the authority can disconnect other clients.");
             if (Threaded)
-                _clientRequests.Enqueue((ConnectionEventType.OnDisconnect, id));
+            {
+                _buffer.AddMessage(new Message{
+                    rpcId = new RpcId(RpcId.ClientDisconnectedId),
+                    callee = id
+                });
+            }
             else
                 _buffer.Disconnect(id);
         }
@@ -1062,7 +1045,12 @@ namespace OwlTree
             if (IsServer)
                 throw new InvalidOperationException("Server authoritative sessions cannot have authority migrated off of the server.");
             if (Threaded)
-                _clientRequests.Enqueue((ConnectionEventType.OnHostMigration, id));
+            {
+                _buffer.AddMessage(new Message{
+                    rpcId = new RpcId(RpcId.HostMigrationId),
+                    callee = id
+                });
+            }
             else
                 _buffer.MigrateHost(id);
         }

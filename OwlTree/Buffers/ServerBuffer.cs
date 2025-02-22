@@ -41,7 +41,7 @@ namespace OwlTree
             LocalId = ClientId.None;
             Authority = ClientId.None;
             IsReady = true;
-            OnReady?.Invoke(LocalId);
+            AddReadyMessage(LocalId);
         }
 
         public override int LocalTcpPort() => ServerTcpPort;
@@ -108,7 +108,7 @@ namespace OwlTree
                         Logger.Write($"TCP handshake made with {((IPEndPoint)tcpClient.RemoteEndPoint).Address} (tcp port: {((IPEndPoint)tcpClient.RemoteEndPoint).Port}) (udp port: {udpPort}). Assigned: {clientData.id}");
                     }
 
-                    OnClientConnected?.Invoke(clientData.id);
+                    AddClientConnectedMessage(clientData.id);
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
@@ -490,7 +490,7 @@ namespace OwlTree
             _udpServer.Close();
             IsReady = false;
             IsActive = false;
-            OnClientDisconnected?.Invoke(LocalId);
+            AddClientDisconnectedMessage(LocalId);
         }
 
 
@@ -509,7 +509,7 @@ namespace OwlTree
         {
             _clientData.Remove(client);
             client.tcpSocket.Close();
-            OnClientDisconnected?.Invoke(client.id);
+            AddClientDisconnectedMessage(client.id);
 
             foreach (var otherClient in _clientData)
             {

@@ -11,7 +11,6 @@ namespace OwlTree
     /// </summary>
     public abstract class RpcProtocols
     {
-        // TODO: remove reflection usage
         /// <summary>
         /// Gets the specific project implementation.
         /// </summary>

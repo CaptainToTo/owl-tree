@@ -311,7 +311,7 @@ namespace OwlTree
                 case RpcId.ClientConnectedId:
                     var id = new ClientId(bytes);
                     _clients.Add(id);
-                    OnClientConnected?.Invoke(id);
+                    AddClientConnectedMessage(id);
                     break;
                 case RpcId.LocalClientConnectedId:
                     var assignment = new ClientIdAssignment(bytes);
@@ -321,16 +321,16 @@ namespace OwlTree
                     _hash = assignment.assignedHash;
                     MaxClients = assignment.maxClients;
                     IsReady = true;
-                    OnReady?.Invoke(LocalId);
+                    AddReadyMessage(LocalId);
                     break;
                 case RpcId.ClientDisconnectedId:
                     id = new ClientId(bytes);
                     _clients.Remove(id);
-                    OnClientDisconnected?.Invoke(id);
+                    AddClientDisconnectedMessage(id);
                     break;
                 case RpcId.HostMigrationId:
                     Authority = new ClientId(bytes);
-                    OnHostMigration?.Invoke(Authority);
+                    AddHostMigrationMessage(Authority);
                     break;
                 default: break;
             }
@@ -441,7 +441,7 @@ namespace OwlTree
             IsReady = false;
             _tcpClient.Close();
             _udpClient.Close();
-            OnClientDisconnected?.Invoke(LocalId);
+            AddClientDisconnectedMessage(LocalId);
         }
 
         /// <summary>

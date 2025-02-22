@@ -20,6 +20,48 @@ namespace OwlTree
         internal const UInt32 CurTickId               = 10;
         internal const UInt32 EndTickId               = 11;
 
+        internal const UInt32 LocalReadyId            = 15;
+        
+        /// <summary>
+        /// Returns true if the given id is for a client event, such as connecting or disconnecting.
+        /// </summary>
+        internal bool IsClientEvent()
+        {
+            return _id == ClientConnectedId || _id == LocalClientConnectedId || _id == ClientDisconnectedId ||
+                _id == HostMigrationId || _id == LocalReadyId;
+        }
+
+        internal bool IsObjectEvent()
+        {
+            return _id == NetworkObjectSpawnId || _id == NetworkObjectDespawnId;
+        }
+
+        internal bool IsTickEvent()
+        {
+            return _id == NextTickId || _id == CurTickId || _id == EndTickId;
+        }
+
+        internal static string SpecialIdToString(RpcId id)
+        {
+            switch (id)
+            {
+                case NoneId: return "<RpcId: None>";
+                case ClientConnectedId: return "Client Connected";
+                case LocalClientConnectedId: return "Local Client Connected";
+                case ClientDisconnectedId: return "Client Disconnected";
+                case NetworkObjectSpawnId: return "NetworkObject Spawned";
+                case NetworkObjectDespawnId: return "NetworkObject Despawned";
+                case ConnectionRequestId: return "Connection Request";
+                case HostMigrationId: return "Host Migration";
+                case PingRequestId: return "Ping Request";
+                case NextTickId: return "Next Tick";
+                case CurTickId: return "Current Tick";
+                case EndTickId: return "End Tick";
+                case LocalReadyId: return "Local Connection Ready";
+                default: return id.ToString();
+            }
+        }
+
         /// <summary>
         /// Represent a non-existent RPC.
         /// </summary>

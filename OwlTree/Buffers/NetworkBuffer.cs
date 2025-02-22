@@ -133,27 +133,37 @@ namespace OwlTree
             return str;
         }
 
-        /// <summary>
-        /// Invoked when a new client connects.
-        /// </summary>
-        public ClientId.Delegate OnClientConnected;
+        protected void AddClientConnectedMessage(ClientId id)
+        {
+            AddMessage(new Message{
+                rpcId = new RpcId(RpcId.ClientConnectedId),
+                caller = id
+            });
+        }
 
-        /// <summary>
-        /// Invoked when a client disconnects.
-        /// </summary>
-        public ClientId.Delegate OnClientDisconnected;
+        protected void AddClientDisconnectedMessage(ClientId id)
+        {
+            AddMessage(new Message{
+                rpcId = new RpcId(RpcId.ClientDisconnectedId),
+                caller = id
+            });
+        }
 
-        /// <summary>
-        /// Invoked when the local connection is ready. Provides the local ClientId.
-        /// If this is a server instance, then the ClientId will be <c>ClientId.None</c>.
-        /// </summary>
-        public ClientId.Delegate OnReady;
+        protected void AddReadyMessage(ClientId id)
+        {
+            AddMessage(new Message{
+                rpcId = new RpcId(RpcId.LocalReadyId),
+                caller = id
+            });
+        }
 
-        /// <summary>
-        /// Invoked when the session authority changes. Provides the client id
-        /// of the new authority.
-        /// </summary>
-        public ClientId.Delegate OnHostMigration;
+        protected void AddHostMigrationMessage(ClientId id)
+        {
+            AddMessage(new Message{
+                rpcId = new RpcId(RpcId.HostMigrationId),
+                caller = id
+            });
+        }
 
         /// <summary>
         /// Injected decoding scheme for messages.
@@ -228,7 +238,12 @@ namespace OwlTree
         /// </summary>
         public void AddMessage(Message message)
         {
-            _outgoing.Enqueue(message);
+            if (message.rpcId == RpcId.ClientDisconnectedId)
+                Disconnect(message.callee);
+            else if (message.rpcId == RpcId.HostMigrationId)
+                MigrateHost(message.callee);
+            else
+                _outgoing.Enqueue(message);
         }
 
         /// <summary>

@@ -42,7 +42,7 @@ namespace OwlTree
             LocalId = ClientId.None;
             Authority = ClientId.None;
             IsReady = true;
-            OnReady?.Invoke(LocalId);
+            AddReadyMessage(LocalId);
         }
 
         public override int LocalTcpPort() => ServerTcpPort;
@@ -134,7 +134,7 @@ namespace OwlTree
                         }
                     }
 
-                    OnClientConnected?.Invoke(clientData.id);
+                    AddClientConnectedMessage(clientData.id);
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
@@ -555,7 +555,7 @@ namespace OwlTree
             _udpRelay.Close();
             IsReady = false;
             IsActive = false;
-            OnClientDisconnected?.Invoke(LocalId);
+            AddClientDisconnectedMessage(LocalId);
         }
 
         public override void Disconnect(ClientId id)
@@ -579,7 +579,7 @@ namespace OwlTree
                 {
                     Authority = ClientId.None;
                     _hostAddr = null;
-                    OnHostMigration?.Invoke(Authority);
+                    AddHostMigrationMessage(Authority);
                 }
                 else if (_clientData.Count > 1)
                 {
@@ -589,7 +589,7 @@ namespace OwlTree
             
             _clientData.Remove(client);
             client.tcpSocket.Close();
-            OnClientDisconnected?.Invoke(client.id);
+            AddClientDisconnectedMessage(client.id);
 
             foreach (var otherClient in _clientData)
             {
@@ -634,7 +634,7 @@ namespace OwlTree
             }
             HasClientEvent = true;
 
-            OnHostMigration?.Invoke(newHost);
+            AddHostMigrationMessage(newHost);
         }
     }
 }
