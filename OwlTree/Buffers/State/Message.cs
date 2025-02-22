@@ -15,6 +15,11 @@ namespace OwlTree
     public struct Message
     {
         /// <summary>
+        /// The simulation tick this message was sent at. This will always be 0 if no simulation buffer is being managed.
+        /// </summary>
+        public Tick tick;
+
+        /// <summary>
         /// Who sent the message. A caller of ClientId.None means it came from the server.
         /// </summary>
         public ClientId caller;
@@ -67,6 +72,7 @@ namespace OwlTree
             this.perms = perms;
             this.args = args;
             bytes = null;
+            tick = new Tick(0);
         }
 
         public Message(ClientId caller, ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms)
@@ -79,6 +85,7 @@ namespace OwlTree
             this.perms = perms;
             this.args = null;
             bytes = null;
+            tick = new Tick(0);
         }
 
         public Message(ClientId callee, RpcId rpcId, object[] args)
@@ -91,6 +98,7 @@ namespace OwlTree
             this.perms = RpcPerms.AuthorityToClients;
             this.args = args;
             bytes = null;
+            tick = new Tick(0);
         }
 
         /// <summary>

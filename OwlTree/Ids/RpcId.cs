@@ -16,6 +16,9 @@ namespace OwlTree
         internal const UInt32 ConnectionRequestId     = 6;
         internal const UInt32 HostMigrationId         = 7;
         internal const UInt32 PingRequestId           = 8;
+        internal const UInt32 NextTickId              = 9;
+        internal const UInt32 CurTickId               = 10;
+        internal const UInt32 EndTickId               = 11;
 
         /// <summary>
         /// Represent a non-existent RPC.

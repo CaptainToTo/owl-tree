@@ -34,6 +34,33 @@ namespace OwlTree
     }
 
     /// <summary>
+    /// How the simulation buffer will be handled in the session. The server enforces
+    /// the control method onto clients.
+    /// </summary>
+    public enum SimulationBufferControl
+    {
+        /// <summary>
+        /// No simulation buffer will be maintained. This means the session will not maintain a synchronized simulation tick number.
+        /// Alignment is not considered. Best for games with irregular tick timings like turn-based games.
+        /// </summary>
+        None,
+        /// <summary>
+        /// Wait for all clients to deliver their input before executing the next tick. Simulation buffer is only maintained for ticks
+        /// that haven't been run yet.
+        /// </summary>
+        Lockstep,
+        /// <summary>
+        /// Maintain a simulation buffer of received future ticks, and past ticks. When receiving updates from a previous tick,
+        /// re-simulate from the new information back to the current tick.
+        /// </summary>
+        Rollback,
+        /// <summary>
+        /// Maintain a simulation buffer of received future ticks.
+        /// </summary>
+        Snapshot
+    }
+
+    /// <summary>
     /// Primary interface for OwlTree server-client connections. 
     /// </summary>
     public class Connection
@@ -199,6 +226,13 @@ namespace OwlTree
             /// between updates. <b>Default = 40 (25 ticks/sec)</b>
             /// </summary>
             public int threadUpdateDelta = 40;
+
+            // simulation buffer
+
+            /// <summary>
+            /// 
+            /// </summary>
+            public SimulationBufferControl simulationSystem = SimulationBufferControl.None;
 
             // logging
 
@@ -415,6 +449,10 @@ namespace OwlTree
                 Thread.Sleep(Math.Max(0, _threadUpdateDelta - (int)diff));
             }
         }
+
+        private SimulationBuffer _simBuffer;
+
+        public Tick CurTick => _simBuffer?.CurTick ?? new Tick(0);
 
         /// <summary>
         /// Whether this connection represents a server or client.
@@ -679,7 +717,7 @@ namespace OwlTree
             if (!IsActive)
                 return;
 
-            while (GetNextMessage(out var message))
+            while (_simBuffer.GetNextMessage(out var message))
             {
                 if (
                     NetRole == NetRole.Client && 
@@ -730,6 +768,8 @@ namespace OwlTree
                         _logger.Write($"FAILED to find object with id {search.Id()}, threw exception:\n{e}");
                 }
             }
+
+            _simBuffer?.NextTick();
         }
 
         private bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out Message message)
@@ -802,7 +842,7 @@ namespace OwlTree
                     span[i] = message.bytes[i];
                 }
             }
-            // relaying client to client rpc
+            // relaying client to client rpc only on server connections
             else if (message.rpcId >= RpcId.FirstRpcId)
             {
                 try
