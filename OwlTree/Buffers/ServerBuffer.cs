@@ -81,6 +81,8 @@ namespace OwlTree
 
             _requests.ClearTimeouts();
 
+            _pingRequests.ClearTimeouts(PingTimeout);
+
             foreach (var socket in _readList)
             {
                 // new client connects
@@ -236,10 +238,7 @@ namespace OwlTree
                         {
                             try
                             {
-                                if (TryDecode(client.id, bytes, out var message))
-                                {
-                                    _incoming.Enqueue(message);
-                                }
+                                Decode(client.id, bytes);
                             }
                             catch (Exception e)
                             {
@@ -327,9 +326,9 @@ namespace OwlTree
                                 {
                                     HandlePingRequest(request);
                                 }
-                                else if (TryDecode(client.id, bytes, out var message))
+                                else
                                 {
-                                    _incoming.Enqueue(message);
+                                    Decode(client.id, bytes);
                                 }
                             }
                             catch (Exception e)
@@ -347,7 +346,7 @@ namespace OwlTree
         {
             if (request.Target == LocalId)
             {
-                PingResponse(request);
+                PingResponse(request, _clientData.Find(request.Source).tcpPacket);
             }
             else if (request.Source == LocalId)
             {
@@ -356,14 +355,15 @@ namespace OwlTree
                 {
                     original.PingResponded();
                     _pingRequests.Remove(original);
-                    _incoming.Enqueue(new Message(
-                        ClientId.None, 
-                        LocalId, 
-                        new RpcId(RpcId.PingRequestId), 
-                        NetworkId.None, 
-                        Protocol.Tcp, 
-                        RpcPerms.AnyToAll,
-                        new object[]{original}));
+                    AddIncoming(new IncomingMessage{
+                        caller = request.Source, 
+                        callee = request.Target, 
+                        rpcId = new RpcId(RpcId.PingRequestId), 
+                        target = NetworkId.None, 
+                        protocol = Protocol.Tcp, 
+                        perms = RpcPerms.AnyToAll,
+                        args = new object[]{original}
+                    });
                 }
             }
             else
@@ -386,18 +386,18 @@ namespace OwlTree
         /// </summary>
         public override void Send()
         {
-            while (_outgoing.TryDequeue(out var message))
+            while (TryGetNextOutgoing(out var message))
             {
+                if (HandleClientEvent(message))
+                    continue;
 
                 if (message.callee != ClientId.None)
                 {
                     var client = _clientData.Find(message.callee);
                     if (client != ClientData.None)
                     {
-                        if (message.protocol == Protocol.Tcp)
-                            Encode(message, client.tcpPacket);
-                        else
-                            Encode(message, client.udpPacket);
+                        Packet p = message.protocol == Protocol.Tcp ? client.tcpPacket : client.udpPacket;
+                        AddToPacket(message, p);
                     }
                 }
                 else
@@ -407,7 +407,7 @@ namespace OwlTree
                         foreach (var client in _clientData)
                         {
                             if (message.caller == client.id) continue;
-                            Encode(message, client.tcpPacket);
+                            AddToPacket(message, client.tcpPacket);
                         }
                     }
                     else
@@ -415,7 +415,7 @@ namespace OwlTree
                         foreach (var client in _clientData)
                         {
                             if (message.caller == client.id) continue;
-                            Encode(message, client.udpPacket);
+                            AddToPacket(message, client.udpPacket);
                         }
                     }
                 }

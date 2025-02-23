@@ -266,6 +266,8 @@ namespace OwlTree
 
             if (Protocols != null && _logger.includes.allRpcProtocols)
                 _logger.Write(Protocols.GetAllProtocolSummaries());
+            
+            _simBuffer = new MessageQueue();
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -278,8 +280,10 @@ namespace OwlTree
                 serverTcpPort = args.tcpPort,
                 serverUdpPort = args.udpPort,
                 bufferSize = args.bufferSize,
-                encoder = EncodeRpc,
-                decoder = TryDecodeRpc,
+                incomingDecoder = DecodeIncoming,
+                outgoingProvider = _simBuffer.TryGetNextOutgoing,
+                addIncoming = _simBuffer.AddIncoming,
+                addOutgoing = _simBuffer.AddOutgoing,
                 logger = _logger
             };
 
@@ -597,11 +601,6 @@ namespace OwlTree
             }
         }
 
-        internal bool GetNextMessage(out Message message)
-        {
-            return _buffer.GetNextMessage(out message);
-        }
-
         /// <summary>
         /// Execute any RPCs that have been received in the last <c>Recv()</c> call.
         /// </summary>
@@ -611,7 +610,7 @@ namespace OwlTree
                 return;
 
 
-            while (_simBuffer.GetNextMessage(out var message))
+            while (_simBuffer.TryGetNextIncoming(out var message))
             {
                 if (message.rpcId.IsClientEvent())
                 {
@@ -637,6 +636,7 @@ namespace OwlTree
                             _logger.Write($"Failed to run {(message.rpcId == RpcId.NetworkObjectSpawnId ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
                     }
                 }
+                // pings sent by this connection will
                 else if (message.rpcId == RpcId.PingRequestId)
                 {
                     var request = (PingRequest)message.args[0];
@@ -676,10 +676,11 @@ namespace OwlTree
                 }
             }
 
-            _simBuffer?.NextTick();
+            _simBuffer.NextTick(LocalId);
         }
 
-        private void HandleClientEvent(Message m)
+        // client id associated with event placed in caller prop
+        private void HandleClientEvent(IncomingMessage m)
         {
             switch (m.rpcId)
             {
@@ -750,24 +751,38 @@ namespace OwlTree
             }
         }
 
-        private bool TryDecodeRpc(ClientId source, ReadOnlySpan<byte> bytes, out Message message)
+        private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes)
         {
-            message = Message.Empty;
             if (NetRole != NetRole.Server && NetworkSpawner.TryDecode(bytes, out var rpcId, out var args))
             {
-                message = new Message(LocalId, rpcId, args);
+                _simBuffer.AddIncoming(new IncomingMessage{
+                    caller = source,
+                    callee = LocalId,
+                    rpcId = rpcId,
+                    protocol = Protocol.Tcp,
+                    perms = RpcPerms.AuthorityToClients,
+                    args = args
+                });
                 if (_logger.includes.rpcReceiveEncodings)
                 {
                     if (rpcId.Id == RpcId.NetworkObjectSpawnId)
-                        _logger.Write("RECEIVING:\n" + _spawner.SpawnEncodingSummary((byte)message.args[0], (NetworkId)message.args[1]));
+                        _logger.Write("RECEIVING:\n" + _spawner.SpawnEncodingSummary((byte)args[0], (NetworkId)args[1]));
                     else
                         _logger.Write("RECEIVING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
                 }
-                return true;
             }
             else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out var caller, out var callee, out var target, out args))
             {
-                message = new Message(caller, callee, rpcId, target, Protocols.GetSendProtocol(rpcId), Protocols.GetRpcPerms(rpcId), args);
+                var incoming = new IncomingMessage{
+                    caller = caller,
+                    callee = callee,
+                    rpcId = rpcId,
+                    target = target,
+                    protocol = Protocols.GetSendProtocol(rpcId),
+                    perms = Protocols.GetRpcPerms(rpcId),
+                    args = args
+                };
+
                 if (_logger.includes.rpcReceives)
                 {
                     var output = $"RECEIVING:\n{Protocols.GetRpcName(rpcId.Id)} {rpcId}, called on object {target}";
@@ -776,146 +791,103 @@ namespace OwlTree
                     _logger.Write(output);
                 }
 
-                // clients do not relay
-                if (IsClient || IsHost)
-                    return true;
+                // clients cannot relay messages, or the message isn't allowed to be relayed
+                if (IsClient || IsHost || incoming.perms == RpcPerms.ClientsToAuthority)
+                {
+                    _simBuffer.AddIncoming(incoming);
+                    return;
+                }
 
-                // authoritative servers can either receive RPCs
-                if (message.perms == RpcPerms.ClientsToAuthority)
+                // determine if the message should be relayed, this will only be run on an authoritative server
+
+                // cannot be intended for the server
+                if (incoming.perms == RpcPerms.ClientsToClients)
                 {
-                    return true;
+                    _simBuffer.AddOutgoing(new OutgoingMessage{
+                        caller = caller,
+                        callee = callee,
+                        rpcId = rpcId,
+                        protocol = incoming.protocol,
+                        perms = incoming.perms,
+                        bytes = bytes.ToArray()
+                    });
+                    return;
                 }
-                // or relay them between clients
-                else if (message.perms == RpcPerms.ClientsToClients)
+
+                // otherwise perms are ClientsToAll or AnyToAll
+                
+                if (Protocols.HasCalleeIdParam(incoming.rpcId))
                 {
-                    _buffer.AddMessage(message);
-                }
-                else if (message.perms == RpcPerms.ClientsToAll || message.perms == RpcPerms.AnyToAll)
-                {
-                    if (Protocols.HasCalleeIdParam(message.rpcId))
+                    if (incoming.callee == LocalId) // an RPC w/ a callee id param can target the server with ClientId.None
                     {
-                        if (message.callee == LocalId) // an RPC w/ a callee id param can target the server with ClientId.None
-                            return true;
-                        else // otherwise relay to the intended client
-                            _buffer.AddMessage(message);
+                        _simBuffer.AddIncoming(incoming);
                     }
-                    // otherwise the RPC should be run on the server, and sent to all other clients
-                    var relayedMessage = new Message(caller, callee, rpcId, target, Protocols.GetSendProtocol(rpcId), Protocols.GetRpcPerms(rpcId));
-                    relayedMessage.bytes = bytes.ToArray();
-                    _buffer.AddMessage(relayedMessage);
-                    return true;
+                    else // otherwise relay to the intended client
+                    {
+                        _simBuffer.AddOutgoing(new OutgoingMessage{
+                            caller = caller,
+                            callee = callee,
+                            rpcId = rpcId,
+                            protocol = incoming.protocol,
+                            perms = incoming.perms,
+                            bytes = bytes.ToArray()
+                        });
+                    }
+                    return;
                 }
+
+                // otherwise the RPC should be run on the server, and sent to all other clients
+                _simBuffer.AddIncoming(incoming);
+                _simBuffer.AddOutgoing(new OutgoingMessage{
+                    caller = caller,
+                    callee = callee,
+                    rpcId = rpcId,
+                    protocol = incoming.protocol,
+                    perms = incoming.perms,
+                    bytes = bytes.ToArray()
+                });
             }
-            return false;
         }
 
-        private void EncodeRpc(Message message, Packet buffer)
+        internal void AddOutgoingMessage(OutgoingMessage m)
         {
-            // add locally called rpc to packet
-            if (message.bytes != null)
-            {
-                var span = buffer.GetSpan(message.bytes.Length);
-                for (int i = 0; i < span.Length; i++)
-                {
-                    span[i] = message.bytes[i];
-                }
-            }
-            // relaying client to client rpc only on server connections
-            else if (message.rpcId >= RpcId.FirstRpcId)
-            {
-                try
-                {
-                    var bytes = buffer.GetSpan(Protocols.GetRpcByteLength(message.rpcId, message.args));
-                    Protocols.EncodeRpc(bytes, message.rpcId, message.caller, message.callee, message.target, message.args);
-                    if (_logger.includes.rpcCalls)
-                    {
-                        var output = $"RELAYING:\n{Protocols.GetRpcName(message.rpcId.Id)} {message.rpcId}, called on object {message.target}";
-                        if (_logger.includes.rpcCallEncodings)
-                            output += ":\n" + Protocols.GetEncodingSummary(message.rpcId, message.caller, message.callee, message.target, message.args);
-                        _logger.Write(output);
-                    }
-                }
-                catch (Exception e)
-                {
-                    if (_logger.includes.exceptions)
-                        _logger.Write($"FAILED to relay RPC from {message.caller}, sending to {message.callee}. Thrown exception:\n{e}");
-                }
-            }
+            _simBuffer.AddOutgoing(m);
         }
 
         internal void AddRpc(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, object[] args)
         {
-            if (rpcId == RpcId.NetworkObjectSpawnId)
+            try
             {
-                try
+                var perms = Protocols.GetRpcPerms(rpcId);
+                switch (perms)
                 {
-                    var message = new Message(LocalId, callee, rpcId, target, protocol, RpcPerms.AuthorityToClients);
-                    message.bytes = new byte[NetworkSpawner.SpawnByteLength];
-                    _spawner.SpawnEncode(message.bytes, (Type)args[0], (NetworkId)args[1]);
-                    if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary((Type)args[0], (NetworkId)args[1]));
-                    _buffer.AddMessage(message);
-                }
-                catch (Exception e)
-                {
-                    if (_logger.includes.exceptions)
-                        _logger.Write($"FAILED to encode spawn instruction. Thrown exception:\n{e}");
-                    return;
-                }
-            }
-            else if (rpcId == RpcId.NetworkObjectDespawnId)
-            {
-                try
-                {
-                    var message = new Message(LocalId, callee, rpcId, target, protocol, RpcPerms.AuthorityToClients);
-                    message.bytes = new byte[NetworkSpawner.DespawnByteLength];
-                    _spawner.DespawnEncode(message.bytes, (NetworkId)args[0]);
-                    if (_logger.includes.rpcCallEncodings)
-                        _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
-                    _buffer.AddMessage(message);
-                }
-                catch (Exception e)
-                {
-                    if (_logger.includes.exceptions)
-                        _logger.Write($"FAILED to encode despawn instruction. Thrown exception:\n{e}");
-                    return;
-                }
-            }
-            else
-            {
-                try
-                {
-                    var perms = Protocols.GetRpcPerms(rpcId);
-                    switch (perms)
-                    {
-                        case RpcPerms.ClientsToAuthority:
-                            AddRpcTo(Authority, rpcId, target, protocol, perms, args);
-                            break;
-                        case RpcPerms.ClientsToClients:
-                            if (Protocols.HasCalleeIdParam(rpcId))
-                                AddRpcTo(callee, rpcId, target, protocol, perms, args);
-                            else
-                                AddRpcTo(Clients.Where(c => c != LocalId), rpcId, target, protocol, perms, args);
-                            break;
-                        case RpcPerms.ClientsToAll:
-                        case RpcPerms.AuthorityToClients:
-                        case RpcPerms.AnyToAll:
-                        default:
+                    case RpcPerms.ClientsToAuthority:
+                        AddRpcTo(Authority, rpcId, target, protocol, perms, args);
+                        break;
+                    case RpcPerms.ClientsToClients:
+                        if (Protocols.HasCalleeIdParam(rpcId))
                             AddRpcTo(callee, rpcId, target, protocol, perms, args);
-                            break;
-                    }
+                        else
+                            AddRpcTo(Clients.Where(c => c != LocalId), rpcId, target, protocol, perms, args);
+                        break;
+                    case RpcPerms.ClientsToAll:
+                    case RpcPerms.AuthorityToClients:
+                    case RpcPerms.AnyToAll:
+                    default:
+                        AddRpcTo(callee, rpcId, target, protocol, perms, args);
+                        break;
                 }
-                catch (Exception e)
+            }
+            catch (Exception e)
+            {
+                if (_logger.includes.exceptions)
                 {
-                    if (_logger.includes.exceptions)
-                    {
-                        var str = new StringBuilder();
-                        for (int i = 0; i < args.Length; i++)
-                            str.Append($"{i + 1}: {args[i]}\n");
-                        _logger.Write($"FAILED to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
-                    }
-                    return;
+                    var str = new StringBuilder();
+                    for (int i = 0; i < args.Length; i++)
+                        str.Append($"{i + 1}: {args[i]}\n");
+                    _logger.Write($"FAILED to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
                 }
+                return;
             }
         }
 
@@ -925,9 +897,16 @@ namespace OwlTree
             Protocols.EncodeRpc(bytes, rpcId, LocalId, ClientId.None, target, args);
             foreach (var callee in callees)
             {
-                var message = new Message(LocalId, callee, rpcId, target, protocol, perms);
-                message.bytes = RpcEncoding.ChangeRpcCallee(bytes, callee);
-                _buffer.AddMessage(message);
+                var message = new OutgoingMessage{
+                    caller = LocalId,
+                    callee = callee,
+                    rpcId = rpcId,
+                    target = target,
+                    protocol = protocol,
+                    perms = perms,
+                    bytes = RpcEncoding.ChangeRpcCallee(bytes, callee)
+                };
+                _simBuffer.AddOutgoing(message);
 
                 if (_logger.includes.rpcCalls)
                 {
@@ -941,10 +920,17 @@ namespace OwlTree
 
         private void AddRpcTo(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms, object[] args)
         {
-            var message = new Message(LocalId, callee, rpcId, target, protocol, perms);
-            message.bytes = new byte[Protocols.GetRpcByteLength(rpcId, args)];
+            var message = new OutgoingMessage{
+                caller = LocalId,
+                callee = callee,
+                rpcId = rpcId,
+                target = target,
+                protocol = protocol,
+                perms = perms,
+                bytes = new byte[Protocols.GetRpcByteLength(rpcId, args)]
+            };
             Protocols.EncodeRpc(message.bytes, rpcId, LocalId, callee, target, args);
-            _buffer.AddMessage(message);
+            _simBuffer.AddOutgoing(message);
 
             if (_logger.includes.rpcCalls)
             {
@@ -955,15 +941,8 @@ namespace OwlTree
             }
         }
 
-        internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args)
-        {
-            AddRpc(callee, rpcId, NetworkId.None, protocol, args);
-        }
-
-        internal void AddRpc(RpcId rpcId, object[] args)
-        {
-            AddRpc(ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args);
-        }
+        internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args) => AddRpc(callee, rpcId, NetworkId.None, protocol, args);
+        internal void AddRpc(RpcId rpcId, object[] args) => AddRpc(ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args);
 
         /// <summary>
         /// Send current outgoing packets.
@@ -1025,7 +1004,7 @@ namespace OwlTree
                 throw new InvalidOperationException("Only the authority can disconnect other clients.");
             if (Threaded)
             {
-                _buffer.AddMessage(new Message{
+                _simBuffer.AddOutgoing(new OutgoingMessage{
                     rpcId = new RpcId(RpcId.ClientDisconnectedId),
                     callee = id
                 });
@@ -1046,7 +1025,7 @@ namespace OwlTree
                 throw new InvalidOperationException("Server authoritative sessions cannot have authority migrated off of the server.");
             if (Threaded)
             {
-                _buffer.AddMessage(new Message{
+                _simBuffer.AddOutgoing(new OutgoingMessage{
                     rpcId = new RpcId(RpcId.HostMigrationId),
                     callee = id
                 });
@@ -1131,8 +1110,20 @@ namespace OwlTree
                 throw new InvalidOperationException("Clients cannot spawn or destroy network objects.");
             else if (IsRelay)
                 throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
-            var obj = _spawner.Spawn<T>();
-            return obj;
+            
+            try
+            {
+                var obj = _spawner.Spawn<T>();
+                if (_logger.includes.rpcCallEncodings)
+                    _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary(ClientId.None, obj.GetType(), obj.Id));
+                return obj;
+            }
+            catch (Exception e)
+            {
+                if (_logger.includes.exceptions)
+                    _logger.Write($"FAILED to spawn new NetworkObject. Exception thrown:\n{e}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -1145,7 +1136,19 @@ namespace OwlTree
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
             else if (IsRelay)
                 throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
-            return _spawner.Spawn(t);
+            try
+            {
+                var obj = _spawner.Spawn(t);
+                if (_logger.includes.rpcCallEncodings)
+                    _logger.Write("SENDING:\n" + _spawner.SpawnEncodingSummary(ClientId.None, obj.GetType(), obj.Id));
+                return obj;
+            }
+            catch (Exception e)
+            {
+                if (_logger.includes.exceptions)
+                    _logger.Write($"FAILED to spawn new NetworkObject. Exception thrown:\n{e}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -1158,7 +1161,17 @@ namespace OwlTree
                 throw new InvalidOperationException("Clients cannot spawn or despawn network objects");
             else if (IsRelay)
                 throw new InvalidOperationException("Relay servers cannot spawn or destroy network objects.");
-            _spawner.Despawn(target);
+            try
+            {
+                _spawner.Despawn(target);
+                if (_logger.includes.rpcCallEncodings)
+                    _logger.Write("SENDING:\n" + _spawner.DespawnEncodingSummary(target.Id));
+            }
+            catch (Exception e)
+            {
+                if (_logger.includes.exceptions)
+                    _logger.Write($"FAILED to despawn NetworkObject. Exception thrown:\n{e}");
+            }
         }
 
         /// <summary>

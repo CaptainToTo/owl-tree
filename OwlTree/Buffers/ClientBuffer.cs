@@ -230,9 +230,9 @@ namespace OwlTree
                                 {
                                     HandlePingRequest(request);
                                 }
-                                else if (TryDecode(ClientId.None, bytes, out var message))
+                                else
                                 {
-                                    _incoming.Enqueue(message);
+                                    Decode(ClientId.None, bytes);
                                 }
                             }
                             catch (Exception e)
@@ -286,10 +286,7 @@ namespace OwlTree
                         {
                             try
                             {
-                                if (TryDecode(ClientId.None, bytes, out var message))
-                                {
-                                    _incoming.Enqueue(message);
-                                }
+                                Decode(ClientId.None, bytes);
                             }
                             catch (Exception e)
                             {
@@ -303,7 +300,7 @@ namespace OwlTree
         }
 
         // handle connections and disconnections immediately, 
-        // they do not preserve the message execution order.
+        // message order only preserved for main simulation.
         private void HandleClientConnectionMessage(RpcId messageType, ReadOnlySpan<byte> bytes)
         {
             switch (messageType.Id)
@@ -340,7 +337,7 @@ namespace OwlTree
         {
             if (request.Target == LocalId)
             {
-                PingResponse(request);
+                PingResponse(request, _tcpPacket);
             }
             else if (request.Source == LocalId)
             {
@@ -349,14 +346,15 @@ namespace OwlTree
                 {
                     original.PingResponded();
                     _pingRequests.Remove(original);
-                    _incoming.Enqueue(new Message(
-                        ClientId.None, 
-                        LocalId, 
-                        new RpcId(RpcId.PingRequestId), 
-                        NetworkId.None, 
-                        Protocol.Tcp, 
-                        RpcPerms.AnyToAll, 
-                        new object[]{original}));
+                    AddIncoming(new IncomingMessage{
+                        caller = ClientId.None, 
+                        callee = LocalId, 
+                        rpcId = new RpcId(RpcId.PingRequestId), 
+                        target = NetworkId.None, 
+                        protocol = Protocol.Tcp, 
+                        perms = RpcPerms.AnyToAll, 
+                        args = new object[]{original}
+                    });
                 }
             }
         }
@@ -367,12 +365,13 @@ namespace OwlTree
         /// </summary>
         public override void Send()
         {
-            while (_outgoing.TryDequeue(out var message))
+            while (TryGetNextOutgoing(out var message))
             {
-                if (message.protocol == Protocol.Tcp)
-                    Encode(message, _tcpPacket);
-                else
-                    Encode(message, _udpPacket);
+                if (HandleClientEvent(message))
+                    continue;
+                
+                Packet p = message.protocol == Protocol.Tcp ? _tcpPacket : _udpPacket;
+                AddToPacket(message, p);
             }
 
             if (!_tcpPacket.IsEmpty)

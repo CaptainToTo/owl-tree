@@ -82,9 +82,11 @@ namespace OwlTree
             newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
+
+            _connection.AddOutgoingMessage(EncodeSpawn(ClientId.None, typeof(T), newObj.Id));
+
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
-            _connection.AddRpc(new RpcId(RpcId.NetworkObjectSpawnId), new object[]{typeof(T), newObj.Id});
             return newObj;
         }
 
@@ -108,7 +110,7 @@ namespace OwlTree
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
 
-            _connection.AddRpc(new RpcId(RpcId.NetworkObjectSpawnId), new object[]{t, newObj.Id});
+            _connection.AddOutgoingMessage(EncodeSpawn(ClientId.None, t, newObj.Id));
 
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
@@ -120,7 +122,7 @@ namespace OwlTree
         {
             foreach (var pair in _netObjects)
             {
-                _connection.AddRpc(callee, new RpcId(RpcId.NetworkObjectSpawnId), Protocol.Tcp, new object[]{pair.Value.GetType(), pair.Key});
+                _connection.AddOutgoingMessage(EncodeSpawn(callee, pair.Value.GetType(), pair.Key));
             }
         }
 
@@ -153,27 +155,36 @@ namespace OwlTree
         internal static int SpawnByteLength => RpcId.MaxByteLength + 1 + NetworkId.MaxByteLength;
 
         // encodes spawn into byte array for send
-        internal void SpawnEncode(Span<byte> bytes, Type objType, NetworkId id)
+        internal OutgoingMessage EncodeSpawn(ClientId callee, Type objType, NetworkId id)
         {
+            var m = new OutgoingMessage{
+                caller = _connection.LocalId,
+                callee = callee,
+                rpcId = new RpcId(RpcId.NetworkObjectSpawnId),
+                protocol = Protocol.Tcp,
+                perms = RpcPerms.AuthorityToClients,
+                bytes = new byte[SpawnByteLength]
+            };
+
             int ind = 0;
+            var bytes = m.bytes.AsSpan();
 
-            var rpcId = new RpcId(RpcId.NetworkObjectSpawnId);
-            var rpcSpan = bytes.Slice(ind, rpcId.ByteLength());
-            rpcId.InsertBytes(rpcSpan);
-            ind += rpcId.ByteLength();
+            m.rpcId.InsertBytes(bytes);
+            ind += m.rpcId.ByteLength();
 
-            bytes[rpcId.ByteLength()] = _proxyFactory?.TypeId(objType) ?? 0;
+            bytes[ind] = _proxyFactory?.TypeId(objType) ?? 0;
             ind += 1;
 
             var idSpan = bytes.Slice(ind, id.ByteLength());
             id.InsertBytes(idSpan);
+
+            return m;
         }
 
-        internal string SpawnEncodingSummary(Type objType, NetworkId id)
+        internal string SpawnEncodingSummary(ClientId callee, Type objType, NetworkId id)
         {
             string title = "Spawn Network Object of type <" + objType.ToString() + "> w/ Id " + id.ToString() + ":\n";
-            byte[] bytes = new byte[SpawnByteLength];
-            SpawnEncode(bytes.AsSpan(), objType, id);
+            var bytes = EncodeSpawn(callee, objType, id).bytes;
             string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| NT |__NetId__|";
             return title + bytesStr + encoding;
@@ -181,7 +192,7 @@ namespace OwlTree
 
         internal string SpawnEncodingSummary(byte objType, NetworkId id)
         {
-            return SpawnEncodingSummary(_proxyFactory?.TypeFromId(objType) ?? typeof(NetworkObject), id);
+            return SpawnEncodingSummary(_connection.LocalId, _proxyFactory?.TypeFromId(objType) ?? typeof(NetworkObject), id);
         }
 
         /// <summary>
@@ -191,7 +202,7 @@ namespace OwlTree
         {
             _netObjects.Remove(target.Id);
             target.IsActive = false;
-            _connection.AddRpc(new RpcId(RpcId.NetworkObjectDespawnId), new object[]{target.Id});
+            _connection.AddOutgoingMessage(EncodeDespawn(target.Id));
             target.OnDespawn();
             OnObjectDespawn?.Invoke(target);
         }
@@ -220,24 +231,32 @@ namespace OwlTree
         internal static int DespawnByteLength => RpcId.MaxByteLength + NetworkId.MaxByteLength;
 
         // encodes destroy into byte array for send
-        internal void DespawnEncode(Span<byte> bytes, NetworkId id)
+        internal OutgoingMessage EncodeDespawn(NetworkId id)
         {
+            var m = new OutgoingMessage{
+                caller = _connection.LocalId,
+                callee = ClientId.None,
+                rpcId = new RpcId(RpcId.NetworkObjectDespawnId),
+                protocol = Protocol.Tcp,
+                perms = RpcPerms.AuthorityToClients,
+                bytes = new byte[DespawnByteLength]
+            };
+
             var ind = 0;
+            var bytes = m.bytes.AsSpan();
 
-            var rpcId = new RpcId(RpcId.NetworkObjectDespawnId);
-            var rpcSpan = bytes.Slice(0, rpcId.ByteLength());
-            rpcId.InsertBytes(rpcSpan);
-            ind += rpcId.ByteLength();
+            m.rpcId.InsertBytes(bytes);
+            ind += m.rpcId.ByteLength();
 
-            var idSpan = bytes.Slice(ind, id.ByteLength());
-            id.InsertBytes(idSpan);
+            id.InsertBytes(bytes.Slice(ind));
+
+            return m;
         }
 
         internal string DespawnEncodingSummary(NetworkId id)
         {
             string title = "Despawn Network Object " + id.ToString() + ":\n";
-            byte[] bytes = new byte[DespawnByteLength];
-            DespawnEncode(bytes.AsSpan(), id);
+            byte[] bytes = EncodeDespawn(id).bytes;
             string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| |__NetId__|";
             return title + bytesStr + encoding;

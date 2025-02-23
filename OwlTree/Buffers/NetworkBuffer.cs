@@ -21,6 +21,16 @@ namespace OwlTree
         /// </summary>
         public delegate void Encoder(Message message, Packet buffer);
 
+        /// <summary>
+        /// Function signature used to provide the buffer with outgoing messages.
+        /// </summary>
+        public delegate bool OutgoingProvider(out OutgoingMessage m);
+
+        /// <summary>
+        /// Function signature used to collect individual incoming messages for decoding.
+        /// </summary>
+        public delegate void IncomingDecoder(ClientId caller, ReadOnlySpan<byte> bytes);
+
         public struct Args
         {
             public ushort owlTreeVer;
@@ -36,8 +46,11 @@ namespace OwlTree
 
             public int bufferSize;
 
-            public Decoder decoder;
-            public Encoder encoder;
+            public IncomingDecoder incomingDecoder;
+            public OutgoingProvider outgoingProvider;
+
+            public IncomingMessage.Delegate addIncoming;
+            public OutgoingMessage.Delegate addOutgoing;
 
             public Logger logger;
         }
@@ -95,8 +108,10 @@ namespace OwlTree
             ServerUdpPort = args.serverUdpPort;
             BufferSize = args.bufferSize;
             ReadBuffer = new byte[BufferSize];
-            TryDecode = args.decoder;
-            Encode = args.encoder;
+            Decode = args.incomingDecoder;
+            TryGetNextOutgoing = args.outgoingProvider;
+            AddIncoming = args.addIncoming;
+            AddOutgoing = args.addOutgoing;
             ReadPacket = new Packet(BufferSize);
 
             _pingRequests = new PingRequestList(3000);
@@ -133,9 +148,11 @@ namespace OwlTree
             return str;
         }
 
+        // add client events to incoming queue
+
         protected void AddClientConnectedMessage(ClientId id)
         {
-            AddMessage(new Message{
+            AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.ClientConnectedId),
                 caller = id
             });
@@ -143,7 +160,7 @@ namespace OwlTree
 
         protected void AddClientDisconnectedMessage(ClientId id)
         {
-            AddMessage(new Message{
+            AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.ClientDisconnectedId),
                 caller = id
             });
@@ -151,7 +168,7 @@ namespace OwlTree
 
         protected void AddReadyMessage(ClientId id)
         {
-            AddMessage(new Message{
+            AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.LocalReadyId),
                 caller = id
             });
@@ -159,21 +176,26 @@ namespace OwlTree
 
         protected void AddHostMigrationMessage(ClientId id)
         {
-            AddMessage(new Message{
+            AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.HostMigrationId),
                 caller = id
             });
         }
 
-        /// <summary>
-        /// Injected decoding scheme for messages.
-        /// </summary>
-        protected Decoder TryDecode;
+        protected void AddToPacket(OutgoingMessage m, Packet p)
+        {
+            var span = p.GetSpan(m.bytes.Length);
+            for (int i = 0; i < span.Length; i++)
+                span[i] = m.bytes[i];
+        }
 
-        /// <summary>
-        /// Injected encoding scheme for messages.
-        /// </summary>
-        protected Encoder Encode;
+        protected IncomingDecoder Decode;
+
+        protected OutgoingProvider TryGetNextOutgoing;
+
+        protected IncomingMessage.Delegate AddIncoming;
+
+        protected OutgoingMessage.Delegate AddOutgoing;
 
         /// <summary>
         /// Whether or not the connection is ready. 
@@ -198,52 +220,27 @@ namespace OwlTree
         /// </summary>
         public ClientId Authority { get; protected set; } = ClientId.None;
 
-        // currently read messages
-        protected ConcurrentQueue<Message> _incoming = new ConcurrentQueue<Message>();
-
-        protected ConcurrentQueue<Message> _outgoing = new ConcurrentQueue<Message>();
-
         /// <summary>
         /// True if there are messages that are waiting to be sent.
         /// </summary>
-        public bool HasOutgoing { get { return _outgoing.Count > 0 || HasClientEvent || HasRelayMessages; } }
+        public bool HasOutgoing => HasClientEvent || HasRelayMessages;
 
         protected bool HasClientEvent = false;
 
         protected bool HasRelayMessages = false;
-        
-        /// <summary>
-        /// Get the next message in the read queue.
-        /// </summary>
-        /// <param name="message">The next message.</param>
-        /// <returns>True if there is a message, false if the queue is empty.</returns>
-        public bool GetNextMessage(out Message message)
-        {
-            if (_incoming.Count == 0)
-            {
-                message = Message.Empty;
-                return false;
-            }
-            return _incoming.TryDequeue(out message);
-        }
 
         /// <summary>
         /// Reads any data currently on sockets. Putting new messages in the queue, and connecting new clients.
         /// </summary>
         public abstract void Recv();
 
-        /// <summary>
-        /// Add message to outgoing message queue.
-        /// Actually send buffers to sockets with <c>Send()</c>.
-        /// </summary>
-        public void AddMessage(Message message)
+        protected bool HandleClientEvent(OutgoingMessage m)
         {
-            if (message.rpcId == RpcId.ClientDisconnectedId)
-                Disconnect(message.callee);
-            else if (message.rpcId == RpcId.HostMigrationId)
-                MigrateHost(message.callee);
-            else
-                _outgoing.Enqueue(message);
+            if (m.rpcId == RpcId.ClientDisconnectedId)
+                Disconnect(m.callee);
+            else if (m.rpcId == RpcId.HostMigrationId)
+                MigrateHost(m.callee);
+            return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId;
         }
 
         /// <summary>
@@ -260,30 +257,47 @@ namespace OwlTree
         public PingRequest Ping(ClientId target)
         {
             var request = _pingRequests.Add(LocalId, target);
-            var message = new Message(LocalId, target, new RpcId(RpcId.PingRequestId), NetworkId.None, Protocol.Tcp, RpcPerms.AnyToAll);
-            message.bytes = new byte[PingRequestLength];
+            var message = new OutgoingMessage{
+                caller = LocalId, 
+                callee = target, 
+                rpcId = new RpcId(RpcId.PingRequestId), 
+                target = NetworkId.None, 
+                protocol = Protocol.Tcp, 
+                perms = RpcPerms.AnyToAll,
+                bytes = new byte[PingRequestLength]
+            };
             PingRequestEncode(message.bytes, request);
-            AddMessage(message);
+            AddOutgoing(message);
             return request;
         }
 
         /// <summary>
         /// Used by connections receiving a ping request to send the response back to ping sender.
+        /// This is only run in the network thread.
         /// </summary>
-        protected void PingResponse(PingRequest request)
+        protected void PingResponse(PingRequest request, Packet packet)
         {
             request.PingReceived();
-            var message = new Message(LocalId, request.Source, new RpcId(RpcId.PingRequestId), NetworkId.None, Protocol.Tcp, RpcPerms.AnyToAll);
-            message.bytes = new byte[PingRequestLength];
-            PingRequestEncode(message.bytes, request);
-            AddMessage(message);
+            var bytes = packet.GetSpan(PingRequestLength);
+            PingRequestEncode(bytes, request);
         }
 
+        /// <summary>
+        /// Called by ping request list once a ping has timed-out.
+        /// Adds an incoming message that the ping failed to be handled in main thread.
+        /// </summary>
         protected void PingTimeout(PingRequest request)
         {
             request.PingFailed();
-            var message = new Message(LocalId, LocalId, new RpcId(RpcId.PingRequestId), NetworkId.None, Protocol.Tcp, RpcPerms.AnyToAll, new object[]{request});
-            _incoming.Enqueue(message);
+            AddIncoming(new IncomingMessage{
+                caller = LocalId, 
+                callee = LocalId, 
+                rpcId = new RpcId(RpcId.PingRequestId), 
+                target = NetworkId.None, 
+                protocol = Protocol.Tcp, 
+                perms = RpcPerms.AnyToAll, 
+                args = new object[]{request}
+            });
         }
         
         /// <summary>
