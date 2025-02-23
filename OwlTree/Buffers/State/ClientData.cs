@@ -9,7 +9,7 @@ namespace OwlTree
     /// <summary>
     /// Contains all state related to a client connection. Used by servers.
     /// </summary>
-    internal struct ClientData
+    internal class ClientData
     {
         public ClientId id;
         public uint hash;
@@ -17,13 +17,9 @@ namespace OwlTree
         public Socket tcpSocket;
         public Packet udpPacket;
         public IPEndPoint udpEndPoint;
+        public int latency;
 
         public IPAddress Address => udpEndPoint.Address;
-
-        /// <summary>
-        /// Represents an empty client data instance.
-        /// </summary>
-        public static ClientData None = new ClientData() { id = ClientId.None };
 
         public static bool operator ==(ClientData a, ClientData b) => a.id == b.id;
         public static bool operator !=(ClientData a, ClientData b) => a.id != b.id;
@@ -61,7 +57,7 @@ namespace OwlTree
             uint nextHash = 0;
             do {
                 nextHash = (uint)_rand.Next();
-            } while (Find(nextHash) != ClientData.None);
+            } while (Find(nextHash) != null);
             return nextHash;
         }
 
@@ -111,28 +107,44 @@ namespace OwlTree
         {
             foreach (var data in _data)
                 if (data.tcpSocket == s) return data;
-            return ClientData.None;
+            return null;
         }
 
         public ClientData Find(ClientId id)
         {
             foreach (var data in _data)
                 if (data.id == id) return data;
-            return ClientData.None;
+            return null;
         }
 
         public ClientData Find(uint hash)
         {
             foreach (var data in _data)
                 if (data.hash == hash) return data;
-            return ClientData.None;
+            return null;
         }
 
         public ClientData Find(IPEndPoint endPoint)
         {
             foreach (var data in _data)
                 if (data.udpEndPoint.Address.Equals(endPoint.Address) && data.udpEndPoint.Port == endPoint.Port) return data;
-            return ClientData.None;
+            return null;
+        }
+
+        public ClientData FindWorstLatency()
+        {
+            ClientData worst = null;
+            foreach (var data in _data)
+                if (worst == null || data.latency > worst.latency) worst = data;
+            return worst;
+        }
+
+        public ClientData FindBestLatency()
+        {
+            ClientData best = null;
+            foreach (var data in _data)
+                if (best == null || data.latency < best.latency) best = data;
+            return best;
         }
 
         /// <summary>

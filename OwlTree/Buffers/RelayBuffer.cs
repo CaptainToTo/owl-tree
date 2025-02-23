@@ -49,6 +49,8 @@ namespace OwlTree
 
         public override int LocalUdpPort() => ServerUdpPort;
 
+        public override int Latency() => _clientData.FindWorstLatency()?.latency ?? 0;
+
         // server state
         private Socket _tcpRelay;
         private Socket _udpRelay;
@@ -106,7 +108,7 @@ namespace OwlTree
                     var tcpClient = socket.Accept();
 
                     // reject connections that aren't from verified app instances
-                    if(!_requests.TryGet((IPEndPoint)tcpClient.RemoteEndPoint, out var udpPort))
+                    if(!_requests.TryGet((IPEndPoint)tcpClient.RemoteEndPoint, out var udpPort, out var timestamp))
                     {
                         tcpClient.Close();
                         continue;
@@ -119,6 +121,7 @@ namespace OwlTree
                     clientData.tcpPacket.header.appVer = AppVersion;
                     clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.udpPacket.header.appVer = AppVersion;
+                    clientData.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - timestamp);
 
                     if (Logger.includes.connectionAttempts)
                     {
@@ -191,7 +194,7 @@ namespace OwlTree
                         var client = _clientData.Find((IPEndPoint)source);
 
                         // try to verify a new client connection
-                        if (client == ClientData.None)
+                        if (client == null)
                         {
                             var accepted = false;
 
@@ -297,7 +300,7 @@ namespace OwlTree
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
                     int dataRemaining = -1;
                     int dataLen = -1;
-                    ClientData client = ClientData.None;
+                    ClientData client = null;
 
                     do {
                         ReadPacket.Clear();
@@ -326,8 +329,19 @@ namespace OwlTree
                             dataLen = -1;
                         }
 
-                        if (client == ClientData.None)
+                        if (client == null)
+                        {
                             client = _clientData.Find(socket);
+
+                            if (client.hash != ReadPacket.header.hash)
+                            {
+                                if (Logger.includes.exceptions)
+                                    Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
+                                continue;
+                            }
+
+                            client.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
+                        }
 
                         // disconnect if receive fails
                         if (dataLen <= 0)
@@ -451,7 +465,7 @@ namespace OwlTree
             {
                 var target = _clientData.Find(request.Target);
                 var source = _clientData.Find(request.Source);
-                if (target == ClientData.None || source == ClientData.None)
+                if (target == null || source == null)
                     return;
                 
                 var packet = request.Received ? source.tcpPacket : target.tcpPacket;
@@ -469,7 +483,7 @@ namespace OwlTree
                 if (message.callee != ClientId.None)
                 {
                     var client = _clientData.Find(message.callee);
-                    if (client != ClientData.None)
+                    if (client != null)
                     {
                         Packet p = message.protocol == Protocol.Tcp ? client.tcpPacket : client.udpPacket;
                         AddToPacket(message, p);
@@ -569,15 +583,13 @@ namespace OwlTree
         public override void Disconnect(ClientId id)
         {
             var client = _clientData.Find(id);
-            if (client != ClientData.None)
-            {
+            if (client != null)
                 Disconnect(client);
-            }
         }
 
         private void Disconnect(ClientData client)
         {
-            if (client == ClientData.None)
+            if (client == null)
                 return;
             
             // migrate before disconnect
@@ -616,12 +628,17 @@ namespace OwlTree
             }
         }
 
-        // TODO: improve heuristic
+        // decide new host by lowest latency
         private ClientId FindNewHost()
         {
+            ClientData best = null;
             foreach (var client in _clientData)
-                if (client.id != Authority) return client.id;
-            return ClientId.None;
+            {
+                if (client.id == Authority) continue;
+                if (best == null || client.latency < best.latency)
+                    best = client;
+            }
+            return best?.id ?? ClientId.None;
         }
 
         /// <summary>
@@ -631,7 +648,7 @@ namespace OwlTree
         public override void MigrateHost(ClientId newHost)
         {
             var data = _clientData.Find(newHost);
-            if (data == ClientData.None)
+            if (data == null)
                 return;
             Authority = newHost;
             _hostAddr = data.Address;

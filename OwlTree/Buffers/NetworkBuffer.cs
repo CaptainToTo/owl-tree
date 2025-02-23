@@ -12,16 +12,6 @@ namespace OwlTree
     public abstract class NetworkBuffer
     {
         /// <summary>
-        /// Function signature used to decode raw byte arrays into Message structs.
-        /// </summary>
-        public delegate bool Decoder(ClientId caller, ReadOnlySpan<byte> bytes, out Message message);
-
-        /// <summary>
-        /// Function signature used to encode a Message struct into raw bytes.
-        /// </summary>
-        public delegate void Encoder(Message message, Packet buffer);
-
-        /// <summary>
         /// Function signature used to provide the buffer with outgoing messages.
         /// </summary>
         public delegate bool OutgoingProvider(out OutgoingMessage m);
@@ -219,6 +209,12 @@ namespace OwlTree
         /// If this session is server authoritative, then this will be <c>ClientId.None</c>.
         /// </summary>
         public ClientId Authority { get; protected set; } = ClientId.None;
+
+        /// <summary>
+        /// The general packet millisecond latency of the connection. Servers report the worst latency among all connected clients.
+        /// Latency measures the transit time of packets received, not ping which is round-trip time.
+        /// </summary>
+        public abstract int Latency();
 
         /// <summary>
         /// True if there are messages that are waiting to be sent.

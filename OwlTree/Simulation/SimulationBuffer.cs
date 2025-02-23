@@ -5,25 +5,13 @@ namespace OwlTree
 {
     public abstract class SimulationBuffer
     {
-        protected SimplePriorityQueue<Message, uint> buffer = new();
-
         public Tick CurTick { get; internal set; } = new Tick(0);
 
-        public void NextTick(ClientId source)
-        {
-            CurTick.Next();
-            var tickMessage = new OutgoingMessage{
-                caller = source,
-                callee = ClientId.None,
-                rpcId = new RpcId(RpcId.NextTickId),
-                target = NetworkId.None,
-                protocol = Protocol.Tcp,
-                perms = RpcPerms.AnyToAll,
-                bytes = new byte[TickMessageLength]
-            };
-            EncodeNextTick(tickMessage.bytes, source, CurTick);
-            AddOutgoing(tickMessage);
-        }
+        public abstract void InitBuffer(int tickRate, int latency);
+
+        public abstract bool HasOutgoing();
+
+        public  abstract void NextTick(ClientId source);
 
         public abstract void AddOutgoing(OutgoingMessage m);
 

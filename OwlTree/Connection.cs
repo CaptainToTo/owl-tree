@@ -34,8 +34,7 @@ namespace OwlTree
     }
 
     /// <summary>
-    /// How the simulation buffer will be handled in the session. The server enforces
-    /// the control method onto clients.
+    /// How the simulation buffer will be handled in the session.
     /// </summary>
     public enum SimulationBufferControl
     {
@@ -230,9 +229,16 @@ namespace OwlTree
             // simulation buffer
 
             /// <summary>
-            /// 
+            /// Decide how simulation latency and synchronization is handled.
+            /// <b>Default = None</b>
             /// </summary>
             public SimulationBufferControl simulationSystem = SimulationBufferControl.None;
+            /// <summary>
+            /// Assumed simulation tick speed in milliseconds. Used to accurately allocate sufficient simulation buffer space.
+            /// <c>ExecuteQueue()</c> should called at this rate.
+            /// <b>Default = 20 (50 ticks/sec)</b>
+            /// </summary>
+            public int simulationTickSpeed = 20;
 
             // logging
 
@@ -425,7 +431,7 @@ namespace OwlTree
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 _buffer.Recv();
-                if (_buffer.HasOutgoing)
+                if (_simBuffer.HasOutgoing() || _buffer.HasOutgoing)
                     _buffer.Send();
                 
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
@@ -436,7 +442,14 @@ namespace OwlTree
 
         private SimulationBuffer _simBuffer;
 
-        public Tick CurTick => _simBuffer?.CurTick ?? new Tick(0);
+        /// <summary>
+        /// The current simulation tick. If simulation management is disabled, this will always be 0.
+        /// </summary>
+        public Tick CurTick => _simBuffer.CurTick;
+        /// <summary>
+        /// The expected rate at which <c>ExecuteQueue()</c> should be called in milliseconds.
+        /// </summary>
+        public int TickRate { get; private set; }
 
         /// <summary>
         /// Whether this connection represents a server or client.
@@ -479,6 +492,11 @@ namespace OwlTree
         /// The local UDP port this connection is listening to.
         /// </summary>
         public int LocalUdpPort => _buffer.LocalUdpPort();
+        /// <summary>
+        /// The general packet millisecond latency of the connection. Servers report the worst latency among all connected clients. 
+        /// Latency measures the transit time of packets received, not ping which is round-trip time.
+        /// </summary>
+        public int Latency => _buffer.Latency();
 
         /// <summary>
         /// The app this connection is associated with.
@@ -491,6 +509,7 @@ namespace OwlTree
 
         private NetworkBuffer _buffer;
 
+        // mirrors buffer state, but on the main thread
         private List<ClientId> _clients = new List<ClientId>();
 
         /// <summary>
@@ -735,6 +754,7 @@ namespace OwlTree
                         if (_logger.includes.clientEvents)
                             _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
                     }
+                    _simBuffer.InitBuffer(TickRate, Latency);
                     _clients.Add(m.caller);
                     OnReady?.Invoke(m.caller);
                     break;
@@ -750,7 +770,8 @@ namespace OwlTree
                     break;
             }
         }
-
+        
+        // run on network thread
         private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes)
         {
             if (NetRole != NetRole.Server && NetworkSpawner.TryDecode(bytes, out var rpcId, out var args))
@@ -898,6 +919,7 @@ namespace OwlTree
             foreach (var callee in callees)
             {
                 var message = new OutgoingMessage{
+                    tick = CurTick,
                     caller = LocalId,
                     callee = callee,
                     rpcId = rpcId,
@@ -921,6 +943,7 @@ namespace OwlTree
         private void AddRpcTo(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms, object[] args)
         {
             var message = new OutgoingMessage{
+                tick = CurTick,
                 caller = LocalId,
                 callee = callee,
                 rpcId = rpcId,
@@ -1005,6 +1028,7 @@ namespace OwlTree
             if (Threaded)
             {
                 _simBuffer.AddOutgoing(new OutgoingMessage{
+                    tick = CurTick,
                     rpcId = new RpcId(RpcId.ClientDisconnectedId),
                     callee = id
                 });
@@ -1026,6 +1050,7 @@ namespace OwlTree
             if (Threaded)
             {
                 _simBuffer.AddOutgoing(new OutgoingMessage{
+                    tick = CurTick,
                     rpcId = new RpcId(RpcId.HostMigrationId),
                     callee = id
                 });

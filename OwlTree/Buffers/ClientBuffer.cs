@@ -52,6 +52,10 @@ namespace OwlTree
 
         public override int LocalUdpPort() => ((IPEndPoint)_udpClient.LocalEndPoint).Port;
 
+        public override int Latency() => _latency;
+
+        private int _latency = 0;
+
         private uint _hash = 0;
 
         // messages to be sent ot the sever
@@ -127,6 +131,7 @@ namespace OwlTree
 
                         _acceptedRequest = true;
                         _tcpClient.Connect(_tcpEndPoint);
+                        _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
                     }
                     else
                     {
@@ -200,6 +205,8 @@ namespace OwlTree
                             Disconnect();
                             return;
                         }
+
+                        _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
 
                         if (Logger.includes.tcpPreTransform)
                         {
