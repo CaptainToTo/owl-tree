@@ -755,7 +755,8 @@ namespace OwlTree
                             _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
                     }
                     _simBuffer.InitBuffer(TickRate, Latency);
-                    _clients.Add(m.caller);
+                    if (!IsServer && !IsRelay)
+                        _clients.Add(m.caller);
                     OnReady?.Invoke(m.caller);
                     break;
                 case RpcId.HostMigrationId:

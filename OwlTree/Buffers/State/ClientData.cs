@@ -21,8 +21,8 @@ namespace OwlTree
 
         public IPAddress Address => udpEndPoint.Address;
 
-        public static bool operator ==(ClientData a, ClientData b) => a.id == b.id;
-        public static bool operator !=(ClientData a, ClientData b) => a.id != b.id;
+        public static bool operator ==(ClientData a, ClientData b) => (a?.id ?? ClientId.None) == (b?.id ?? ClientId.None);
+        public static bool operator !=(ClientData a, ClientData b) => (a?.id ?? ClientId.None) != (b?.id ?? ClientId.None);
 
         public override bool Equals(object obj)
         {
