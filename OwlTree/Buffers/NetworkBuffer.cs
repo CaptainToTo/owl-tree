@@ -19,7 +19,7 @@ namespace OwlTree
         /// <summary>
         /// Function signature used to collect individual incoming messages for decoding.
         /// </summary>
-        public delegate void IncomingDecoder(ClientId caller, ReadOnlySpan<byte> bytes);
+        public delegate void IncomingDecoder(ClientId caller, ReadOnlySpan<byte> bytes, Protocol protocol);
 
         public struct Args
         {
@@ -407,11 +407,6 @@ namespace OwlTree
         protected static int LocalClientConnectLength => RpcId.MaxByteLength + ClientIdAssignment.MaxLength();
 
         /// <summary>
-        /// The number of bytes required to encode a new connection request.
-        /// </summary>
-        protected static int ConnectionRequestLength => RpcId.MaxByteLength + ConnectionRequest.MaxLength();
-
-        /// <summary>
         /// The number of bytes required to encode a ping request.
         /// </summary>
         protected static int PingRequestLength => RpcId.MaxByteLength + PingRequest.MaxLength();
@@ -440,12 +435,12 @@ namespace OwlTree
             id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
         }
 
-        protected static void ConnectionRequestEncode(Span<byte> bytes, ConnectionRequest request)
+        protected static void ConnectionRequestEncode(Packet packet, ConnectionRequest request)
         {
+            var bytes = packet.GetSpan(RpcId.MaxByteLength + request.ByteLength());
             var rpc = new RpcId(RpcId.ConnectionRequestId);
-            var ind = rpc.ByteLength();
             rpc.InsertBytes(bytes);
-            request.InsertBytes(bytes.Slice(ind));
+            request.InsertBytes(bytes.Slice(rpc.ByteLength()));
         }
 
         protected static void HostMigrationEncode(Span<byte> bytes, ClientId newHost)

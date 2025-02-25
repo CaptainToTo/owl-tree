@@ -241,20 +241,21 @@ namespace OwlTree
         private Writer _printer;
         public IncludeRules includes { get; private set; }
 
-        private Mutex _lock = new Mutex();
+        private readonly object _lock = new();
 
         /// <summary>
         /// Write a log. This is thread safe, and will block if another thread is currently using the same logger.
         /// </summary>
         public void Write(string text)
         {
-            _lock.WaitOne();
-            if (includes.logTimestamp)
-                text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
-            if (includes.logSeparators)
-                text = "\n====================\n" + text + "\n====================";
-            _printer.Invoke(text);
-            _lock.ReleaseMutex();
+            lock (_lock)
+            {
+                if (includes.logTimestamp)
+                    text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
+                if (includes.logSeparators)
+                    text = "\n====================\n" + text + "\n====================";
+                _printer.Invoke(text);
+            }
         }
     }
 }

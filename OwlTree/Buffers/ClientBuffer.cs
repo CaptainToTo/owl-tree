@@ -76,12 +76,10 @@ namespace OwlTree
             {
                 try
                 {
-                    var idBytes = _udpPacket.GetSpan(ConnectionRequestLength);
-                    ConnectionRequestEncode(idBytes, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
+                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
+                    _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                     _udpPacket.Clear();
-                    _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    _remainingRequests--;
 
                     if (Logger.includes.connectionAttempts)
                         Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}");
@@ -91,6 +89,8 @@ namespace OwlTree
                     if (Logger.includes.exceptions)
                         Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) failed with the exception:\n{e}");
                 }
+                _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _remainingRequests--;
             }
 
             _readList.Clear();
@@ -239,7 +239,7 @@ namespace OwlTree
                                 }
                                 else
                                 {
-                                    Decode(ClientId.None, bytes);
+                                    Decode(ClientId.None, bytes, Protocol.Tcp);
                                 }
                             }
                             catch (Exception e)
@@ -293,7 +293,7 @@ namespace OwlTree
                         {
                             try
                             {
-                                Decode(ClientId.None, bytes);
+                                Decode(ClientId.None, bytes, Protocol.Udp);
                             }
                             catch (Exception e)
                             {

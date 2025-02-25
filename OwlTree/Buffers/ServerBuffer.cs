@@ -241,7 +241,7 @@ namespace OwlTree
                         {
                             try
                             {
-                                Decode(client.id, bytes);
+                                Decode(client.id, bytes, Protocol.Udp);
                             }
                             catch (Exception e)
                             {
@@ -333,7 +333,7 @@ namespace OwlTree
                                 }
                                 else
                                 {
-                                    Decode(client.id, bytes);
+                                    Decode(client.id, bytes, Protocol.Tcp);
                                 }
                             }
                             catch (Exception e)

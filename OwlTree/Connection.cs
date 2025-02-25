@@ -272,8 +272,21 @@ namespace OwlTree
 
             if (Protocols != null && _logger.includes.allRpcProtocols)
                 _logger.Write(Protocols.GetAllProtocolSummaries());
-            
-            _simBuffer = new MessageQueue();
+
+            switch (args.simulationSystem)
+            {
+                case SimulationBufferControl.Lockstep:
+                    break;
+                case SimulationBufferControl.Rollback:
+                    break;
+                case SimulationBufferControl.Snapshot:
+                    _simBuffer = new Snapshot();
+                    break;
+                case SimulationBufferControl.None:
+                default:
+                    _simBuffer = new MessageQueue();
+                    break;
+            }
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -475,6 +488,16 @@ namespace OwlTree
         /// Returns true if this connection is configured to be a relay server.
         /// </summary>
         public bool IsRelay => NetRole == NetRole.Relay; 
+
+        /// <summary>
+        /// Returns true if this session is server authoritative.
+        /// </summary>
+        public bool IsServerAuthoritative => Authority == ClientId.None;
+
+        /// <summary>
+        /// Returns true if this session is relayed peer-to-peer.
+        /// </summary>
+        public bool IsRelayed => Authority != ClientId.None;
 
         /// <summary>
         /// The TCP port the server connection managing this session is listening to.
@@ -695,7 +718,7 @@ namespace OwlTree
                 }
             }
 
-            _simBuffer.NextTick(LocalId);
+            _simBuffer.NextTick();
         }
 
         // client id associated with event placed in caller prop
@@ -716,9 +739,13 @@ namespace OwlTree
                             _logger.Write("Host client has been assigned to: " + m.caller.ToString());
                     }
 
+                    if (IsRelayed || IsServer)
+                        _simBuffer.AddTickSource(m.caller);
+
                     _clients.Add(m.caller);
                     OnClientConnected?.Invoke(m.caller);
                     break;
+
                 case RpcId.ClientDisconnectedId:
                     if (m.caller == LocalId)
                     {
@@ -733,10 +760,13 @@ namespace OwlTree
                     {
                         if (_logger.includes.clientEvents)
                             _logger.Write("Remote client disconnected: " + m.caller.ToString());
+                        if (IsRelayed || IsServer)
+                            _simBuffer.RemoveTickSource(m.caller);
                         _clients.Remove(m.caller);
                         OnClientDisconnected?.Invoke(m.caller);
                     }
                     break;
+
                 case RpcId.LocalReadyId:
                     IsReady = true;
                     Authority = _buffer.Authority;
@@ -754,11 +784,12 @@ namespace OwlTree
                         if (_logger.includes.clientEvents)
                             _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
                     }
-                    _simBuffer.InitBuffer(TickRate, Latency);
+                    _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, IsAuthority);
                     if (!IsServer && !IsRelay)
                         _clients.Add(m.caller);
                     OnReady?.Invoke(m.caller);
                     break;
+
                 case RpcId.HostMigrationId:
                     Authority = m.caller;
                     if (NetRole == NetRole.Host && Authority != LocalId)
@@ -767,15 +798,28 @@ namespace OwlTree
                         NetRole = NetRole.Host;
                     if (_logger.includes.clientEvents)
                         _logger.Write("Host migrated, new authority is: " + m.caller.ToString());
+                    _simBuffer.UpdateAuthority(IsAuthority);
                     OnHostMigration?.Invoke(m.caller);
                     break;
             }
         }
         
         // run on network thread
-        private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes)
+        private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes, Protocol protocol)
         {
-            if (NetRole != NetRole.Server && NetworkSpawner.TryDecode(bytes, out var rpcId, out var args))
+            if (SimulationBuffer.TryDecodeTickMessage(bytes, out var rpcId, out var caller, out var tick, out var timestamp))
+            {
+                _simBuffer.AddIncoming(new IncomingMessage{
+                    caller = caller,
+                    callee = LocalId,
+                    tick = tick,
+                    rpcId = rpcId,
+                    protocol = protocol,
+                    perms = RpcPerms.AnyToAll,
+                    args = new object[]{timestamp}
+                });
+            }
+            else if (NetRole != NetRole.Server && NetworkSpawner.TryDecode(bytes, out rpcId, out var args))
             {
                 _simBuffer.AddIncoming(new IncomingMessage{
                     caller = source,
@@ -793,7 +837,7 @@ namespace OwlTree
                         _logger.Write("RECEIVING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
                 }
             }
-            else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out var caller, out var callee, out var target, out args))
+            else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out caller, out var callee, out var target, out args))
             {
                 var incoming = new IncomingMessage{
                     caller = caller,
