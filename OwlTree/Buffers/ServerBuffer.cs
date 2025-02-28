@@ -184,13 +184,25 @@ namespace OwlTree
                             if (ReadPacket.TryGetNextMessage(out var bytes))
                             {
                                 var rpcId = ServerMessageDecode(bytes, out var request);
-                                if (
-                                    rpcId == RpcId.ConnectionRequestId && 
-                                    request.appId == ApplicationId && request.sessionId == SessionId && !request.isHost &&
-                                    _clientData.Count < MaxClients && _requests.Count < MaxClients
-                                )
+
+                                ConnectionResponseCode responseCode = ConnectionResponseCode.Accepted;
+
+                                if (rpcId != RpcId.ConnectionRequestId)
+                                    responseCode = ConnectionResponseCode.Rejected;
+                                else if (request.appId != ApplicationId)
+                                    responseCode = ConnectionResponseCode.IncorrectAppId;
+                                else if (request.sessionId != SessionId)
+                                    responseCode = ConnectionResponseCode.IncorrectSessionId;
+                                else if (_clientData.Count >= MaxClients || _requests.Count >= MaxClients)
+                                    responseCode = ConnectionResponseCode.SessionFull;
+                                else if (request.simulationSystem != SimulationSystem)
+                                    responseCode = ConnectionResponseCode.IncorrectSimulationControl;
+                                else if (request.isHost)
+                                    responseCode = ConnectionResponseCode.Rejected;
+
+                                // connection request verified, send client confirmation
+                                if (responseCode == ConnectionResponseCode.Accepted)
                                 {
-                                    // connection request verified, send client confirmation
                                     _requests.Add((IPEndPoint)source);
                                     accepted = true;
                                 }
@@ -202,7 +214,7 @@ namespace OwlTree
                                 ReadPacket.header.sender = 0;
                                 ReadPacket.header.hash = 0;
                                 var response = ReadPacket.GetSpan(4);
-                                BitConverter.TryWriteBytes(response, (int)(accepted ? ConnectionResponseCode.Accepted : ConnectionResponseCode.Rejected));
+                                BitConverter.TryWriteBytes(response, (int)responseCode);
                                 var responsePacket = ReadPacket.GetPacket();
                                 _udpServer.SendTo(responsePacket.ToArray(), source);
                             }

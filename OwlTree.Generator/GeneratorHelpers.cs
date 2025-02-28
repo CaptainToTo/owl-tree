@@ -44,6 +44,7 @@ namespace OwlTree.Generator
         public const string Tk_ClientId = "ClientId";
         public const string Tk_AppId = "AppId";
         public const string Tk_NetworkId = "NetworkId";
+        public const string Tk_Tick = "Tick";
 
         public const string Tk_NetworkBitSet = "NetworkBitSet";
         public const string Tk_NetworkDict = "NetworkDict";

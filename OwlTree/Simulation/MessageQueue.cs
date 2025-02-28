@@ -10,6 +10,10 @@ namespace OwlTree
         private ConcurrentQueue<IncomingMessage> _incoming = new();
         private ConcurrentQueue<OutgoingMessage> _outgoing = new();
 
+        public MessageQueue(Logger logger) : base(logger)
+        {
+        }
+
         protected override bool HasOutgoingInternal() => _outgoing.Count > 0;
 
         protected override void NextTickInternal()

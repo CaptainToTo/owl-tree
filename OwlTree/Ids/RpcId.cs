@@ -21,6 +21,7 @@ namespace OwlTree
         internal const UInt32 EndTickId               = 11;
 
         internal const UInt32 LocalReadyId            = 15;
+        internal const UInt32 ConnectionRejectedId    = 16;
         
         /// <summary>
         /// Returns true if the given id is for a client event, such as connecting or disconnecting.
@@ -28,7 +29,7 @@ namespace OwlTree
         internal bool IsClientEvent()
         {
             return _id == ClientConnectedId || _id == LocalClientConnectedId || _id == ClientDisconnectedId ||
-                _id == HostMigrationId || _id == LocalReadyId;
+                _id == HostMigrationId || _id == LocalReadyId || _id == ConnectionRejectedId;
         }
 
         internal bool IsObjectEvent()

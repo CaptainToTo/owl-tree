@@ -42,6 +42,8 @@ namespace OwlTree
             public IncomingMessage.Delegate addIncoming;
             public OutgoingMessage.Delegate addOutgoing;
 
+            public SimulationBufferControl simulationSystem;
+
             public Logger logger;
         }
 
@@ -103,6 +105,7 @@ namespace OwlTree
             AddIncoming = args.addIncoming;
             AddOutgoing = args.addOutgoing;
             ReadPacket = new Packet(BufferSize);
+            SimulationSystem = args.simulationSystem;
 
             _pingRequests = new PingRequestList(3000);
 
@@ -179,13 +182,32 @@ namespace OwlTree
                 span[i] = m.bytes[i];
         }
 
+        /// <summary>
+        /// Decodes incoming messages, passes data out of the buffer.
+        /// </summary>
         protected IncomingDecoder Decode;
 
+        /// <summary>
+        /// Gets outgoing messages to insert into packets and send.
+        /// </summary>
         protected OutgoingProvider TryGetNextOutgoing;
 
+        /// <summary>
+        /// Direct access to add incoming messages to the message buffer.
+        /// </summary>
         protected IncomingMessage.Delegate AddIncoming;
 
+        /// <summary>
+        /// Direct access to add outgoing messages to the message buffer. The added message will eventually be consumed
+        /// by <c>TryGetNextOutgoing</c>.
+        /// </summary>
         protected OutgoingMessage.Delegate AddOutgoing;
+
+        /// <summary>
+        /// The simulation system this connection is using. All connections in this session must
+        /// have the same control system.
+        /// </summary>
+        protected SimulationBufferControl SimulationSystem;
 
         /// <summary>
         /// Whether or not the connection is ready. 

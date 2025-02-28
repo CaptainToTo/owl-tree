@@ -37,7 +37,7 @@ namespace OwlTree
             FromBytes(bytes);
         }
 
-        public void Next() => _val++;
+        public Tick Next() => new Tick(_val + 1);
 
         public int ByteLength() => 4;
 

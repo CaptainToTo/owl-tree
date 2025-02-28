@@ -76,7 +76,7 @@ namespace OwlTree
             {
                 try
                 {
-                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost));
+                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem));
                     _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                     _udpPacket.Clear();
@@ -141,6 +141,15 @@ namespace OwlTree
                         }
 
                         _remainingRequests = 0;
+
+                        AddIncoming(new IncomingMessage{
+                            caller = ClientId.None,
+                            callee = LocalId,
+                            rpcId = new RpcId(RpcId.ConnectionRejectedId),
+                            protocol = Protocol.Udp,
+                            perms = RpcPerms.AuthorityToClients,
+                            args = new object[]{response}
+                        });
                     }
                 }
             }

@@ -8,6 +8,13 @@ namespace OwlTree
     /// </summary>
     public abstract class SimulationBuffer
     {
+        protected Logger _logger;
+
+        public SimulationBuffer(Logger logger)
+        {
+            _logger = logger;
+        }
+
         private readonly object _lock = new();
 
         /// <summary>

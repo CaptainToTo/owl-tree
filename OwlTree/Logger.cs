@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 
 namespace OwlTree
 {
@@ -46,6 +45,7 @@ namespace OwlTree
                 exceptions = true;
                 logSeparators = true;
                 logTimestamp = true;
+                simulationEvents = true;
                 return this;
             }
 
@@ -226,6 +226,17 @@ namespace OwlTree
                 logTimestamp = true;
                 return this;
             }
+
+            internal bool simulationEvents { get; private set; }
+
+            /// <summary>
+            /// Output when simulation management events occur.
+            /// </summary>
+            public IncludeRules SimulationEvents()
+            {
+                simulationEvents = true;
+                return this;
+            }
         }
 
         /// <summary>
@@ -254,6 +265,8 @@ namespace OwlTree
                     text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
                 if (includes.logSeparators)
                     text = "\n====================\n" + text + "\n====================";
+                else
+                    text = text + "\n";
                 _printer.Invoke(text);
             }
         }

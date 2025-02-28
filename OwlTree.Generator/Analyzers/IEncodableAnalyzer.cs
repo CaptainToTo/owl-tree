@@ -21,6 +21,8 @@ namespace OwlTree.Generator
             GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_AppId, false);
             GeneratorState.AddEncodable(Helpers.Tk_NetworkId, false);
             GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkId, false);
+            GeneratorState.AddEncodable(Helpers.Tk_Tick, false);
+            GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_Tick, false);
 
             GeneratorState.AddEncodable(Helpers.Tk_NetworkBitSet, true);
             GeneratorState.AddEncodable(Helpers.Tk_OwlTree + "." + Helpers.Tk_NetworkBitSet, true);

@@ -273,20 +273,26 @@ namespace OwlTree
             if (Protocols != null && _logger.includes.allRpcProtocols)
                 _logger.Write(Protocols.GetAllProtocolSummaries());
 
-            switch (args.simulationSystem)
+            if (IsRelay)
+                _simBuffer = new MessageQueue(_logger);
+            else
             {
-                case SimulationBufferControl.Lockstep:
-                    break;
-                case SimulationBufferControl.Rollback:
-                    break;
-                case SimulationBufferControl.Snapshot:
-                    _simBuffer = new Snapshot();
-                    break;
-                case SimulationBufferControl.None:
-                default:
-                    _simBuffer = new MessageQueue();
-                    break;
+                switch (args.simulationSystem)
+                {
+                    case SimulationBufferControl.Lockstep:
+                        break;
+                    case SimulationBufferControl.Rollback:
+                        break;
+                    case SimulationBufferControl.Snapshot:
+                        _simBuffer = new Snapshot(_logger);
+                        break;
+                    case SimulationBufferControl.None:
+                    default:
+                        _simBuffer = new MessageQueue(_logger);
+                        break;
+                }
             }
+            TickRate = args.simulationTickSpeed;
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -303,7 +309,8 @@ namespace OwlTree
                 outgoingProvider = _simBuffer.TryGetNextOutgoing,
                 addIncoming = _simBuffer.AddIncoming,
                 addOutgoing = _simBuffer.AddOutgoing,
-                logger = _logger
+                logger = _logger,
+                simulationSystem = args.simulationSystem
             };
 
             switch (args.role)
@@ -583,6 +590,11 @@ namespace OwlTree
         public event ClientId.Delegate OnHostMigration;
 
         /// <summary>
+        /// Invoked when the local client connection is rejected by the server.
+        /// </summary>
+        public event ConnectionResponseHandler OnConnectionRejected;
+
+        /// <summary>
         /// Whether this connection is active. Will be false for clients if 
         /// they have been disconnected from the server.
         /// </summary>
@@ -785,6 +797,8 @@ namespace OwlTree
                             _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
                     }
                     _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, IsAuthority);
+                    if (IsServerAuthoritative)
+                        _simBuffer.AddTickSource(ClientId.None);
                     if (!IsServer && !IsRelay)
                         _clients.Add(m.caller);
                     OnReady?.Invoke(m.caller);
@@ -800,6 +814,11 @@ namespace OwlTree
                         _logger.Write("Host migrated, new authority is: " + m.caller.ToString());
                     _simBuffer.UpdateAuthority(IsAuthority);
                     OnHostMigration?.Invoke(m.caller);
+                    break;
+                
+                case RpcId.ConnectionRejectedId:
+                    IsActive = false;
+                    OnConnectionRejected.Invoke((ConnectionResponseCode)m.args[0]);
                     break;
             }
         }

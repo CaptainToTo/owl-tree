@@ -45,21 +45,28 @@ namespace OwlTree
         private ClientId _localId;
         private bool _isAuthority;
 
+        public Snapshot(Logger logger) : base(logger)
+        {
+        }
+
         protected override bool HasOutgoingInternal() => _outgoing.Count > 0;
 
         protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, bool isAuthority)
         {
-            _maxTicks = (int)MathF.Ceiling((float)latency / tickRate * 1.5f);
+            _maxTicks = (int)MathF.Ceiling((float)latency / tickRate * 3f);
             CurTick = new Tick(curTick);
             _newestTick = CurTick;
             _localId = localId;
             _isAuthority = isAuthority;
+
+            if (_logger.includes.simulationEvents)
+                _logger.Write($"Snapshot simulation buffer initialized with a tick capacity of {_maxTicks} given a latency of {latency} ms.");
         }
         
         protected override void NextTickInternal()
         {
-            CurTick.Next();
-            var tickMessage = new OutgoingMessage{
+            CurTick = CurTick.Next();
+            var tickTcpMessage = new OutgoingMessage{
                 tick = CurTick,
                 caller = _localId,
                 callee = ClientId.None,
@@ -69,8 +76,23 @@ namespace OwlTree
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[TickMessageLength]
             };
-            EncodeNextTick(tickMessage.bytes, _localId, CurTick);
-            AddOutgoing(tickMessage);
+            var tickUdpMessage = new OutgoingMessage{
+                tick = CurTick,
+                caller = _localId,
+                callee = ClientId.None,
+                rpcId = new RpcId(RpcId.NextTickId),
+                target = NetworkId.None,
+                protocol = Protocol.Udp,
+                perms = RpcPerms.AnyToAll,
+                bytes = new byte[TickMessageLength]
+            };
+            EncodeNextTick(tickTcpMessage.bytes, _localId, CurTick);
+            EncodeNextTick(tickUdpMessage.bytes, _localId, CurTick);
+            AddOutgoing(tickTcpMessage);
+            AddOutgoing(tickUdpMessage);
+
+            if (_logger.includes.simulationEvents)
+                _logger.Write($"Simulation moved to next tick: {CurTick}.");
         }
 
         protected override void AddIncomingInternal(IncomingMessage m)
@@ -83,7 +105,11 @@ namespace OwlTree
             }
 
             if (m.rpcId == RpcId.CurTickId)
+            {
                 CurTick = m.tick;
+                if (_logger.includes.simulationEvents)
+                    _logger.Write($"Received session tick value from authority, current tick is now {CurTick}.");
+            }
 
             if (m.rpcId == RpcId.NextTickId)
             {
@@ -97,6 +123,9 @@ namespace OwlTree
                     _newestTick = newTick;
                 
                 _requireCatchup = _newestTick - CurTick > _maxTicks;
+
+                if (_requireCatchup && _logger.includes.simulationEvents)
+                    _logger.Write($"Simulation is too far behind, catching up.");
 
                 if (prevTick < _sessionTicks.Min(p => p.Value.Min()))
                 {
@@ -125,10 +154,16 @@ namespace OwlTree
         {
             if (_incoming.TryDequeue(out m))
             {
-                if (m.rpcId == RpcId.EndTickId && !_requireCatchup)
+                if (m.rpcId == RpcId.EndTickId)
+                {
+                    if (_requireCatchup && _incoming.TryDequeue(out m))
+                        return true;
+                    _requireCatchup = false;
                     return false;
+                }
                 return true;
             }
+            _requireCatchup = false;
             return false;
         }
 
@@ -154,6 +189,9 @@ namespace OwlTree
                 };
                 EncodeCurTick(outgoing.bytes, _localId, CurTick);
                 _outgoing.Enqueue(outgoing, CurTick);
+
+                if (_logger.includes.simulationEvents)
+                    _logger.Write($"Sending session tick {CurTick} to {client}.");
             }
         }
 
