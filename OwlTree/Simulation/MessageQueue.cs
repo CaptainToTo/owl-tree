@@ -41,7 +41,7 @@ namespace OwlTree
             return _outgoing.TryDequeue(out m);
         }
 
-        protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, bool isAuthority)
+        protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
         {
             // message queue does not maintain simulation buffer
         }
@@ -56,7 +56,7 @@ namespace OwlTree
             // message queue does not maintain simulation buffer
         }
 
-        protected override void UpdateAuthorityInternal(bool isAuthority)
+        protected override void UpdateAuthorityInternal(ClientId authority)
         {
             // message queue does not maintain simulation buffer
         }

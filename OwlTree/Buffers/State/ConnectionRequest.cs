@@ -26,22 +26,28 @@ namespace OwlTree
         /// </summary>
         public SimulationBufferControl simulationSystem;
 
-        public ConnectionRequest(StringId app, StringId session, bool host, SimulationBufferControl simSystem)
+        /// <summary>
+        /// The session uniform tick rate all simulations must adhere to.
+        /// </summary>
+        public int tickRate;
+
+        public ConnectionRequest(StringId app, StringId session, bool host, SimulationBufferControl simSystem, int tickSpeed)
         {
             appId = app;
             sessionId = session;
             isHost = host;
             simulationSystem = simSystem;
+            tickRate = tickSpeed;
         }
 
         public int ByteLength()
         {
-            return appId.ByteLength() + sessionId.ByteLength() + 2;
+            return appId.ByteLength() + sessionId.ByteLength() + 2 + 4;
         }
 
         public static int MaxLength()
         {
-            return StringId.MaxByteLength + StringId.MaxByteLength + 2;
+            return StringId.MaxByteLength + StringId.MaxByteLength + 2 + 4;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
@@ -50,6 +56,7 @@ namespace OwlTree
             sessionId.FromBytes(bytes.Slice(appId.ByteLength()));
             isHost = bytes[appId.ByteLength() + sessionId.ByteLength()] == 1;
             simulationSystem = (SimulationBufferControl)bytes[appId.ByteLength() + sessionId.ByteLength() + 1];
+            tickRate = BitConverter.ToInt32(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2));
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -57,7 +64,8 @@ namespace OwlTree
             appId.InsertBytes(bytes);
             sessionId.InsertBytes(bytes.Slice(appId.ByteLength()));
             bytes[appId.ByteLength() + sessionId.ByteLength()] = (byte)(isHost ? 1 : 0);
-            bytes[appId.ByteLength() + sessionId.ByteLength() + 1] = (byte) simulationSystem; 
+            bytes[appId.ByteLength() + sessionId.ByteLength() + 1] = (byte) simulationSystem;
+            BitConverter.TryWriteBytes(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2), tickRate);
         }
     }
 

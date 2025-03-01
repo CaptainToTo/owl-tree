@@ -19,6 +19,7 @@ namespace OwlTree
         internal const UInt32 NextTickId              = 9;
         internal const UInt32 CurTickId               = 10;
         internal const UInt32 EndTickId               = 11;
+        internal const UInt32 TickReadyId             = 12;
 
         internal const UInt32 LocalReadyId            = 15;
         internal const UInt32 ConnectionRejectedId    = 16;
@@ -32,11 +33,17 @@ namespace OwlTree
                 _id == HostMigrationId || _id == LocalReadyId || _id == ConnectionRejectedId;
         }
 
+        /// <summary>
+        /// Returns true if the given id is for a NetworkObject spawn or despawn instruction.
+        /// </summary>
         internal bool IsObjectEvent()
         {
             return _id == NetworkObjectSpawnId || _id == NetworkObjectDespawnId;
         }
 
+        /// <summary>
+        /// Returns true if the given id is for a simulation tick event.
+        /// </summary>
         internal bool IsTickEvent()
         {
             return _id == NextTickId || _id == CurTickId || _id == EndTickId;

@@ -373,41 +373,7 @@ namespace OwlTree.Generator
                                                                     Literal(id))))))),
                                             Token(SyntaxKind.CommaToken),
                                             Argument(
-                                                IdentifierName(Helpers.ArgTk_Args))})))),
-                        // if (Connection.Protocols.IsInvokeOnCaller(RpcId))
-                        //     base.RpcName(args... , (replace RpcCaller w/ LocalId));
-                        IfStatement(
-                            InvocationExpression(
-                                MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        IdentifierName(Helpers.MTk_Connection),
-                                        IdentifierName(Helpers.MTk_ConnectionProtocols)),
-                                    IdentifierName(Helpers.Tk_IsInvokeOnCaller)))
-                            .WithArgumentList(
-                                ArgumentList(
-                                    SingletonSeparatedList<ArgumentSyntax>(
-                                        Argument(
-                                            LiteralExpression(
-                                                SyntaxKind.NumericLiteralExpression,
-                                                Literal(id)))))),
-                            ExpressionStatement(
-                                m.ParameterList.Parameters.Count == 0 ? 
-                                    InvocationExpression(
-                                        MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            BaseExpression(),
-                                            IdentifierName(m.Identifier.ValueText)))
-                                :
-                                    InvocationExpression(
-                                        MemberAccessExpression(
-                                            SyntaxKind.SimpleMemberAccessExpression,
-                                            BaseExpression(),
-                                            IdentifierName(m.Identifier.ValueText)))
-                                    .WithArgumentList(
-                                        ArgumentList(
-                                            SeparatedList<ArgumentSyntax>(CreateParamArray(m))))))))
+                                                IdentifierName(Helpers.ArgTk_Args))}))))))
                 // else if (i_ReceivingRpc == RpcId)
                 //     base.RpcName(args...); <- rpc caller not replaced
                 .WithElse(

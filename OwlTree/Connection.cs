@@ -238,7 +238,7 @@ namespace OwlTree
             /// <c>ExecuteQueue()</c> should called at this rate.
             /// <b>Default = 20 (50 ticks/sec)</b>
             /// </summary>
-            public int simulationTickSpeed = 20;
+            public int simulationTickRate = 20;
 
             // logging
 
@@ -280,6 +280,7 @@ namespace OwlTree
                 switch (args.simulationSystem)
                 {
                     case SimulationBufferControl.Lockstep:
+                        _simBuffer = new Lockstep(_logger);
                         break;
                     case SimulationBufferControl.Rollback:
                         break;
@@ -292,7 +293,7 @@ namespace OwlTree
                         break;
                 }
             }
-            TickRate = args.simulationTickSpeed;
+            TickRate = args.simulationTickRate;
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,
@@ -310,7 +311,8 @@ namespace OwlTree
                 addIncoming = _simBuffer.AddIncoming,
                 addOutgoing = _simBuffer.AddOutgoing,
                 logger = _logger,
-                simulationSystem = args.simulationSystem
+                simulationSystem = args.simulationSystem,
+                tickRate = TickRate
             };
 
             switch (args.role)
@@ -451,6 +453,10 @@ namespace OwlTree
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 _buffer.Recv();
+
+                if (!_buffer.IsActive)
+                    break;
+
                 if (_simBuffer.HasOutgoing() || _buffer.HasOutgoing)
                     _buffer.Send();
                 
@@ -458,6 +464,7 @@ namespace OwlTree
 
                 Thread.Sleep(Math.Max(0, _threadUpdateDelta - (int)diff));
             }
+            _buffer.Disconnect();
         }
 
         private SimulationBuffer _simBuffer;
@@ -796,7 +803,7 @@ namespace OwlTree
                         if (_logger.includes.clientEvents)
                             _logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
                     }
-                    _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, IsAuthority);
+                    _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, Authority);
                     if (IsServerAuthoritative)
                         _simBuffer.AddTickSource(ClientId.None);
                     if (!IsServer && !IsRelay)
@@ -812,7 +819,7 @@ namespace OwlTree
                         NetRole = NetRole.Host;
                     if (_logger.includes.clientEvents)
                         _logger.Write("Host migrated, new authority is: " + m.caller.ToString());
-                    _simBuffer.UpdateAuthority(IsAuthority);
+                    _simBuffer.UpdateAuthority(Authority);
                     OnHostMigration?.Invoke(m.caller);
                     break;
                 
@@ -826,8 +833,10 @@ namespace OwlTree
         // run on network thread
         private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes, Protocol protocol)
         {
-            if (SimulationBuffer.TryDecodeTickMessage(bytes, out var rpcId, out var caller, out var tick, out var timestamp))
+            if (SimulationBuffer.TryDecodeTickMessage(bytes, out var rpcId, out var caller, out var callee, out var tick, out var timestamp))
             {
+                if (_logger.includes.rpcReceiveEncodings)
+                    _logger.Write("RECEIVING:\n" + SimulationBuffer.TickEncodingSummary(rpcId, caller, callee, tick, timestamp, protocol));
                 _simBuffer.AddIncoming(new IncomingMessage{
                     caller = caller,
                     callee = LocalId,
@@ -856,7 +865,7 @@ namespace OwlTree
                         _logger.Write("RECEIVING:\n" + _spawner.DespawnEncodingSummary((NetworkId)args[0]));
                 }
             }
-            else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out caller, out var callee, out var target, out args))
+            else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out caller, out callee, out var target, out args))
             {
                 var incoming = new IncomingMessage{
                     caller = caller,
@@ -1002,6 +1011,21 @@ namespace OwlTree
                     _logger.Write(output);
                 }
             }
+
+            if (Protocols.IsInvokeOnCaller(rpcId))
+            {
+                var message = new IncomingMessage{
+                    tick = CurTick,
+                    caller = LocalId,
+                    callee = LocalId,
+                    rpcId = rpcId,
+                    target = target,
+                    protocol = protocol,
+                    perms = perms,
+                    args = args
+                };
+                _simBuffer.AddIncoming(message);
+            }
         }
 
         private void AddRpcTo(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms, object[] args)
@@ -1025,6 +1049,21 @@ namespace OwlTree
                 if (_logger.includes.rpcCallEncodings)
                     output += ":\n" + Protocols.GetEncodingSummary(rpcId, LocalId, callee, target, args);
                 _logger.Write(output);
+            }
+
+            if (Protocols.IsInvokeOnCaller(rpcId))
+            {
+                var incomingMessage = new IncomingMessage{
+                    tick = CurTick,
+                    caller = LocalId,
+                    callee = LocalId,
+                    rpcId = rpcId,
+                    target = target,
+                    protocol = protocol,
+                    perms = perms,
+                    args = args
+                };
+                _simBuffer.AddIncoming(incomingMessage);
             }
         }
 
@@ -1074,7 +1113,12 @@ namespace OwlTree
             if (!IsActive)
                 return;
             if (_buffer.IsActive)
-                _buffer.Disconnect();
+            {
+                if (Threaded)
+                    _buffer.SendDisconnectSignal();
+                else
+                    _buffer.Disconnect();
+            }
             IsActive = false;
             IsReady = false;
             OnLocalDisconnect?.Invoke(LocalId);

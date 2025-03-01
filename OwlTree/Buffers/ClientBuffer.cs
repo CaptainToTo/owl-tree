@@ -76,7 +76,7 @@ namespace OwlTree
             {
                 try
                 {
-                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem));
+                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem, TickRate));
                     _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
                     _udpPacket.Clear();

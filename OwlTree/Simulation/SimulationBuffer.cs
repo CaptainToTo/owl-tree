@@ -8,6 +8,32 @@ namespace OwlTree
     /// </summary>
     public abstract class SimulationBuffer
     {
+        protected class TickPair
+        {
+            public Tick Tcp;
+            public Tick Udp;
+
+            public TickPair(Tick tcp, Tick udp)
+            {
+                Tcp = tcp;
+                Udp = udp;
+            }
+
+            public Tick Select(Protocol protocol) => protocol == Protocol.Tcp ? Tcp : Udp;
+
+            public void Update(Protocol protocol, Tick tick)
+            {
+                if (protocol == Protocol.Tcp)
+                    Tcp = tick;
+                else
+                    Udp = tick;
+            }
+
+            public Tick Min() => Tcp < Udp ? Tcp : Udp;
+            public Tick Max() => Tcp > Udp ? Tcp : Udp;
+        }
+
+
         protected Logger _logger;
 
         public SimulationBuffer(Logger logger)
@@ -23,7 +49,7 @@ namespace OwlTree
         /// </summary>
         public Tick CurTick { get; internal set; } = new Tick(0);
 
-        protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, bool isAuthority);
+        protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority);
 
         /// <summary>
         /// Provide the agreed session tick rate, and local latency once these are known
@@ -31,21 +57,21 @@ namespace OwlTree
         /// The current tick should be received from the session authority to start the
         /// simulation at the same tick as the authority.
         /// </summary>
-        public void InitBuffer(int tickRate, int latency, uint curTick, ClientId localId, bool isAuthority)
+        public void InitBuffer(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
         {
             lock (_lock)
             {
-                InitBufferInternal(tickRate, latency, curTick, localId, isAuthority);
+                InitBufferInternal(tickRate, latency, curTick, localId, authority);
             }
         }
 
-        protected abstract void UpdateAuthorityInternal(bool isAuthority);
+        protected abstract void UpdateAuthorityInternal(ClientId authority);
 
-        public void UpdateAuthority(bool isAuthority)
+        public void UpdateAuthority(ClientId authority)
         {
             lock (_lock)
             {
-                UpdateAuthorityInternal(isAuthority);
+                UpdateAuthorityInternal(authority);
             }
         }
 
@@ -155,36 +181,42 @@ namespace OwlTree
 
         // RPCs ================
 
-        public static int TickMessageLength => RpcId.MaxByteLength + ClientId.MaxByteLength + Tick.MaxByteLength + 8;
+        public static int TickMessageLength => RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength + Tick.MaxByteLength + 8;
 
-        public static void EncodeNextTick(Span<byte> bytes, ClientId source, Tick nextTick)
+        public static void EncodeNextTick(Span<byte> bytes, ClientId source, ClientId callee, Tick nextTick, long timestamp = 0)
         {
-            new RpcId(RpcId.NextTickId).InsertBytes(bytes);
+            var rpcId = new RpcId(RpcId.NextTickId);
+            rpcId.InsertBytes(bytes);
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            nextTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength), 
-                DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
+            nextTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
+            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+                timestamp == 0 ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : timestamp);
         }
 
-        public static void EncodeCurTick(Span<byte> bytes, ClientId source, Tick curTick)
+        public static void EncodeCurTick(Span<byte> bytes, ClientId source, ClientId callee, Tick curTick, long timestamp = 0)
         {
-            new RpcId(RpcId.CurTickId).InsertBytes(bytes);
+            var rpcId = new RpcId(RpcId.CurTickId);
+            rpcId.InsertBytes(bytes);
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            curTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength), 
-                DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
+            curTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
+            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+                timestamp == 0 ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : timestamp);
         }
 
-        public static void EncodeEndTick(Span<byte> bytes, ClientId source, Tick prevTick)
+        public static void EncodeEndTick(Span<byte> bytes, ClientId source, ClientId callee, Tick prevTick, long timestamp = 0)
         {
-            new RpcId(RpcId.EndTickId).InsertBytes(bytes);
+            var rpcId = new RpcId(RpcId.EndTickId);
+            rpcId.InsertBytes(bytes);
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            prevTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength), 
-                DateTimeOffset.Now.ToUnixTimeMilliseconds());
+            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
+            prevTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
+            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+                timestamp == 0 ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : timestamp);
         }
 
-        public static bool TryDecodeTickMessage(ReadOnlySpan<byte> bytes, out RpcId rpc, out ClientId source, out Tick tick, out long timestamp)
+        public static bool TryDecodeTickMessage(ReadOnlySpan<byte> bytes, out RpcId rpc, out ClientId source, out ClientId callee, out Tick tick, out long timestamp)
         {
             rpc = new RpcId(bytes);
             switch(rpc.Id)
@@ -193,16 +225,66 @@ namespace OwlTree
                 case RpcId.CurTickId:
                 case RpcId.EndTickId:
                     source = new ClientId(bytes.Slice(rpc.ByteLength()));
-                    tick = new Tick(bytes.Slice(rpc.ByteLength() + source.ByteLength()));
-                    timestamp = BitConverter.ToInt64(bytes.Slice(rpc.ByteLength() + source.ByteLength() + tick.ByteLength()));
+                    callee = new ClientId(bytes.Slice(rpc.ByteLength(), source.ByteLength()));
+                    tick = new Tick(bytes.Slice(rpc.ByteLength() + source.ByteLength() + callee.ByteLength()));
+                    timestamp = BitConverter.ToInt64(bytes.Slice(rpc.ByteLength() + source.ByteLength() + callee.ByteLength() + tick.ByteLength()));
                     return true;
 
                 default:
                     source = ClientId.None;
+                    callee = ClientId.None;
                     tick = new Tick(0);
                     timestamp = 0;
                     return false;
             }
+        }
+
+        public static void DecodeClients(ReadOnlySpan<byte> bytes, out ClientId caller, out ClientId callee)
+        {
+            caller = new ClientId(bytes);
+            callee = new ClientId(bytes.Slice(ClientId.MaxByteLength));
+        }
+
+        public static string TickEncodingSummary(RpcId rpcId, ClientId source, ClientId callee, Tick tick, long timestamp, Protocol protocol)
+        {
+            string title = null;
+            string sourceStr = source == ClientId.None ? "Server" : ("Client " + source.ToString());
+            byte[] bytes = new byte[TickMessageLength];
+            switch (rpcId)
+            {
+                case RpcId.NextTickId:
+                    title += $"{(protocol == Protocol.Tcp ? "TCP" : "UDP")} Next Tick message from {sourceStr}, updated to {tick} at {timestamp}:";
+                    EncodeNextTick(bytes, source, callee, tick, timestamp);
+                    break;
+                case RpcId.CurTickId:
+                    title += $"Authority sent session tick of {tick} at {timestamp} to {callee}:";
+                    EncodeCurTick(bytes, source, callee, tick, timestamp);
+                    break;
+            }
+            string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string encoding = "  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__Tick___| |______Timestamp______|";
+            return title + bytesStr + encoding;
+        }
+
+        public static string TickEncodingSummary(RpcId rpcId, ClientId source, ClientId callee, Tick tick, long timestamp)
+        {
+            string title = null;
+            string sourceStr = source == ClientId.None ? "Server" : ("Client " + source.ToString());
+            byte[] bytes = new byte[TickMessageLength];
+            switch (rpcId)
+            {
+                case RpcId.NextTickId:
+                    title += $"Next Tick message from {sourceStr}, updated to {tick} at {timestamp}:";
+                    EncodeNextTick(bytes, source, callee, tick, timestamp);
+                    break;
+                case RpcId.CurTickId:
+                    title += $"Authority sent session tick of {tick} at {timestamp} to {callee}:";
+                    EncodeCurTick(bytes, source, callee, tick, timestamp);
+                    break;
+            }
+            string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string encoding = "  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__Tick___| |______Timestamp______|";
+            return title + bytesStr + encoding;
         }
     }
 }

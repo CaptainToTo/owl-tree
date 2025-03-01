@@ -63,27 +63,27 @@ public class SnapshotTest
         client.Disconnect();
         server.Disconnect();
     }
-}
-
-public class TestObject : NetworkObject
-{
-    public int serverVal = 0;
-    public Tick lastServerTick;
     
-    public int clientVal = 0;
-    public Tick lastClientTick;
-    
-    [Rpc(RpcPerms.AuthorityToClients, InvokeOnCaller = true)]
-    public virtual void SendServerUpdate(int newVal, Tick tick)
+    public class TestObject : NetworkObject
     {
-        serverVal = newVal;
-        lastServerTick = tick;
-    }
+        public int serverVal = 0;
+        public Tick lastServerTick;
+        
+        public int clientVal = 0;
+        public Tick lastClientTick;
+        
+        [Rpc(RpcPerms.AuthorityToClients, InvokeOnCaller = true)]
+        public virtual void SendServerUpdate(int newVal, Tick tick)
+        {
+            serverVal = newVal;
+            lastServerTick = tick;
+        }
 
-    [Rpc(RpcPerms.ClientsToAuthority, InvokeOnCaller = true)]
-    public virtual void SendClientUpdate(int newVal, Tick tick)
-    {
-        clientVal = newVal;
-        lastClientTick = tick;
+        [Rpc(RpcPerms.ClientsToAuthority, InvokeOnCaller = true)]
+        public virtual void SendClientUpdate(int newVal, Tick tick)
+        {
+            clientVal = newVal;
+            lastClientTick = tick;
+        }
     }
 }

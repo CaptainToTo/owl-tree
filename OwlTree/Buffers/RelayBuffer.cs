@@ -296,6 +296,8 @@ namespace OwlTree
                                     else
                                         RelayMessageTo(bytes, _clientData.Find(callee).udpPacket);
                                 }
+                                else if (rpcId == RpcId.NextTickId)
+                                    RelayUdpMessage(bytes, client.id);
                             }
                             catch (Exception e)
                             {
@@ -391,13 +393,21 @@ namespace OwlTree
                                 {
                                     MigrateHost(new ClientId(bytes.Slice(rpcId.ByteLength())));
                                 }
-                                else if ((rpcId.Id == RpcId.NetworkObjectSpawnId || rpcId.Id == RpcId.NetworkObjectDespawnId) && client.id == Authority)
+                                else if (rpcId.IsObjectEvent() && client.id == Authority)
                                 {
                                     RelayTcpMessage(bytes, client.id);
                                 }
                                 else if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
                                 {
                                     HandlePingRequest(request);
+                                }
+                                else if (rpcId.IsTickEvent())
+                                {
+                                    SimulationBuffer.DecodeClients(bytes.Slice(RpcId.MaxByteLength), out var caller, out var callee);
+                                    if (rpcId == RpcId.CurTickId && caller == client.id && client.id == Authority)
+                                        RelayMessageTo(bytes, _clientData.Find(callee).tcpPacket);
+                                    else if (rpcId == RpcId.NextTickId)
+                                        RelayTcpMessage(bytes, client.id);
                                 }
                                 else if (rpcId >= RpcId.FirstRpcId)
                                 {

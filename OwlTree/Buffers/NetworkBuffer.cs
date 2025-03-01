@@ -43,6 +43,7 @@ namespace OwlTree
             public OutgoingMessage.Delegate addOutgoing;
 
             public SimulationBufferControl simulationSystem;
+            public int tickRate;
 
             public Logger logger;
         }
@@ -106,6 +107,7 @@ namespace OwlTree
             AddOutgoing = args.addOutgoing;
             ReadPacket = new Packet(BufferSize);
             SimulationSystem = args.simulationSystem;
+            TickRate = args.tickRate;
 
             _pingRequests = new PingRequestList(3000);
 
@@ -208,6 +210,11 @@ namespace OwlTree
         /// have the same control system.
         /// </summary>
         protected SimulationBufferControl SimulationSystem;
+        
+        /// <summary>
+        /// The millisecond frequency simulation ticks happen at. This is uniform across the session.
+        /// </summary>
+        protected int TickRate { get; private set; }
 
         /// <summary>
         /// Whether or not the connection is ready. 
@@ -396,6 +403,14 @@ namespace OwlTree
             {
                 step.step(packet);
             }
+        }
+
+        /// <summary>
+        /// Begin shutdown of the local connection. Ensures clean escape.
+        /// </summary>
+        public void SendDisconnectSignal()
+        {
+            IsActive = false;
         }
 
         /// <summary>

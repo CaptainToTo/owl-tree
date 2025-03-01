@@ -146,6 +146,7 @@ namespace OwlTree
             /// </summary>
             public IncludeRules RpcReceiveEncodings()
             {
+                rpcReceives = true;
                 rpcReceiveEncodings = true;
                 return this;
             }

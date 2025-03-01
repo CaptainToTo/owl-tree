@@ -18,7 +18,7 @@ namespace OwlTree
         /// <summary>
         /// The integer value of this tick
         /// </summary>
-        public uint Val => _val;
+        public uint Value => _val;
 
         /// <summary>
         /// Create a new tick that has the given tick number.
