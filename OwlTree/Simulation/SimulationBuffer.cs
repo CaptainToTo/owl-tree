@@ -47,7 +47,23 @@ namespace OwlTree
         /// The current tick the simulation is on. All outgoing and incoming messages 
         /// that will be provided at any given moment belong to this tick.
         /// </summary>
-        public Tick CurTick { get; internal set; } = new Tick(0);
+        public Tick LocalTick()
+        {
+            lock (_lock)
+            {
+                return _localTick;
+            }
+        }
+        protected Tick _localTick = new Tick(0);
+
+        public Tick PresentTick()
+        {
+            lock (_lock)
+            {
+                return _presentTick;
+            }
+        }
+        protected Tick _presentTick = new Tick(0);
 
         protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority);
 

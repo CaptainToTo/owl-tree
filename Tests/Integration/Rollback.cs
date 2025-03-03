@@ -5,38 +5,38 @@ namespace Integration;
 
 // test snapshot simulation buffer
 
-public class LockstepTest
+public class RollbackTest
 {
 
     // create server authoritative
     [Fact]
     public void Relayed()
     {
-        Logs.InitPath("logs/Lockstep/Relayed");
+        Logs.InitPath("logs/Rollback/Relayed");
         Logs.InitFiles(
-            "logs/Lockstep/Relayed/server.log",
-            "logs/Lockstep/Relayed/client1.log",
-            "logs/Lockstep/Relayed/client2.log",
-            "logs/Lockstep/Relayed/client3.log"
+            "logs/Rollback/Relayed/server.log",
+            "logs/Rollback/Relayed/client1.log",
+            "logs/Rollback/Relayed/client2.log",
+            "logs/Rollback/Relayed/client3.log"
         );
 
         var server = new Connection(new Connection.Args{
             role = NetRole.Relay,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationBufferControl.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
-            logger = (str) => File.AppendAllText("logs/Lockstep/Relayed/server.log", str),
+            logger = (str) => File.AppendAllText("logs/Rollback/Relayed/server.log", str),
             verbosity = Logger.Includes().All()
         });
 
         var client1 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationBufferControl.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllText("logs/Lockstep/Relayed/client1.log", str),
+            logger = (str) => File.AppendAllText("logs/Rollback/Relayed/client1.log", str),
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
 
@@ -49,11 +49,11 @@ public class LockstepTest
 
         var client2 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationBufferControl.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllText("logs/Lockstep/Relayed/client2.log", str),
+            logger = (str) => File.AppendAllText("logs/Rollback/Relayed/client2.log", str),
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
 
@@ -67,11 +67,11 @@ public class LockstepTest
 
         // var client3 = new Connection(new Connection.Args{
         //     role = NetRole.Client,
-        //     simulationSystem = SimulationBufferControl.Lockstep,
+        //     simulationSystem = SimulationBufferControl.Rollback,
         //     serverAddr = "127.0.0.1",
         //     udpPort = server.ServerUdpPort,
         //     tcpPort = server.ServerTcpPort,
-        //     logger = (str) => File.AppendAllText("logs/Lockstep/Relayed/client3.log", str),
+        //     logger = (str) => File.AppendAllText("logs/Rollback/Relayed/client3.log", str),
         //     verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         // });
 
@@ -84,7 +84,7 @@ public class LockstepTest
         //     Thread.Sleep(server.TickRate);
         // }
 
-        var client1Obj = client1.Spawn<LockstepTestObject>();
+        var client1Obj = client1.Spawn<RollbackTestObject>();
 
         for (int i = 0; i < 200; i++)
         {
@@ -96,13 +96,13 @@ public class LockstepTest
             client1Obj.SendUpdate(client1Obj.client1Val + 1, client1.LocalTick);
             client1.Log($"sent {client1Obj.client1Val + 1} at {client1.LocalTick}");
 
-            if (client2.TryGetObject(client1Obj.Id, out LockstepTestObject client2Obj))
+            if (client2.TryGetObject(client1Obj.Id, out RollbackTestObject client2Obj))
             {
                 client2Obj.SendUpdate(client2Obj.client2Val + 1, client2.LocalTick);
                 client2.Log($"sent {client2Obj.client2Val + 1} at {client2.LocalTick}");
             }
             
-            // if (client3.TryGetObject(client1Obj.Id, out LockstepTestObject client3Obj))
+            // if (client3.TryGetObject(client1Obj.Id, out RollbackTestObject client3Obj))
             // {
             //     client3Obj.SendUpdate(client3Obj.client3Val + 1, client3.CurTick);
             //     client3.Log($"sent {client3Obj.client3Val + 1} at {client3.CurTick}");
@@ -117,7 +117,7 @@ public class LockstepTest
         server.Disconnect();
     }
 
-    public class LockstepTestObject : NetworkObject
+    public class RollbackTestObject : NetworkObject
     {
         public int client1Val = 0;
         public int client2Val = 0;

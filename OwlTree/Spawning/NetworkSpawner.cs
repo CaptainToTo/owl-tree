@@ -158,7 +158,7 @@ namespace OwlTree
         internal OutgoingMessage EncodeSpawn(ClientId callee, Type objType, NetworkId id)
         {
             var m = new OutgoingMessage{
-                tick = _connection.CurTick,
+                tick = _connection.LocalTick,
                 caller = _connection.LocalId,
                 callee = callee,
                 rpcId = new RpcId(RpcId.NetworkObjectSpawnId),
@@ -235,7 +235,7 @@ namespace OwlTree
         internal OutgoingMessage EncodeDespawn(NetworkId id)
         {
             var m = new OutgoingMessage{
-                tick = _connection.CurTick,
+                tick = _connection.LocalTick,
                 caller = _connection.LocalId,
                 callee = ClientId.None,
                 rpcId = new RpcId(RpcId.NetworkObjectDespawnId),

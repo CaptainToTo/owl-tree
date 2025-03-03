@@ -283,6 +283,7 @@ namespace OwlTree
                         _simBuffer = new Lockstep(_logger);
                         break;
                     case SimulationBufferControl.Rollback:
+                        _simBuffer = new Rollback(_logger);
                         break;
                     case SimulationBufferControl.Snapshot:
                         _simBuffer = new Snapshot(_logger);
@@ -472,7 +473,7 @@ namespace OwlTree
         /// <summary>
         /// The current simulation tick. If simulation management is disabled, this will always be 0.
         /// </summary>
-        public Tick CurTick => _simBuffer.CurTick;
+        public Tick LocalTick => _simBuffer.LocalTick();
         /// <summary>
         /// The expected rate at which <c>ExecuteQueue()</c> should be called in milliseconds.
         /// </summary>
@@ -992,7 +993,7 @@ namespace OwlTree
             foreach (var callee in callees)
             {
                 var message = new OutgoingMessage{
-                    tick = CurTick,
+                    tick = LocalTick,
                     caller = LocalId,
                     callee = callee,
                     rpcId = rpcId,
@@ -1015,7 +1016,7 @@ namespace OwlTree
             if (Protocols.IsInvokeOnCaller(rpcId))
             {
                 var message = new IncomingMessage{
-                    tick = CurTick,
+                    tick = LocalTick,
                     caller = LocalId,
                     callee = LocalId,
                     rpcId = rpcId,
@@ -1031,7 +1032,7 @@ namespace OwlTree
         private void AddRpcTo(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms, object[] args)
         {
             var message = new OutgoingMessage{
-                tick = CurTick,
+                tick = LocalTick,
                 caller = LocalId,
                 callee = callee,
                 rpcId = rpcId,
@@ -1054,7 +1055,7 @@ namespace OwlTree
             if (Protocols.IsInvokeOnCaller(rpcId))
             {
                 var incomingMessage = new IncomingMessage{
-                    tick = CurTick,
+                    tick = LocalTick,
                     caller = LocalId,
                     callee = LocalId,
                     rpcId = rpcId,
@@ -1136,7 +1137,7 @@ namespace OwlTree
             if (Threaded)
             {
                 _simBuffer.AddOutgoing(new OutgoingMessage{
-                    tick = CurTick,
+                    tick = LocalTick,
                     rpcId = new RpcId(RpcId.ClientDisconnectedId),
                     callee = id
                 });
@@ -1158,7 +1159,7 @@ namespace OwlTree
             if (Threaded)
             {
                 _simBuffer.AddOutgoing(new OutgoingMessage{
-                    tick = CurTick,
+                    tick = LocalTick,
                     rpcId = new RpcId(RpcId.HostMigrationId),
                     callee = id
                 });

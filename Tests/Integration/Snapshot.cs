@@ -50,11 +50,11 @@ public class SnapshotTest
         {
             server.ExecuteQueue();
             client.ExecuteQueue();
-            serverObj.SendServerUpdate(serverObj.serverVal + 1, server.CurTick);
+            serverObj.SendServerUpdate(serverObj.serverVal + 1, server.LocalTick);
             if (client.TryGetObject<TestObject>(serverObj.Id, out var clientObj))
             {
                 client.Log($"server val: {clientObj.serverVal}, tick: {clientObj.lastServerTick}");
-                clientObj.SendClientUpdate(clientObj.clientVal + 1, client.CurTick);
+                clientObj.SendClientUpdate(clientObj.clientVal + 1, client.LocalTick);
             }
             server.Log($"client val: {serverObj.clientVal}, tick: {serverObj.lastClientTick}");
             Thread.Sleep(server.TickRate);

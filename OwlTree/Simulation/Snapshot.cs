@@ -33,8 +33,8 @@ namespace OwlTree
         protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
         {
             _maxTicks = (int)MathF.Ceiling((float)latency / tickRate * 3f);
-            CurTick = new Tick(curTick);
-            _newestTick = CurTick;
+            _localTick = new Tick(curTick);
+            _newestTick = _localTick;
             _localId = localId;
             _authority = authority;
 
@@ -44,9 +44,9 @@ namespace OwlTree
         
         protected override void NextTickInternal()
         {
-            CurTick = CurTick.Next();
+            _localTick = _localTick.Next();
             var tickTcpMessage = new OutgoingMessage{
-                tick = CurTick,
+                tick = _localTick,
                 caller = _localId,
                 callee = ClientId.None,
                 rpcId = new RpcId(RpcId.NextTickId),
@@ -56,7 +56,7 @@ namespace OwlTree
                 bytes = new byte[TickMessageLength]
             };
             var tickUdpMessage = new OutgoingMessage{
-                tick = CurTick,
+                tick = _localTick,
                 caller = _localId,
                 callee = ClientId.None,
                 rpcId = new RpcId(RpcId.NextTickId),
@@ -65,30 +65,30 @@ namespace OwlTree
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[TickMessageLength]
             };
-            EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, CurTick);
-            EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, CurTick);
+            EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick);
+            EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick);
             _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
             _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
 
             if (_logger.includes.simulationEvents)
-                _logger.Write($"Simulation moved to next tick: {CurTick}.");
+                _logger.Write($"Simulation moved to next tick: {_localTick}.");
         }
 
         protected override void AddIncomingInternal(IncomingMessage m)
         {
             if (!_sessionTicks.ContainsKey(m.caller))
             {
-                m.tick = CurTick;
+                m.tick = _localTick;
                 _incoming.Enqueue(m, m.tick);
                 return;
             }
 
             if (m.rpcId == RpcId.CurTickId)
             {
-                CurTick = m.tick;
+                _localTick = m.tick;
 
                 var tickTcpMessage = new OutgoingMessage{
-                    tick = CurTick,
+                    tick = _localTick,
                     caller = _localId,
                     callee = ClientId.None,
                     rpcId = new RpcId(RpcId.NextTickId),
@@ -98,7 +98,7 @@ namespace OwlTree
                     bytes = new byte[TickMessageLength]
                 };
                 var tickUdpMessage = new OutgoingMessage{
-                    tick = CurTick,
+                    tick = _localTick,
                     caller = _localId,
                     callee = ClientId.None,
                     rpcId = new RpcId(RpcId.NextTickId),
@@ -107,13 +107,13 @@ namespace OwlTree
                     perms = RpcPerms.AnyToAll,
                     bytes = new byte[TickMessageLength]
                 };
-                EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, CurTick);
-                EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, CurTick);
+                EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick);
+                EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick);
                 _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
                 _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
 
                 if (_logger.includes.simulationEvents)
-                    _logger.Write($"Received session tick value from authority, current tick is now {CurTick}.");
+                    _logger.Write($"Received session tick value from authority, current tick is now {_localTick}.");
             }
 
             if (m.rpcId == RpcId.NextTickId)
@@ -127,7 +127,7 @@ namespace OwlTree
                 if (_newestTick < newTick)
                     _newestTick = newTick;
                 
-                _requireCatchup = _newestTick - CurTick > _maxTicks;
+                _requireCatchup = _newestTick - _localTick > _maxTicks;
 
                 if (_requireCatchup && _logger.includes.simulationEvents)
                     _logger.Write($"Simulation is too far behind, catching up.");
@@ -151,7 +151,7 @@ namespace OwlTree
 
         protected override void AddOutgoingInternal(OutgoingMessage m)
         {
-            m.tick = CurTick;
+            m.tick = _localTick;
             _outgoing.Enqueue(m, m.tick);
         }
 
@@ -179,7 +179,7 @@ namespace OwlTree
 
         protected override void AddTickSourceInternal(ClientId client)
         {
-            _sessionTicks.Add(client, new TickPair(CurTick, CurTick));
+            _sessionTicks.Add(client, new TickPair(_localTick, _localTick));
 
             if (_authority == _localId)
             {
@@ -187,16 +187,16 @@ namespace OwlTree
                     caller = _localId,
                     callee = client,
                     rpcId = new RpcId(RpcId.CurTickId),
-                    tick = CurTick,
+                    tick = _localTick,
                     protocol = Protocol.Tcp,
                     perms = RpcPerms.AuthorityToClients,
                     bytes = new byte[TickMessageLength]
                 };
-                EncodeCurTick(outgoing.bytes, _localId, client, CurTick);
-                _outgoing.Enqueue(outgoing, CurTick);
+                EncodeCurTick(outgoing.bytes, _localId, client, _localTick);
+                _outgoing.Enqueue(outgoing, _localTick);
 
                 if (_logger.includes.simulationEvents)
-                    _logger.Write($"Sending session tick {CurTick} to {client}.");
+                    _logger.Write($"Sending session tick {_localTick} to {client}.");
             }
         }
 

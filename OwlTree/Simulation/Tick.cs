@@ -39,6 +39,8 @@ namespace OwlTree
 
         public Tick Next() => new Tick(_val + 1);
 
+        public Tick Prev() => new Tick(_val - 1);
+
         public int ByteLength() => 4;
 
         public const int MaxByteLength = 4;
