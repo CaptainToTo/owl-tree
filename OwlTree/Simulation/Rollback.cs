@@ -19,14 +19,10 @@ namespace OwlTree
 
         private void RewindTo(Tick tick)
         {
-            var first = _past.GetTickStart(tick);
-            _logger.Write($"Rewinding from: {first.Value.rpcId} at {first.Value.tick} from {first.Value.caller}");
-
             var count = 0;
             foreach (var m in _past.RewindFrom(tick))
             {
                 _incoming.Enqueue(m, m.tick);
-                _logger.Write($"Popped: {m.rpcId} at {m.tick} from {m.caller}");
                 count++;
             }
             
@@ -35,7 +31,6 @@ namespace OwlTree
         }
 
         private SimplePriorityQueue<OutgoingMessage, uint> _outgoing = new();
-        private SimplePriorityQueue<OutgoingMessage, uint> _sent = new();
 
         private Dictionary<ClientId, TickPair> _sessionTicks = new();
 
@@ -65,6 +60,7 @@ namespace OwlTree
             _authority = authority;
             _tickRate = tickRate;
             _initialized = _localId == _authority;
+            _latency = latency;
 
             if (_logger.includes.simulationEvents)
             {
@@ -155,8 +151,8 @@ namespace OwlTree
 
                 _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)m.args[0]);
                 _localTick = new Tick(m.tick.Value + (uint)((float)_latency / _tickRate));
-                _exitTick = _localTick.Next();
                 _presentTick = m.tick;
+                _exitTick = _presentTick.Next();
                 _initialized = true;
 
                 var tickTcpMessage = new OutgoingMessage{
@@ -232,7 +228,6 @@ namespace OwlTree
                 }
                 _incoming.Dequeue();
                 _past?.Push(m);
-                _logger.Write($"Pushed: {m.rpcId} at {m.tick} from {m.caller}");
                 return true;
             }
             _presentTick = _presentTick.Next();
@@ -242,7 +237,6 @@ namespace OwlTree
 
         protected override void AddTickSourceInternal(ClientId client)
         {
-
             if (_authority == _localId)
             {
                 _sessionTicks.Add(client, new TickPair(_localTick, _localTick));
