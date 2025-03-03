@@ -14,8 +14,10 @@ namespace OwlTree
         private SimplePriorityQueue<IncomingMessage, uint> _incoming = new();
         private SimplePriorityQueue<OutgoingMessage, uint> _outgoing = new();
 
+        // tracks what ticks other clients are on
         private Dictionary<ClientId, TickPair> _sessionTicks = new();
 
+        // when incoming messages should stop being provided
         private Tick _exitTick = new Tick(0);
 
         private int _maxTicks;
@@ -121,6 +123,7 @@ namespace OwlTree
                 return;
             }
 
+            // initialize non-authority connections
             if (m.rpcId == RpcId.CurTickId)
             {
                 if (m.caller != _authority) return;
@@ -168,6 +171,7 @@ namespace OwlTree
                 if (_logger.includes.rpcCallEncodings)
                     _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), _localId, ClientId.None, _localTick, timestamp));
                 
+                // update tick of any outgoing messages that were enqueued before initialization
                 while (_outgoing.TryFirst(out var outgoing) && outgoing.tick == 0)
                 {
                     _outgoing.Dequeue();
@@ -178,6 +182,7 @@ namespace OwlTree
                 return;
             }
 
+            // a client moved to a new tick
             if (m.rpcId == RpcId.NextTickId)
             {
                 _sessionTicks[m.caller].Update(m.protocol, m.tick);
@@ -193,6 +198,7 @@ namespace OwlTree
             if (_incoming.TryFirst(out m))
             {
                 _presentTick = m.tick;
+                // continue providing messages until the present tick is complete
                 if (m.tick >= _exitTick)
                 {
                     return false;

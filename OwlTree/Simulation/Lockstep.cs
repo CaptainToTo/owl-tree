@@ -15,9 +15,12 @@ namespace OwlTree
         private SimplePriorityQueue<IncomingMessage, uint> _incoming = new();
         private SimplePriorityQueue<OutgoingMessage, uint> _outgoing = new();
 
+        // tracks what ticks other clients are on
         private Dictionary<ClientId, TickPair> _sessionTicks = new();
 
+        // when incoming messages should stop being provided
         private Tick _exitTick = new Tick(0);
+        // the newest tick that all clients have completed
         private Tick _lastCompleteTick = new Tick(0);
 
         private int _maxTicks;
@@ -124,6 +127,7 @@ namespace OwlTree
                 return;
             }
 
+            // initialize non-authority connections
             if (m.rpcId == RpcId.CurTickId)
             {
                 if (m.caller != _authority) return;
@@ -168,6 +172,7 @@ namespace OwlTree
                 if (_logger.includes.rpcCallEncodings)
                     _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), _localId, ClientId.None, _localTick, timestamp));
                 
+                // update tick of any outgoing messages that were enqueued before initialization
                 while (_outgoing.TryFirst(out var outgoing) && outgoing.tick == 0)
                 {
                     _outgoing.Dequeue();
@@ -178,12 +183,15 @@ namespace OwlTree
                 return;
             }
 
+            // a client moved to a new tick
             if (m.rpcId == RpcId.NextTickId)
             {
                 var prevTick = _sessionTicks[m.caller].Select(m.protocol);
 
                 _sessionTicks[m.caller].Update(m.protocol, m.tick);
 
+                // if the caller was the last client that needed to move off of the prev tick
+                // the prev tick is now complete and can be simulated
                 if (prevTick < _sessionTicks.Min(p => p.Value.Min().Value))
                 {
                     _lastCompleteTick = prevTick;
@@ -199,10 +207,9 @@ namespace OwlTree
             _incoming.Enqueue(m, m.tick);
         }
 
-        
-
         protected override bool TryGetNextIncomingInternal(out IncomingMessage m)
         {
+            // wait for the present tick to be ready before simulating
             if (_sessionTicks.Count > 0 && _presentTick > _lastCompleteTick)
             {
                 m = new IncomingMessage();

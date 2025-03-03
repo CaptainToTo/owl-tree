@@ -1,5 +1,3 @@
-
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +5,9 @@ using Priority_Queue;
 
 namespace OwlTree
 {
+    /// <summary>
+    /// Resimulates past ticks when new messages from past ticks are received.
+    /// </summary>
     public class Rollback : SimulationBuffer
     {
         public Rollback(Logger logger) : base(logger)
@@ -16,7 +17,8 @@ namespace OwlTree
 
         private SimplePriorityQueue<IncomingMessage, uint> _incoming = new();
         private MessageStack _past;
-
+        
+        // restores the simulation back to this tick
         private void RewindTo(Tick tick)
         {
             var count = 0;
@@ -32,8 +34,10 @@ namespace OwlTree
 
         private SimplePriorityQueue<OutgoingMessage, uint> _outgoing = new();
 
+        // tracks what ticks other clients are on
         private Dictionary<ClientId, TickPair> _sessionTicks = new();
 
+        // when incoming messages should stop being provided
         private Tick _exitTick = new Tick(0);
 
         private Tick _resimulateFrom = new Tick(0);
@@ -142,6 +146,7 @@ namespace OwlTree
                 return;
             }
 
+            // initialize non-authority connections
             if (m.rpcId == RpcId.CurTickId)
             {
                 if (m.caller != _authority) return;
@@ -186,6 +191,7 @@ namespace OwlTree
                 if (_logger.includes.rpcCallEncodings)
                     _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), _localId, ClientId.None, _localTick, timestamp));
                 
+                // update tick of any outgoing messages that were enqueued before initialization
                 while (_outgoing.TryFirst(out var outgoing) && outgoing.tick == 0)
                 {
                     _outgoing.Dequeue();
@@ -196,6 +202,7 @@ namespace OwlTree
                 return;
             }
 
+            // a client moved to a new tick
             if (m.rpcId == RpcId.NextTickId)
             {
                 _sessionTicks[m.caller].Update(m.protocol, m.tick);
@@ -204,6 +211,7 @@ namespace OwlTree
 
             m.tick = _sessionTicks[m.caller].Select(m.protocol);
 
+            // if resimulation is required
             if (m.tick < _presentTick && (!_requiresResimulation || m.tick < _resimulateFrom))
             {
                 RewindTo(m.tick);
