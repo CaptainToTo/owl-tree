@@ -10,7 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="OwlTree.Tests" />
+    <InternalsVisibleTo Include="Unit" />
+    <InternalsVisibleTo Include="Integration" />
   </ItemGroup>
 
 </Project>
