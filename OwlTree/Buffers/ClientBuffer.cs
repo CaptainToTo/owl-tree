@@ -20,13 +20,12 @@ namespace OwlTree
             _tcpClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _tcpEndPoint = new IPEndPoint(Address, ServerTcpPort);
 
-            _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpClient.Bind(new IPEndPoint(IPAddress.Any, 0));
-
             _udpEndPoint = new IPEndPoint(Address, ServerUdpPort);
 
+            _udpClient = new RudpClientSocket(new IPEndPoint(IPAddress.Any, 0), _udpEndPoint);
+
             _readList.Add(_tcpClient);
-            _readList.Add(_udpClient);
+            _readList.Add(_udpClient.Socket);
 
             _tcpPacket = new Packet(BufferSize);
             _tcpPacket.header.owlTreeVer = OwlTreeVersion;
@@ -42,7 +41,7 @@ namespace OwlTree
 
         // client state
         private Socket _tcpClient;
-        private Socket _udpClient;
+        private RudpClientSocket _udpClient;
         private IPEndPoint _tcpEndPoint;
         private IPEndPoint _udpEndPoint;
         private List<Socket> _readList = new List<Socket>();
@@ -50,7 +49,7 @@ namespace OwlTree
 
         public override int LocalTcpPort() => _tcpClient != null ? ((IPEndPoint)_tcpClient.LocalEndPoint).Port : 0;
 
-        public override int LocalUdpPort() => ((IPEndPoint)_udpClient.LocalEndPoint).Port;
+        public override int LocalUdpPort() => _udpClient.Port;
 
         public override int Latency() => _latency;
 
@@ -94,12 +93,12 @@ namespace OwlTree
             }
 
             _readList.Clear();
-            _readList.Add(_udpClient);
+            _readList.Add(_udpClient.Socket);
             Socket.Select(_readList, null, null, _requestRate);
 
             foreach (var socket in _readList)
             {
-                if (socket == _udpClient)
+                if (socket == _udpClient.Socket)
                 {
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
                     ReadPacket.Clear();
@@ -174,7 +173,7 @@ namespace OwlTree
 
             _readList.Clear();
             _readList.Add(_tcpClient);
-            _readList.Add(_udpClient);
+            _readList.Add(_udpClient.Socket);
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
             _pingRequests.ClearTimeouts(PingTimeout);
@@ -259,20 +258,17 @@ namespace OwlTree
                         }
                     } while (dataRemaining > 0);
                 }
-                else if (socket == _udpClient)
+                else if (socket == _udpClient.Socket)
                 {
-                    do
+                    while (_udpClient.Available > 0)
                     {
-
                         Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
-                        ReadPacket.Clear();
 
-                        EndPoint source = new IPEndPoint(IPAddress.Any, 0);
+                        IPEndPoint source = new IPEndPoint(IPAddress.Any, 0);
                         int dataLen = -1;
                         try
                         {
-                            dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
-                            ReadPacket.FromBytes(ReadBuffer, 0);
+                            var result = _udpClient.ReceiveFrom(ReadBuffer, ref source, out dataLen);
                         }
                         catch { }
 
@@ -280,6 +276,12 @@ namespace OwlTree
                         {
                             break;
                         }
+                    }
+
+                    while (_udpClient.TryGetNextPacket(out var packet, out var source))
+                    {
+                        ReadPacket.Clear();
+                        ReadPacket.FromBytes(packet, 0);
 
                         if (Logger.includes.udpPreTransform)
                         {
@@ -310,7 +312,7 @@ namespace OwlTree
                                     Logger.Write($"FAILED to decode UDP message '{BitConverter.ToString(bytes.ToArray())}'. Exception thrown:\n{e}");
                             }
                         }
-                    } while (_udpClient.Available > 0);
+                    }
                 }
             }
         }
