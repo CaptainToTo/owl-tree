@@ -65,24 +65,24 @@ public class RollbackTest
             Thread.Sleep(server.TickRate);
         }
 
-        // var client3 = new Connection(new Connection.Args{
-        //     role = NetRole.Client,
-        //     simulationSystem = SimulationBufferControl.Rollback,
-        //     serverAddr = "127.0.0.1",
-        //     udpPort = server.ServerUdpPort,
-        //     tcpPort = server.ServerTcpPort,
-        //     logger = (str) => File.AppendAllText("logs/Rollback/Relayed/client3.log", str),
-        //     verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
-        // });
+        var client3 = new Connection(new Connection.Args{
+            role = NetRole.Client,
+            simulationSystem = SimulationBufferControl.Rollback,
+            serverAddr = "127.0.0.1",
+            udpPort = server.ServerUdpPort,
+            tcpPort = server.ServerTcpPort,
+            logger = (str) => File.AppendAllText("logs/Rollback/Relayed/client3.log", str),
+            verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
+        });
 
-        // while (!client3.IsReady)
-        // {
-        //     server.ExecuteQueue();
-        //     client1.ExecuteQueue();
-        //     client2.ExecuteQueue();
-        //     client3.ExecuteQueue();
-        //     Thread.Sleep(server.TickRate);
-        // }
+        while (!client3.IsReady)
+        {
+            server.ExecuteQueue();
+            client1.ExecuteQueue();
+            client2.ExecuteQueue();
+            client3.ExecuteQueue();
+            Thread.Sleep(server.TickRate);
+        }
 
         var client1Obj = client1.Spawn<RollbackTestObject>();
 
@@ -91,7 +91,7 @@ public class RollbackTest
             server.ExecuteQueue();
             client1.ExecuteQueue();
             client2.ExecuteQueue();
-            // client3.ExecuteQueue();
+            client3.ExecuteQueue();
 
             client1Obj.SendUpdate(client1Obj.client1Val + 1, client1.LocalTick);
             client1.Log($"sent {client1Obj.client1Val + 1} at {client1.LocalTick}");
@@ -102,18 +102,18 @@ public class RollbackTest
                 client2.Log($"sent {client2Obj.client2Val + 1} at {client2.LocalTick}");
             }
             
-            // if (client3.TryGetObject(client1Obj.Id, out RollbackTestObject client3Obj))
-            // {
-            //     client3Obj.SendUpdate(client3Obj.client3Val + 1, client3.CurTick);
-            //     client3.Log($"sent {client3Obj.client3Val + 1} at {client3.CurTick}");
-            // }
+            if (client3.TryGetObject(client1Obj.Id, out RollbackTestObject client3Obj))
+            {
+                client3Obj.SendUpdate(client3Obj.client3Val + 1, client3.LocalTick);
+                client3.Log($"sent {client3Obj.client3Val + 1} at {client3.LocalTick}");
+            }
 
             Thread.Sleep(server.TickRate);
         }
 
         client1.Disconnect();
         client2.Disconnect();
-        // client3.Disconnect();
+        client3.Disconnect();
         server.Disconnect();
     }
 
@@ -123,7 +123,7 @@ public class RollbackTest
         public int client2Val = 0;
         public int client3Val = 0;
         
-        [Rpc(RpcPerms.AnyToAll, InvokeOnCaller = true)]
+        [Rpc(RpcPerms.AnyToAll, InvokeOnCaller = true, RpcProtocol = Protocol.Udp)]
         public virtual void SendUpdate(int val, Tick tick, [CallerId] ClientId caller = default)
         {
             if (caller == new ClientId(1))
