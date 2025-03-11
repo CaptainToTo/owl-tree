@@ -471,9 +471,15 @@ namespace OwlTree
         private SimulationBuffer _simBuffer;
 
         /// <summary>
-        /// The current simulation tick. If simulation management is disabled, this will always be 0.
+        /// The current simulation tick assigned to RPCs sent from this connection. 
+        /// If simulation management is disabled, this will always be 0.
         /// </summary>
         public Tick LocalTick => _simBuffer.LocalTick();
+        /// <summary>
+        /// The current simulation tick of received RPCs currently being run. This will usually be behind
+        /// LocalTick. If simulation management is disabled, this will always be 0.
+        /// </summary>
+        public Tick PresentTick => _simBuffer.PresentTick();
         /// <summary>
         /// The expected rate at which <c>ExecuteQueue()</c> should be called in milliseconds.
         /// </summary>

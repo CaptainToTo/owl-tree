@@ -44,7 +44,7 @@ namespace OwlTree
         private readonly object _lock = new();
 
         /// <summary>
-        /// The current tick the simulation is on. All outgoing and incoming messages 
+        /// The current tick the simulation is on. All outgoing messages 
         /// that will be provided at any given moment belong to this tick.
         /// </summary>
         public Tick LocalTick()
@@ -55,7 +55,10 @@ namespace OwlTree
             }
         }
         protected Tick _localTick = new Tick(0);
-
+        
+        /// <summary>
+        /// The current tick received RPCs that are currently executing belong to.
+        /// </summary>
         public Tick PresentTick()
         {
             lock (_lock)
