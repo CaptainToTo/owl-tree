@@ -21,21 +21,33 @@ namespace OwlTree
         /// </summary>
         public bool isHost;
 
-        public ConnectionRequest(StringId app, StringId session, bool host)
+        /// <summary>
+        /// The simulation system the client connection is using.
+        /// </summary>
+        public SimulationBufferControl simulationSystem;
+
+        /// <summary>
+        /// The session uniform tick rate all simulations must adhere to.
+        /// </summary>
+        public int tickRate;
+
+        public ConnectionRequest(StringId app, StringId session, bool host, SimulationBufferControl simSystem, int tickSpeed)
         {
             appId = app;
             sessionId = session;
             isHost = host;
+            simulationSystem = simSystem;
+            tickRate = tickSpeed;
         }
 
         public int ByteLength()
         {
-            return appId.ByteLength() + sessionId.ByteLength() + 1;
+            return appId.ByteLength() + sessionId.ByteLength() + 2 + 4;
         }
 
         public static int MaxLength()
         {
-            return StringId.MaxByteLength + StringId.MaxByteLength + 1;
+            return StringId.MaxByteLength + StringId.MaxByteLength + 2 + 4;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
@@ -43,6 +55,8 @@ namespace OwlTree
             appId.FromBytes(bytes);
             sessionId.FromBytes(bytes.Slice(appId.ByteLength()));
             isHost = bytes[appId.ByteLength() + sessionId.ByteLength()] == 1;
+            simulationSystem = (SimulationBufferControl)bytes[appId.ByteLength() + sessionId.ByteLength() + 1];
+            tickRate = BitConverter.ToInt32(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2));
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -50,6 +64,8 @@ namespace OwlTree
             appId.InsertBytes(bytes);
             sessionId.InsertBytes(bytes.Slice(appId.ByteLength()));
             bytes[appId.ByteLength() + sessionId.ByteLength()] = (byte)(isHost ? 1 : 0);
+            bytes[appId.ByteLength() + sessionId.ByteLength() + 1] = (byte) simulationSystem;
+            BitConverter.TryWriteBytes(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2), tickRate);
         }
     }
 
@@ -65,14 +81,24 @@ namespace OwlTree
         Accepted,
         /// <summary>
         /// The client's connection request was rejected because 
-        /// the server is currently at max capacity.
+        /// the session is currently at max capacity.
         /// </summary>
-        ServerFull,
+        SessionFull,
         /// <summary>
         /// The client's connection request was rejected because 
         /// the provided app id doesn't match the server's.
         /// </summary>
         IncorrectAppId,
+        /// <summary>
+        /// The client's connection request was rejected because 
+        /// the provided session id doesn't match the server's.
+        /// </summary>
+        IncorrectSessionId,
+        /// <summary>
+        /// The client's connection request was rejected because
+        /// the provided simulation buffer control system doesn't match the server's.
+        /// </summary>
+        IncorrectSimulationControl,
         /// <summary>
         /// The client's connection request was rejected because
         /// they claimed to be the host, but the session already has one assigned.
@@ -83,6 +109,11 @@ namespace OwlTree
         /// </summary>
         Rejected
     }
+    
+    /// <summary>
+    /// Basic delegate for handling connection response codes on clients.
+    /// </summary>
+    public delegate void ConnectionResponseHandler(ConnectionResponseCode response);
 
     /// <summary>
     /// Sent to clients on connecting to the server to assign the local id.

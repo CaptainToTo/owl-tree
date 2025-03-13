@@ -1,4 +1,4 @@
-# OwlTree (v0.2.0)
+# OwlTree (v0.3.0)
 A C# framework for server-client RPCs intended for games.
 
 View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki).
@@ -36,6 +36,12 @@ See specific set-up procedures for other environments:
 - [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki)
 - Godot - under construction
 
+# v0.3.0 - The Simulation Update
+
+New to OwlTree:
+- Simulation buffer control: allows you to choose between lockstep, rollback, simple snapshot, or no simulation control.
+- RUDP: UDP packets are now managed with reliable UDP, improving the stability of your project at runtime.
+
 # Creating a Connection
 
 OwlTree's main interface is the `Connection` class. OwlTree supports both server authoritative, and relayed peer-to-peer architecture. The following example shows how to create a server authoritative session.
@@ -56,7 +62,7 @@ class Program
             {
                 appId = "MyOwlTreeApp", // max 64 ASCII character identifier for your app
                 sessionId = "MyAppSessionId", // max 64 ASCII character identifier for a session of your app
-                role = Connection.Role.Server,
+                role = NetRole.Server,
                 serverAddr = "127.0.0.1",
                 tcpPort = 8000,
                 udpPort = 9000,
@@ -72,7 +78,7 @@ class Program
             {
                 appId = "MyOwlTreeApp", // if app id doesn't match server's id, connection will be rejected
                 sessionId = "MyAppSessionId", // if session id doesn't match server's id, connection will be rejected
-                role = Connection.Role.Client,
+                role = NetRole.Client,
                 serverAddr = "127.0.0.1",
                 tcpPort = 8000,
                 udpPort = 9000

@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 
 namespace OwlTree
 {
@@ -46,6 +45,7 @@ namespace OwlTree
                 exceptions = true;
                 logSeparators = true;
                 logTimestamp = true;
+                simulationEvents = true;
                 return this;
             }
 
@@ -146,6 +146,7 @@ namespace OwlTree
             /// </summary>
             public IncludeRules RpcReceiveEncodings()
             {
+                rpcReceives = true;
                 rpcReceiveEncodings = true;
                 return this;
             }
@@ -226,6 +227,17 @@ namespace OwlTree
                 logTimestamp = true;
                 return this;
             }
+
+            internal bool simulationEvents { get; private set; }
+
+            /// <summary>
+            /// Output when simulation management events occur.
+            /// </summary>
+            public IncludeRules SimulationEvents()
+            {
+                simulationEvents = true;
+                return this;
+            }
         }
 
         /// <summary>
@@ -241,20 +253,23 @@ namespace OwlTree
         private Writer _printer;
         public IncludeRules includes { get; private set; }
 
-        private Mutex _lock = new Mutex();
+        private readonly object _lock = new();
 
         /// <summary>
         /// Write a log. This is thread safe, and will block if another thread is currently using the same logger.
         /// </summary>
         public void Write(string text)
         {
-            _lock.WaitOne();
-            if (includes.logTimestamp)
-                text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
-            if (includes.logSeparators)
-                text = "\n====================\n" + text + "\n====================";
-            _printer.Invoke(text);
-            _lock.ReleaseMutex();
+            lock (_lock)
+            {
+                if (includes.logTimestamp)
+                    text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
+                if (includes.logSeparators)
+                    text = "\n====================\n" + text + "\n====================";
+                else
+                    text = text + "\n";
+                _printer.Invoke(text);
+            }
         }
     }
 }

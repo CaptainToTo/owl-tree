@@ -34,18 +34,20 @@ namespace OwlTree
         /// Returns true if the given IP was in the waiting list. Also returns the port number of 
         /// end point that was originally added to the list.
         /// </summary>
-        public bool TryGet(IPEndPoint endPoint, out int port)
+        public bool TryGet(IPEndPoint endPoint, out int port, out long timestamp)
         {
             for (int i = 0; i < _requests.Count; i++)
             {
                 if (_requests[i].endPoint.Address.Equals(endPoint.Address))
                 {
                     port = _requests[i].endPoint.Port;
+                    timestamp = _requests[i].timestamp;
                     _requests.RemoveAt(i);
                     return true;
                 }
             }
             port = 0;
+            timestamp = 0;
             return false;
         }
 
