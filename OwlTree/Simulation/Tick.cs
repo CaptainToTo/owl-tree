@@ -12,6 +12,10 @@ namespace OwlTree
         /// General purpose delegate for passing ticks.
         /// </summary>
         public delegate void Delegate(Tick tick);
+        /// <summary>
+        /// General purpose delegate for providing ticks.
+        /// </summary>
+        public delegate Tick Provider();
 
         private UInt32 _val;
 

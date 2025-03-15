@@ -68,6 +68,8 @@ namespace OwlTree
         }
         protected Tick _presentTick = new Tick(0);
 
+        public Action<Tick> OnResimulation = null;
+
         protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority);
 
         /// <summary>

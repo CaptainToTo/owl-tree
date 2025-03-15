@@ -82,6 +82,7 @@ namespace OwlTree
             newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
+            newObj.InitializeSimulatedProperties();
 
             _connection.AddOutgoingMessage(EncodeSpawn(ClientId.None, typeof(T), newObj.Id));
 
@@ -109,6 +110,7 @@ namespace OwlTree
             newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
+            newObj.InitializeSimulatedProperties();
 
             _connection.AddOutgoingMessage(EncodeSpawn(ClientId.None, t, newObj.Id));
 
@@ -148,6 +150,7 @@ namespace OwlTree
             newObj.Connection = _connection;
             newObj.i_OnRpcCall = _connection.AddRpc;
             _netObjects.Add(newObj.Id, newObj);
+            newObj.InitializeSimulatedProperties();
             newObj.OnSpawn();
             OnObjectSpawn?.Invoke(newObj);
         }

@@ -29,6 +29,7 @@ namespace OwlTree
             }
             
             _requiresResimulation = true;
+            _resimulationStart = true;
             _resimulateFrom = tick;
         }
 
@@ -42,6 +43,7 @@ namespace OwlTree
 
         private Tick _resimulateFrom = new Tick(0);
         private bool _requiresResimulation = false;
+        private bool _resimulationStart = false;
 
         private int _maxTicks;
         private int _tickRate;
@@ -224,9 +226,17 @@ namespace OwlTree
 
         protected override bool TryGetNextIncomingInternal(out IncomingMessage m)
         {
+
             if (_incoming.TryFirst(out m))
             {
                 _presentTick = m.tick;
+
+                if (_resimulationStart)
+                {
+                    OnResimulation?.Invoke(_presentTick);
+                    _resimulationStart = false;
+                }
+                
                 if (m.tick >= _exitTick)
                 {
                     if (_requiresResimulation && _logger.includes.simulationEvents)

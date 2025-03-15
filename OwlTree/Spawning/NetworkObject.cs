@@ -47,6 +47,23 @@ namespace OwlTree
         /// </summary>
         public Connection Connection { get; internal set; }
 
+        internal void InitializeSimulatedProperties()
+        {
+            var t = GetType();
+            var simulated = t.GetProperties()
+                .Where(p => p.CanWrite && typeof(ISimulated).IsAssignableFrom(p.PropertyType)).ToArray();
+
+
+            var args = new object[]{Connection.Latency * 2, Connection};
+            var bufferSize = (int)MathF.Ceiling(Connection.Latency * 2f / Connection.TickRate);
+            for (int i = 0; i < simulated.Length; i++)
+            {
+                var newInstance = (ISimulated)Activator.CreateInstance(simulated[i].PropertyType);
+                newInstance.Initialize(bufferSize, Connection);
+                simulated[i].SetValue(this, newInstance);
+            }
+        }
+
         /// <summary>
         /// FOR INTERNAL USE ONLY. Used to flag an object as receiving an RPC call from a remote source.
         /// </summary>

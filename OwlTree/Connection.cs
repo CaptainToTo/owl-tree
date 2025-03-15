@@ -62,7 +62,7 @@ namespace OwlTree
     /// <summary>
     /// Primary interface for OwlTree server-client connections. 
     /// </summary>
-    public class Connection
+    public class Connection : ISimulator
     {
         /// <summary>
         /// Initialization arguments for building a new connection.
@@ -293,6 +293,7 @@ namespace OwlTree
                         _simBuffer = new MessageQueue(_logger);
                         break;
                 }
+                _simBuffer.OnResimulation = (tick) => OnResimulation.Invoke(tick);
             }
             TickRate = args.simulationTickRate;
 
@@ -480,10 +481,22 @@ namespace OwlTree
         /// LocalTick. If simulation management is disabled, this will always be 0.
         /// </summary>
         public Tick PresentTick => _simBuffer.PresentTick();
+        internal Tick GetPresentTick() => _simBuffer.PresentTick();
+        Tick ISimulator.GetPresentTick() => GetPresentTick();
         /// <summary>
         /// The expected rate at which <c>ExecuteQueue()</c> should be called in milliseconds.
         /// </summary>
         public int TickRate { get; private set; }
+        /// <summary>
+        /// Invoked when the simulation control system triggers a resimulation. Provides the tick
+        /// that will be resimulated from.
+        /// </summary>
+        public event Tick.Delegate OnResimulation;
+
+        internal void AddSimulated(ISimulated simulated) => OnResimulation += simulated.OnResimulation;
+        void ISimulator.AddSimulated(ISimulated simulated) => AddSimulated(simulated);
+        internal void RemoveSimulated(ISimulated simulated) => OnResimulation -= simulated.OnResimulation;
+        void ISimulator.RemoveSimulated(ISimulated simulated) => RemoveSimulated(simulated);
 
         /// <summary>
         /// Whether this connection represents a server or client.
