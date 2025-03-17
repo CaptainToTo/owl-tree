@@ -39,6 +39,12 @@ namespace OwlTree
             _requestAsHost = requestAsHost;
         }
 
+        ~ClientBuffer()
+        {
+            if (_tcpClient.Connected)
+                Disconnect();
+        }
+
         // client state
         private Socket _tcpClient;
         private RudpClientSocket _udpClient;

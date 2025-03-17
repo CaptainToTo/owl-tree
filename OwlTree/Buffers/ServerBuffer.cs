@@ -43,6 +43,12 @@ namespace OwlTree
             AddReadyMessage(LocalId);
         }
 
+        ~ServerBuffer()
+        {
+            if (_tcpServer.Connected)
+                Disconnect();
+        }
+
         public override int LocalTcpPort() => ServerTcpPort;
 
         public override int LocalUdpPort() => ServerUdpPort;
