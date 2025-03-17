@@ -333,7 +333,8 @@ namespace OwlTree
                         Disconnect(client);
                         continue;
                     }
-
+                    
+                    int outers = 0;
                     do {
                         ReadPacket.Clear();
 
@@ -369,7 +370,11 @@ namespace OwlTree
                             {
                                 if (Logger.includes.exceptions)
                                     Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
-                                continue;
+                                outers++;
+                                if (outers > 10)
+                                    break;
+                                else
+                                    continue;
                             }
 
                             client.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
