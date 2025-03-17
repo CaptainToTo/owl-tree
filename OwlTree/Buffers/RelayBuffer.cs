@@ -372,7 +372,6 @@ namespace OwlTree
                                 client.failed++;
                                 if (client.failed > 10)
                                 {
-                                    Logger.Write("disconnecting " + client.ToString());
                                     Disconnect(client);
                                     break;
                                 }
