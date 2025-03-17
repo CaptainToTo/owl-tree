@@ -18,6 +18,7 @@ namespace OwlTree
         public Packet udpPacket;
         public IPEndPoint udpEndPoint;
         public int latency;
+        public int failed;
 
         public IPAddress Address => udpEndPoint.Address;
 

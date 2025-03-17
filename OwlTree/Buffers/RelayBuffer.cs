@@ -334,7 +334,6 @@ namespace OwlTree
                         continue;
                     }
                     
-                    int outers = 0;
                     do {
                         ReadPacket.Clear();
 
@@ -369,9 +368,9 @@ namespace OwlTree
                             if (client.hash != ReadPacket.header.hash)
                             {
                                 if (Logger.includes.exceptions)
-                                    Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet, on iteration {outers}, will disconnect at 10.");
-                                outers++;
-                                if (outers > 10)
+                                    Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet. Client has failed {client.failed} times, will disconnect at 10.");
+                                client.failed++;
+                                if (client.failed > 10)
                                 {
                                     Logger.Write("disconnecting " + client.ToString());
                                     Disconnect(client);
@@ -380,6 +379,7 @@ namespace OwlTree
                                 else
                                     continue;
                             }
+                            client.failed = 0;
 
                             client.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
                         }
