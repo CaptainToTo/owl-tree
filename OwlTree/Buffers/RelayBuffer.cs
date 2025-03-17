@@ -372,7 +372,10 @@ namespace OwlTree
                                     Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
                                 outers++;
                                 if (outers > 10)
+                                {
+                                    Disconnect(client);
                                     break;
+                                }
                                 else
                                     continue;
                             }
