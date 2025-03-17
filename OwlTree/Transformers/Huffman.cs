@@ -355,11 +355,11 @@ public static class Huffman
 
             if (bit)
             {
-                cur = cur.right!;
+                cur = cur.right;
             }
             else
             {
-                cur = cur.left!;
+                cur = cur.left;
             }
 
             if (cur.isLeaf)

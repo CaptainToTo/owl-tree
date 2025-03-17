@@ -372,7 +372,15 @@ namespace OwlTree
         {
             foreach (var step in _sendProcess)
             {
-                step.step(packet);
+                try
+                {
+                    step.step(packet);
+                }
+                catch (Exception e)
+                {
+                    if (Logger.includes.exceptions)
+                        Logger.Write($"Failed to apply send step with priority {step.priority}. Exception throw:\n{e}");
+                }
             }
         }
 
@@ -401,7 +409,15 @@ namespace OwlTree
         {
             foreach (var step in _readProcess)
             {
-                step.step(packet);
+                try
+                {
+                    step.step(packet);
+                }
+                catch (Exception e)
+                {
+                    if (Logger.includes.exceptions)
+                        Logger.Write($"Failed to apply recv step with priority {step.priority}. Exception thrown:\n{e}");
+                }
             }
         }
 
