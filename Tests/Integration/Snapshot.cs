@@ -20,7 +20,7 @@ public class SnapshotTest
 
         var server = new Connection(new Connection.Args{
             role = NetRole.Server,
-            simulationSystem = SimulationBufferControl.Snapshot,
+            simulationSystem = SimulationSystem.Snapshot,
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
@@ -30,7 +30,7 @@ public class SnapshotTest
 
         var client = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Snapshot,
+            simulationSystem = SimulationSystem.Snapshot,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,

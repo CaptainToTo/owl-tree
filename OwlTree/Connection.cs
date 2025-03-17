@@ -36,7 +36,7 @@ namespace OwlTree
     /// <summary>
     /// How the simulation buffer will be handled in the session.
     /// </summary>
-    public enum SimulationBufferControl
+    public enum SimulationSystem
     {
         /// <summary>
         /// No simulation buffer will be maintained. This means the session will not maintain a synchronized simulation tick number.
@@ -232,7 +232,7 @@ namespace OwlTree
             /// Decide how simulation latency and synchronization is handled.
             /// <b>Default = None</b>
             /// </summary>
-            public SimulationBufferControl simulationSystem = SimulationBufferControl.None;
+            public SimulationSystem simulationSystem = SimulationSystem.None;
             /// <summary>
             /// Assumed simulation tick speed in milliseconds. Used to accurately allocate sufficient simulation buffer space.
             /// <c>ExecuteQueue()</c> should called at this rate.
@@ -274,27 +274,30 @@ namespace OwlTree
                 _logger.Write(Protocols.GetAllProtocolSummaries());
 
             if (IsRelay)
+            {
                 _simBuffer = new MessageQueue(_logger);
+            }
             else
             {
                 switch (args.simulationSystem)
                 {
-                    case SimulationBufferControl.Lockstep:
+                    case SimulationSystem.Lockstep:
                         _simBuffer = new Lockstep(_logger);
                         break;
-                    case SimulationBufferControl.Rollback:
+                    case SimulationSystem.Rollback:
                         _simBuffer = new Rollback(_logger);
                         break;
-                    case SimulationBufferControl.Snapshot:
+                    case SimulationSystem.Snapshot:
                         _simBuffer = new Snapshot(_logger);
                         break;
-                    case SimulationBufferControl.None:
+                    case SimulationSystem.None:
                     default:
                         _simBuffer = new MessageQueue(_logger);
                         break;
                 }
                 _simBuffer.OnResimulation = (tick) => OnResimulation.Invoke(tick);
             }
+            SimulationSystem = args.simulationSystem;
             TickRate = args.simulationTickRate;
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
@@ -470,6 +473,11 @@ namespace OwlTree
         }
 
         private SimulationBuffer _simBuffer;
+
+        /// <summary>
+        /// The simulation system this session is using.
+        /// </summary>
+        public SimulationSystem SimulationSystem {get; private set; }
 
         /// <summary>
         /// The current simulation tick assigned to RPCs sent from this connection. 

@@ -22,7 +22,7 @@ public class RollbackTest
 
         var server = new Connection(new Connection.Args{
             role = NetRole.Relay,
-            simulationSystem = SimulationBufferControl.Rollback,
+            simulationSystem = SimulationSystem.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
@@ -32,7 +32,7 @@ public class RollbackTest
 
         var client1 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Rollback,
+            simulationSystem = SimulationSystem.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
@@ -49,7 +49,7 @@ public class RollbackTest
 
         var client2 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Rollback,
+            simulationSystem = SimulationSystem.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
@@ -67,7 +67,7 @@ public class RollbackTest
 
         var client3 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Rollback,
+            simulationSystem = SimulationSystem.Rollback,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,

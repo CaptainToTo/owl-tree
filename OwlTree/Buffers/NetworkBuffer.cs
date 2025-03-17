@@ -42,7 +42,7 @@ namespace OwlTree
             public IncomingMessage.Delegate addIncoming;
             public OutgoingMessage.Delegate addOutgoing;
 
-            public SimulationBufferControl simulationSystem;
+            public SimulationSystem simulationSystem;
             public int tickRate;
 
             public Logger logger;
@@ -209,7 +209,7 @@ namespace OwlTree
         /// The simulation system this connection is using. All connections in this session must
         /// have the same control system.
         /// </summary>
-        protected SimulationBufferControl SimulationSystem;
+        protected SimulationSystem SimulationSystem;
         
         /// <summary>
         /// The millisecond frequency simulation ticks happen at. This is uniform across the session.

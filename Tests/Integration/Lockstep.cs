@@ -22,7 +22,7 @@ public class LockstepTest
 
         var server = new Connection(new Connection.Args{
             role = NetRole.Relay,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationSystem.Lockstep,
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
@@ -32,7 +32,7 @@ public class LockstepTest
 
         var client1 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationSystem.Lockstep,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
@@ -49,7 +49,7 @@ public class LockstepTest
 
         var client2 = new Connection(new Connection.Args{
             role = NetRole.Client,
-            simulationSystem = SimulationBufferControl.Lockstep,
+            simulationSystem = SimulationSystem.Lockstep,
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,

@@ -24,14 +24,14 @@ namespace OwlTree
         /// <summary>
         /// The simulation system the client connection is using.
         /// </summary>
-        public SimulationBufferControl simulationSystem;
+        public SimulationSystem simulationSystem;
 
         /// <summary>
         /// The session uniform tick rate all simulations must adhere to.
         /// </summary>
         public int tickRate;
 
-        public ConnectionRequest(StringId app, StringId session, bool host, SimulationBufferControl simSystem, int tickSpeed)
+        public ConnectionRequest(StringId app, StringId session, bool host, SimulationSystem simSystem, int tickSpeed)
         {
             appId = app;
             sessionId = session;
@@ -55,7 +55,7 @@ namespace OwlTree
             appId.FromBytes(bytes);
             sessionId.FromBytes(bytes.Slice(appId.ByteLength()));
             isHost = bytes[appId.ByteLength() + sessionId.ByteLength()] == 1;
-            simulationSystem = (SimulationBufferControl)bytes[appId.ByteLength() + sessionId.ByteLength() + 1];
+            simulationSystem = (SimulationSystem)bytes[appId.ByteLength() + sessionId.ByteLength() + 1];
             tickRate = BitConverter.ToInt32(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2));
         }
 
