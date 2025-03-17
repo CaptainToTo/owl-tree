@@ -729,6 +729,8 @@ namespace OwlTree
                 else if (message.rpcId == RpcId.PingRequestId)
                 {
                     var request = (PingRequest)message.args[0];
+                    if (_logger.includes.rpcReceives)
+                        _logger.Write("Resolved ping request: " + request.ToString());
                     request.PingResolved();
                 }
                 else if (TryGetObject(message.target, out var target))
@@ -1129,6 +1131,11 @@ namespace OwlTree
             if (target != ClientId.None && !ContainsClient(target))
                 throw new ArgumentException("Cannot ping a client that doesn't exist in this session.");
             
+            return _buffer.Ping(target);
+        }
+
+        internal PingRequest TestPing(ClientId target)
+        {
             return _buffer.Ping(target);
         }
 
