@@ -321,6 +321,13 @@ namespace OwlTree
                     int dataLen = -1;
                     ClientData client = null;
 
+                    if (!socket.Connected)
+                    {
+                        client = _clientData.Find(socket);
+                        Disconnect(client);
+                        continue;
+                    }
+
                     do {
                         ReadPacket.Clear();
 
@@ -557,7 +564,15 @@ namespace OwlTree
                         Logger.Write(packetStr.ToString());
                     }
 
-                    client.tcpSocket.Send(bytes);
+                    try
+                    {
+                        client.tcpSocket.Send(bytes);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to send TCP packet to {client.id}. Exception thrown:\n{e}");
+                    }
                     client.tcpPacket.Reset();
                 }
 
@@ -582,7 +597,15 @@ namespace OwlTree
                         Logger.Write(packetStr.ToString());
                     }
 
-                    _udpRelay.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    try
+                    {
+                        _udpRelay.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to send UDP packet to {client.id}. Exception throw:\n{e}");
+                    }
                     client.udpPacket.Reset();
                 }
             }

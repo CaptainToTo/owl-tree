@@ -192,7 +192,7 @@ namespace OwlTree
                                     responseCode = ConnectionResponseCode.IncorrectSessionId;
                                 else if (_clientData.Count >= MaxClients || _requests.Count >= MaxClients)
                                     responseCode = ConnectionResponseCode.SessionFull;
-                                else if (request.simulationSystem != SimulationSystem)
+                                else if (request.simulationSystem != SimulationSystem || request.tickRate != TickRate)
                                     responseCode = ConnectionResponseCode.IncorrectSimulationControl;
                                 else if (request.isHost)
                                     responseCode = ConnectionResponseCode.Rejected;
@@ -274,6 +274,13 @@ namespace OwlTree
                     int dataRemaining = -1;
                     int dataLen = -1;
                     ClientData client = null;
+
+                    if (!socket.Connected)
+                    {
+                        client = _clientData.Find(socket);
+                        Disconnect(client);
+                        continue;
+                    }
 
                     do {
                         ReadPacket.Clear();
@@ -465,7 +472,15 @@ namespace OwlTree
                         Logger.Write(packetStr.ToString());
                     }
 
-                    client.tcpSocket.Send(bytes);
+                    try
+                    {
+                        client.tcpSocket.Send(bytes);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to send TCP packet to {client.id}. Exception thrown:\n{e}");
+                    }
                     client.tcpPacket.Reset();
                 }
 
@@ -490,7 +505,15 @@ namespace OwlTree
                         Logger.Write(packetStr.ToString());
                     }
 
-                    _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    try
+                    {
+                        _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to send UDP packet to {client.id}. Exception throw:\n{e}");
+                    }
                     client.udpPacket.Reset();
                 }
             }

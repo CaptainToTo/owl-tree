@@ -295,7 +295,7 @@ namespace OwlTree
                         _simBuffer = new MessageQueue(_logger);
                         break;
                 }
-                _simBuffer.OnResimulation = (tick) => OnResimulation.Invoke(tick);
+                _simBuffer.OnResimulation = (tick) => OnResimulation?.Invoke(tick);
             }
             SimulationSystem = args.simulationSystem;
             TickRate = args.simulationTickRate;
@@ -853,7 +853,7 @@ namespace OwlTree
                 
                 case RpcId.ConnectionRejectedId:
                     IsActive = false;
-                    OnConnectionRejected.Invoke((ConnectionResponseCode)m.args[0]);
+                    OnConnectionRejected?.Invoke((ConnectionResponseCode)m.args[0]);
                     break;
             }
         }
