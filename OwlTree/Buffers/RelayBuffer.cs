@@ -277,18 +277,18 @@ namespace OwlTree
                             continue;
                         }
 
-                        if (Logger.includes.udpPreTransform)
+                        if (Logger.includes.udpPostTransform)
                         {
-                            var packetStr = new StringBuilder($"RECEIVED: Pre-Transform UDP packet from {client.id}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from {client.id}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
 
                         ApplyReadSteps(ReadPacket);
 
-                        if (Logger.includes.udpPostTransform)
+                        if (Logger.includes.udpPreTransform)
                         {
-                            var packetStr = new StringBuilder($"RECEIVED: Post-Transform UDP packet from {client.id}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform UDP packet from {client.id}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
@@ -390,18 +390,18 @@ namespace OwlTree
                             break;
                         }
 
-                        if (Logger.includes.tcpPreTransform)
+                        if (Logger.includes.tcpPostTransform)
                         {
-                            var packetStr = new StringBuilder($"RECEIVED: Pre-Transform TCP packet from {client.id}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform TCP packet from {client.id}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
 
                         ApplyReadSteps(ReadPacket);
 
-                        if (Logger.includes.tcpPostTransform)
+                        if (Logger.includes.tcpPreTransform)
                         {
-                            var packetStr = new StringBuilder($"RECEIVED: Post-Transform TCP packet from {client.id}:\n");
+                            var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform TCP packet from {client.id}:\n");
                             PacketToString(ReadPacket, packetStr);
                             Logger.Write(packetStr.ToString());
                         }
