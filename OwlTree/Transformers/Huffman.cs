@@ -287,11 +287,17 @@ public static class Huffman
 
         if (originalLen > bytes.Length)
         {
-            return;
+            packet.GrowTo(originalLen);
+            bytes = packet.GetBuffer();
         }
         
         Node tree = RebuildTree(bytes.Slice(9), size, out var start);
         var decompressed = Decompress(bytes.Slice(9 + start), tree, originalLen, bitLen);
+
+        if (decompressed.Length != originalLen)
+        {
+            throw new Exception($"Incorrect number of bytes decoded. Should be {originalLen}, but got {decompressed.Length}.\nDecompressed: {BitConverter.ToString(decompressed)}");
+        }
 
         for (int i = 0; i < decompressed.Length; i++)
         {
@@ -299,6 +305,7 @@ public static class Huffman
         }
 
         packet.SetSize(originalLen);
+        packet.header.compressionEnabled = false;
 
         return;
     }

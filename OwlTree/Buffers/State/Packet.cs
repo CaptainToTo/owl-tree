@@ -330,6 +330,16 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// Resize the packet buffer to a new length. This length must be greater that what it currently is.
+        /// </summary>
+        internal void GrowTo(int length)
+        {
+            if (length + Header.ByteLength <= _buffer.Length)
+                return;
+            Array.Resize(ref _buffer, length + Header.ByteLength + 1);
+        }
+
+        /// <summary>
         /// Empty the buffer of bytes that currently would be sent using <c>GetPacket()</c>.
         /// </summary>
         internal void Reset() 
