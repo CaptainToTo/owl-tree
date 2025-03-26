@@ -25,6 +25,8 @@ namespace OwlTree
         private int _tickRate;
         private int _latency;
 
+        private Tick _newestTick = new Tick(0);
+
         private ClientId _localId;
         private ClientId _authority;
 
@@ -60,8 +62,12 @@ namespace OwlTree
         {
             _localTick = _localTick.Next();
             _exitTick = _presentTick.Next();
-            if (_logger.includes.simulationEvents)
-                _logger.Write($"Simulation moved to next tick: {_localTick}.");
+            if (_newestTick > _exitTick && _newestTick - _exitTick > _maxTicks)
+            {
+                _exitTick = _newestTick.Prev();
+                if (_logger.includes.simulationEvents)
+                    _logger.Write($"Simulation is too far behind. Catching up from tick {_presentTick} to tick {_exitTick}");
+            }
             
             if (!_initialized) return;
 
@@ -162,9 +168,6 @@ namespace OwlTree
                 EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
                 _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
                 _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
-
-                if (_logger.includes.simulationEvents)
-                    _logger.Write($"Received session tick value from authority, current tick is now {_localTick}.");
                 
                 if (_logger.includes.simulationEvents)
                     _logger.Write($"Received session tick value from authority of {m.tick}. Compensated for latency, local tick is now {_localTick}.");
@@ -186,6 +189,10 @@ namespace OwlTree
             if (m.rpcId == RpcId.NextTickId)
             {
                 _sessionTicks[m.caller].Update(m.protocol, m.tick);
+
+                if (m.tick > _newestTick)
+                    _newestTick = m.tick;
+
                 return;
             }
 
@@ -206,6 +213,7 @@ namespace OwlTree
                 _incoming.Dequeue();
                 return true;
             }
+            _presentTick = _exitTick;
             return false;
         }
 

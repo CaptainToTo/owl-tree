@@ -226,7 +226,7 @@ namespace OwlTree
                 _incoming.Dequeue();
                 return true;
             }
-            _presentTick = _presentTick.Next();
+            _presentTick = _exitTick;
             return false;
         }
 

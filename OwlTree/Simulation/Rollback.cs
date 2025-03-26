@@ -50,6 +50,8 @@ namespace OwlTree
         private bool _initialized = false;
         private int _latency;
 
+        private Tick _newestTick = new Tick(0);
+
         private ClientId _localId;
         private ClientId _authority;
 
@@ -81,8 +83,12 @@ namespace OwlTree
         {
             _localTick = _localTick.Next();
             _exitTick = _presentTick.Next();
-            if (_logger.includes.simulationEvents)
-                _logger.Write($"Simulation moved to next tick. Local tick is {_localTick}, and present tick is {_presentTick}.");
+            if (_newestTick > _exitTick && _newestTick - _exitTick > _maxTicks)
+            {
+                _exitTick = _newestTick.Prev();
+                if (_logger.includes.simulationEvents)
+                    _logger.Write($"Simulation is too far behind. Catching up from tick {_presentTick} to tick {_exitTick}");
+            }
 
             if (!_initialized) return;
 
@@ -208,6 +214,10 @@ namespace OwlTree
             if (m.rpcId == RpcId.NextTickId)
             {
                 _sessionTicks[m.caller].Update(m.protocol, m.tick);
+
+                if (m.tick > _newestTick)
+                    _newestTick = m.tick;
+
                 return;
             }
 
@@ -248,7 +258,7 @@ namespace OwlTree
                 _past?.Push(m);
                 return true;
             }
-            _presentTick = _presentTick.Next();
+            _presentTick = _exitTick;
             _requiresResimulation = false;
             return false;
         }
