@@ -38,7 +38,7 @@ namespace OwlTree
         protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
         {
             var latencyTicks = (int)MathF.Ceiling((float)latency / tickRate);
-            _maxTicks = (int)MathF.Ceiling((float)latency / tickRate * 3f);
+            _maxTicks = Math.Max((int)MathF.Ceiling((float)latency / tickRate * 3f), 5);
             _presentTick = new Tick(curTick);
             _exitTick = _presentTick.Next();
             _localTick = new Tick(_presentTick.Value + (uint)Math.Max(latencyTicks, 1));
