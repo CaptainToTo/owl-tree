@@ -426,7 +426,7 @@ namespace OwlTree
             }
             HasClientEvent = false;
 
-            if (!_udpPacket.IsEmpty)
+            while (!_udpPacket.IsEmpty)
             {
                 _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _udpPacket.header.sender = LocalId.Id;

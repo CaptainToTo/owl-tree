@@ -590,7 +590,7 @@ namespace OwlTree
                     client.tcpPacket.Reset();
                 }
 
-                if (!client.udpPacket.IsEmpty)
+                while (!client.udpPacket.IsEmpty)
                 {
                     client.udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
