@@ -501,6 +501,25 @@ namespace OwlTree
         /// </summary>
         public event Tick.Delegate OnResimulation;
 
+        /// <summary>
+        /// Returns the number of milliseconds between two ticks.
+        /// The first tick must be older than the second, otherwise 0 is returned.
+        /// </summary>
+        public int TimeBetween(Tick a, Tick b)
+        {
+            if (a >= b) return 0;
+            return (int)(b - a * TickRate);
+        }
+
+        /// <summary>
+        /// Returns the number of seconds between two ticks as a float.
+        /// The first tick must be older than the second, otherwise 0 is returned.
+        /// </summary>
+        public float SecondsBetween(Tick a, Tick b)
+        {
+            return TimeBetween(a, b) / 1000f;
+        }
+
         internal void AddSimulated(ISimulated simulated) => OnResimulation += simulated.OnResimulation;
         void ISimulator.AddSimulated(ISimulated simulated) => AddSimulated(simulated);
         internal void RemoveSimulated(ISimulated simulated) => OnResimulation -= simulated.OnResimulation;
