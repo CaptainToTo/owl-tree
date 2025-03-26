@@ -263,7 +263,7 @@ namespace OwlTree
             lock (_lock)
             {
                 if (includes.logTimestamp)
-                    text = "New log at: " + DateTime.UtcNow.ToString() + "\n" + text;
+                    text = "New log at: " + DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.ffff") + "\n" + text;
                 if (includes.logSeparators)
                     text = "\n====================\n" + text + "\n====================";
                 else
