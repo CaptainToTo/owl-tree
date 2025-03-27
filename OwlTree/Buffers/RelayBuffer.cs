@@ -630,6 +630,9 @@ namespace OwlTree
 
         public override void Disconnect()
         {
+            if (!IsActive)
+                return;
+
             var ids = _clientData.GetIds();
             foreach (var id in ids)
             {

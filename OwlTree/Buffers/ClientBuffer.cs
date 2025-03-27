@@ -460,6 +460,8 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
+            if (!IsActive)
+                return;
             IsActive = false;
             IsReady = false;
             _tcpClient.Close();

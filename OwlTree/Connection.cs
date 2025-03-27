@@ -456,14 +456,35 @@ namespace OwlTree
             while (_buffer.IsActive)
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-                _buffer.Recv();
+                
+                try
+                {
+                    _buffer.Recv();
+                }
+                catch (Exception e)
+                {
+                    if (_logger.includes.exceptions)
+                        _logger.Write("FAILED during receive in network thread. Connection will be closed. Exception thrown:\n" + e.ToString());
+                    _buffer.Disconnect();
+                }
 
                 if (!_buffer.IsActive)
                     break;
 
                 if (_simBuffer.HasOutgoing() || _buffer.HasOutgoing)
-                    _buffer.Send();
+                {
+                    try
+                    {
+                        _buffer.Send();
+                    }
+                    catch (Exception e)
+                    {
+                        if (_logger.includes.exceptions)
+                            _logger.Write("FAILED during send in network thread. Connection will be closed. Exception thrown:\n" + e.ToString());
+                        _buffer.Disconnect();
+                        break;
+                    }
+                }
                 
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
