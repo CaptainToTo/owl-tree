@@ -20,19 +20,15 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-    - name: Move to src
-      run: cd OwlTree
     - name: Build Framework
+      working-directory: ./OwlTree
       run: dotnet restore && dotnet build --no-restore
-    - name: Move to generator
-      run: cd ../OwlTree.Generator
     - name: Build Generator
+      working-directory: ./OwlTree.Generator
       run: dotnet restore && dotnet build --no-restore
-    - name: Move to Unit Tests
-      run: cd ../Tests/Unit
     - name: Run Unit Tests
+      working-directory: ./Tests/Unit
       run: dotnet test --no-build --verbosity normal
-    - name: Move to Integration Tests
-      run: cd ../Integration
     - name: Run Integration Tests
+      working-directory: ./Tests/Integration
       run: dotnet test --no-build --verbosity normal
