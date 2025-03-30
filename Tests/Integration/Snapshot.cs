@@ -37,14 +37,18 @@ public class SnapshotTest
             logger = (str) => File.AppendAllTextAsync("logs/Snapshot/ServerAuth/client.log", str),
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
-
-        while (!client.IsReady)
+        
+        int iters = 0;
+        while (!client.IsReady && iters < 20)
         {
+            iters++;
             server.ExecuteQueue();
             client.ExecuteQueue();
             Thread.Sleep(server.TickRate);
         }
         var serverObj = server.Spawn<TestObject>();
+
+        Assert.True(client.IsReady, "client failed to connect");
 
         for (int i = 0; i < 200; i++)
         {

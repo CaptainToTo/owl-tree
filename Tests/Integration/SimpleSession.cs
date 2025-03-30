@@ -56,8 +56,11 @@ public class SimpleSession
             verbosity = Logger.Includes().All()
         });
 
-        while (client3.ClientCount < 3)
+        int iters = 0;
+
+        while (client3.ClientCount < 3 && iters < 20)
         {
+            iters++;
             server.ExecuteQueue();
             client1.ExecuteQueue();
             client2.ExecuteQueue();
@@ -69,10 +72,10 @@ public class SimpleSession
 
         server.Disconnect();
 
-        int iters = 10;
-        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters > 0)
+        iters = 0;
+        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters < 20)
         {
-            iters--;
+            iters++;
             client1.ExecuteQueue();
             client2.ExecuteQueue();
             client3.ExecuteQueue();
@@ -130,8 +133,10 @@ public class SimpleSession
             verbosity = Logger.Includes().All()
         });
 
-        while (client3.ClientCount < 3)
+        int iters = 0;
+        while (client3.ClientCount < 3 && iters < 20)
         {
+            iters++;
             server.ExecuteQueue();
             client1.ExecuteQueue();
             client2.ExecuteQueue();
@@ -143,10 +148,10 @@ public class SimpleSession
 
         server.Disconnect();
 
-        int iters = 10;
-        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters > 0)
+        iters = 0;
+        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters < 20)
         {
-            iters--;
+            iters++;
             client1.ExecuteQueue();
             client2.ExecuteQueue();
             client3.ExecuteQueue();

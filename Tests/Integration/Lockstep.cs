@@ -40,12 +40,15 @@ public class LockstepTest
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
 
-        while (!client1.IsReady)
+        int iters = 0;
+        while (!client1.IsReady && iters < 20)
         {
+            iters++;
             server.ExecuteQueue();
             client1.ExecuteQueue();
             Thread.Sleep(server.TickRate);
         }
+        Assert.True(client1.IsReady, "client1 failed to connect");
 
         var client2 = new Connection(new Connection.Args{
             role = NetRole.Client,
@@ -57,13 +60,16 @@ public class LockstepTest
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
 
-        while (!client2.IsReady)
+        iters = 0;
+        while (!client2.IsReady && iters < 20)
         {
+            iters++;
             server.ExecuteQueue();
             client1.ExecuteQueue();
             client2.ExecuteQueue();
             Thread.Sleep(server.TickRate);
         }
+        Assert.True(client2.IsReady, "client2 failed to connect");
 
         // var client3 = new Connection(new Connection.Args{
         //     role = NetRole.Client,
