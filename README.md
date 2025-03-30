@@ -1,3 +1,5 @@
+![Tests](https://github.com/CaptainToTo/owl-tree/actions/workflows/dotnet.yml/badge.svg)
+
 # OwlTree (v0.3.0)
 A C# framework for server-client RPCs intended for games.
 
