@@ -84,10 +84,11 @@ namespace OwlTree
                     ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem, TickRate));
                     _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
-                    _udpPacket.Clear();
 
                     if (Logger.includes.connectionAttempts)
-                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}");
+                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}. Sent:\n{PacketToString(_udpPacket)}");
+
+                    _udpPacket.Clear();
                 }
                 catch (Exception e)
                 {

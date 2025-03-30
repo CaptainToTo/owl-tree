@@ -200,8 +200,6 @@ namespace OwlTree
                         // try to verify a new client connection
                         if (result == RudpResult.UnregisteredEndpoint)
                         {
-                            var accepted = false;
-
                             if (HasWhitelist && !IsOnWhitelist(source.Address))
                                 continue;
 
@@ -217,12 +215,12 @@ namespace OwlTree
                                 continue;
                             }
 
+                            ConnectionResponseCode responseCode = ConnectionResponseCode.Accepted;
                             ReadPacket.StartMessageRead();
                             if (ReadPacket.TryGetNextMessage(out var bytes))
                             {
                                 var rpcId = ServerMessageDecode(bytes, out var request);
                                 
-                                ConnectionResponseCode responseCode = ConnectionResponseCode.Accepted;
 
                                 if (rpcId != RpcId.ConnectionRequestId)
                                     responseCode = ConnectionResponseCode.Rejected;
@@ -241,23 +239,47 @@ namespace OwlTree
                                 if (responseCode == ConnectionResponseCode.Accepted)
                                 {
                                     _requests.Add(source);
-                                    accepted = true;
                                 }
                                 
-                                ReadPacket.Clear();
-                                ReadPacket.header.owlTreeVer = OwlTreeVersion;
-                                ReadPacket.header.appVer = AppVersion;
-                                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                                ReadPacket.header.sender = 0;
-                                ReadPacket.header.hash = 0;
-                                var response = ReadPacket.GetSpan(4);
-                                BitConverter.TryWriteBytes(response, (int)responseCode);
-                                var responsePacket = ReadPacket.GetPacket();
-                                _udpRelay.SendTo(responsePacket.ToArray(), source);
+                            }
+                            else
+                            {
+                                responseCode = ConnectionResponseCode.Rejected;
                             }
 
+                            ReadPacket.Clear();
+                            ReadPacket.header.owlTreeVer = OwlTreeVersion;
+                            ReadPacket.header.appVer = AppVersion;
+                            ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            ReadPacket.header.sender = 0;
+                            ReadPacket.header.hash = 0;
+                            var response = ReadPacket.GetSpan(4);
+                            BitConverter.TryWriteBytes(response, (int)responseCode);
+                            var responsePacket = ReadPacket.GetPacket();
+                            _udpRelay.SendTo(responsePacket.ToArray(), source);
+
                             if (Logger.includes.connectionAttempts)
-                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") " + (accepted ? "accepted, awaiting TCP handshake..." : "rejected."));
+                            {
+                                string resultStr = "accepted, awaiting TCP handshake...";
+                                switch (responseCode)
+                                {
+                                    case ConnectionResponseCode.Accepted:
+                                        break;
+                                    case ConnectionResponseCode.SessionFull: resultStr = "rejected, the session is full.";
+                                        break;
+                                    case ConnectionResponseCode.IncorrectAppId: resultStr = "rejected, the client gave the incorrect app id.";
+                                        break;
+                                    case ConnectionResponseCode.IncorrectSessionId: resultStr = "rejected, the client gave the incorrect session id.";
+                                        break;
+                                    case ConnectionResponseCode.IncorrectSimulationControl: resultStr = "rejected, the client is using the incorrect simulation system.";
+                                        break;
+                                    case ConnectionResponseCode.HostAlreadyAssigned: resultStr = "rejected, the client tried to claim the host role, but the host is already assigned.";
+                                        break;
+                                    case ConnectionResponseCode.Rejected: resultStr = "rejected.";
+                                        break;
+                                }
+                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") " + resultStr);
+                            }
                             
                             continue;
                         }

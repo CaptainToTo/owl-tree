@@ -68,7 +68,7 @@ public class SimpleSession
             Thread.Sleep(20);
         }
 
-        Assert.True(server.ClientCount == 3, $"server counts {server.ClientCount} clients, not 3. Clients connected: {server.Clients.Select(id => id.ToString()).Aggregate((str, id) => str + ", " + id)}");
+        Assert.True(server.ClientCount == 3, $"server counts {server.ClientCount} clients, not 3. Clients connected: {(server.ClientCount == 0 ? "none" : server.Clients.Select(id => id.ToString()).Aggregate((str, id) => str + ", " + id))}");
 
         server.Disconnect();
 
