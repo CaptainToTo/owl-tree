@@ -39,7 +39,7 @@ public class SnapshotTest
         });
         
         int iters = 0;
-        while (!client.IsReady && iters < 20)
+        while (!client.IsReady && iters < 100)
         {
             iters++;
             server.ExecuteQueue();

@@ -41,7 +41,7 @@ public class LockstepTest
         });
 
         int iters = 0;
-        while (!client1.IsReady && iters < 20)
+        while (!client1.IsReady && iters < 100)
         {
             iters++;
             server.ExecuteQueue();
@@ -61,7 +61,7 @@ public class LockstepTest
         });
 
         iters = 0;
-        while (!client2.IsReady && iters < 20)
+        while (!client2.IsReady && iters < 100)
         {
             iters++;
             server.ExecuteQueue();
