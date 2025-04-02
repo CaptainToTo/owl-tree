@@ -226,6 +226,13 @@ namespace OwlTree
             /// </summary>
             public int threadUpdateDelta = 40;
 
+            /// <summary>
+            /// If the connection is threaded, send and receive will continuously be called in a loop. If these calls take longer
+            /// than the threadUpdateDelta, then the loop should still wait this number of milliseconds before running the next
+            /// iteration of the loop. <b>Default = 10 ms</b>
+            /// </summary>
+            public int minUpdateDelta = 10;
+
             // simulation buffer
 
             /// <summary>
@@ -407,6 +414,7 @@ namespace OwlTree
             {
                 Threaded = true;
                 _threadUpdateDelta = args.threadUpdateDelta;
+                _minUpdateDelta = args.minUpdateDelta;
                 _bufferThread = new Thread(NetworkLoop);
                 _bufferThread.Start();
             }
@@ -442,6 +450,7 @@ namespace OwlTree
         /// </summary>
         public bool Threaded { get; private set; } = false;
         private int _threadUpdateDelta = 40;
+        private int _minUpdateDelta = 10;
 
         // run by send/recv thread
         private void NetworkLoop()
@@ -488,7 +497,7 @@ namespace OwlTree
                 
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
-                Thread.Sleep(Math.Max(0, _threadUpdateDelta - (int)diff));
+                Thread.Sleep(Math.Max(_minUpdateDelta, _threadUpdateDelta - (int)diff));
             }
             _buffer.Disconnect();
         }
