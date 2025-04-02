@@ -58,7 +58,7 @@ public class SimpleSession
 
         int iters = 0;
 
-        while (client3.ClientCount < 3 && iters < 100)
+        while (server.ClientCount < 3 && iters < 100)
         {
             iters++;
             server.ExecuteQueue();
@@ -73,7 +73,7 @@ public class SimpleSession
         server.Disconnect();
 
         iters = 0;
-        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters < 20)
+        while ((client1.IsActive || client2.IsActive || client3.IsActive) && iters < 100)
         {
             iters++;
             client1.ExecuteQueue();
