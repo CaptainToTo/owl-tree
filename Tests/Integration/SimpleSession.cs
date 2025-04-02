@@ -25,7 +25,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/ServerAuth/server.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/ServerAuth/server.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -34,7 +34,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/ServerAuth/client1.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/ServerAuth/client1.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -43,7 +43,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/ServerAuth/client2.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/ServerAuth/client2.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -52,7 +52,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/ServerAuth/client3.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/ServerAuth/client3.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -102,7 +102,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/Relayed/server.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/Relayed/server.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -111,7 +111,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/Relayed/client1.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/Relayed/client1.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -120,7 +120,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/Relayed/client2.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/Relayed/client2.log", str),
             verbosity = Logger.Includes().All()
         });
 
@@ -129,7 +129,7 @@ public class SimpleSession
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/SimpleSession/Relayed/client3.log", str),
+            logger = (str) => File.AppendAllText("logs/SimpleSession/Relayed/client3.log", str),
             verbosity = Logger.Includes().All()
         });
 

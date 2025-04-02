@@ -19,7 +19,7 @@ public class PingTests
         var request = server.TestPing(new ClientId(1));
 
         int iters = 0;
-        while (!request.Resolved && iters < 300)
+        while (!request.Resolved && iters < 500)
         {
             server.ExecuteQueue();
             Thread.Sleep(10);
@@ -32,6 +32,6 @@ public class PingTests
 
         Assert.True(request.Failed, "request didn't fail, which should not be possible");
 
-        Assert.True(iters <= 300, $"ping did not resolve in failure in 3 second. Loop exited after {iters * 10} ms.");
+        Assert.True(iters <= 300, $"ping did not resolve in failure in 3 seconds. Loop exited after {iters * 10} ms.");
     }
 }

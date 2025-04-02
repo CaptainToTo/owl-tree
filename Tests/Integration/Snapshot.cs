@@ -24,7 +24,7 @@ public class SnapshotTest
             serverAddr = "127.0.0.1",
             udpPort = 0,
             tcpPort = 0,
-            logger = (str) => File.AppendAllTextAsync("logs/Snapshot/ServerAuth/server.log", str),
+            logger = (str) => File.AppendAllText("logs/Snapshot/ServerAuth/server.log", str),
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
 
@@ -34,7 +34,7 @@ public class SnapshotTest
             serverAddr = "127.0.0.1",
             udpPort = server.ServerUdpPort,
             tcpPort = server.ServerTcpPort,
-            logger = (str) => File.AppendAllTextAsync("logs/Snapshot/ServerAuth/client.log", str),
+            logger = (str) => File.AppendAllText("logs/Snapshot/ServerAuth/client.log", str),
             verbosity = Logger.Includes().SimulationEvents().ClientEvents().SpawnEvents().LogSeparators()
         });
         
