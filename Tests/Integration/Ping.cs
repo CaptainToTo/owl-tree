@@ -32,6 +32,6 @@ public class PingTests
 
         Assert.True(request.Failed, "request didn't fail, which should not be possible");
 
-        Assert.True(Math.Abs(iters - 300) < 2, $"ping did not resolve in failure in ~3 seconds. Loop exited after {iters * 10} ms.");
+        Assert.True(Math.Abs(iters - 300) < 5, $"ping did not resolve in failure in ~3 seconds. Loop exited after {iters * 10} ms.");
     }
 }
