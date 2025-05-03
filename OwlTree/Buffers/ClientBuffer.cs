@@ -27,7 +27,7 @@ namespace OwlTree
             _readList.Add(_tcpClient);
             _readList.Add(_udpClient.Socket);
 
-            _tcpPacket = new Packet(BufferSize);
+            _tcpPacket = new Packet(BufferSize, true);
             _tcpPacket.header.owlTreeVer = OwlTreeVersion;
             _tcpPacket.header.appVer = AppVersion;
             _udpPacket = new Packet(BufferSize, true);
@@ -115,7 +115,7 @@ namespace OwlTree
                     try
                     {
                         dataLen = socket.ReceiveFrom(ReadBuffer, ref source);
-                        ReadPacket.FromBytes(ReadBuffer, 0);
+                        ReadPacket.FromBytes(ReadBuffer, 0, dataLen);
                     }
                     catch { }
 
@@ -205,7 +205,8 @@ namespace OwlTree
                                     dataLen = socket.Receive(ReadBuffer);
                                     dataRemaining = dataLen;
                                 }
-                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
+
+                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining, dataLen);
                                 iters++;
                             }
                             catch
@@ -288,7 +289,7 @@ namespace OwlTree
                     while (_udpClient.TryGetNextPacket(out var packet, out var source))
                     {
                         ReadPacket.Clear();
-                        ReadPacket.FromBytes(packet, 0);
+                        ReadPacket.FromBytes(packet, 0, packet.Length);
 
                         if (Logger.includes.udpPostTransform)
                         {
@@ -399,7 +400,7 @@ namespace OwlTree
                 AddToPacket(message, p);
             }
 
-            if (!_tcpPacket.IsEmpty)
+            while (!_tcpPacket.IsEmpty)
             {
                 _tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _tcpPacket.header.sender = LocalId.Id;

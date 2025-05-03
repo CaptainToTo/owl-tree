@@ -44,7 +44,7 @@ public class PacketTests
                         dataLen = buffer.Length;
                         dataRemaining = dataLen;
                     }
-                    dataRemaining -= ReadPacket.FromBytes(buffer, dataLen - dataRemaining);
+                    dataRemaining -= ReadPacket.FromBytes(buffer, dataLen - dataRemaining, dataLen);
                     iters++;
                 }
                 catch

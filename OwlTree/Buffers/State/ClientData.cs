@@ -80,7 +80,7 @@ namespace OwlTree
             var data = new ClientData() {
                 id = NextClientId(),
                 hash = NextHash(),
-                tcpPacket = new Packet(_bufferSize),
+                tcpPacket = new Packet(_bufferSize, true),
                 tcpSocket = tcpSocket,
                 udpPacket = new Packet(_bufferSize, true),
                 udpEndPoint = udpEndPoint

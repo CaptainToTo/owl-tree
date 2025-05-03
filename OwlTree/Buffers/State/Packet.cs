@@ -301,12 +301,42 @@ namespace OwlTree
         /// </summary>
         public bool Incomplete { get; private set; } = false;
 
-        internal int FromBytes(byte[] bytes, int start)
+        internal int FromBytes(byte[] bytes, int start, int dataLen)
         {
             int i = start;
             if (!Incomplete)
             {
-                header.FromBytes(bytes.AsSpan(i));
+                if (dataLen - start >= Header.ByteLength)
+                {
+                    header.FromBytes(bytes.AsSpan(i));
+                    Incomplete = bytes.Length < header.length; 
+
+                    if (header.length > _buffer.Length)
+                        Array.Resize(ref _buffer, header.length + 1);
+                    
+                    _tail = Header.ByteLength;
+                    i = start + Header.ByteLength;
+                }
+                else
+                {
+                    header.length = 0;
+                    for (_tail = 0; i < dataLen; i++)
+                    {
+                        _buffer[_tail] = bytes[i];
+                        _tail++;
+                    }
+                    Incomplete = true;
+                    return i - start;
+                }
+            }
+            else if (_tail < Header.ByteLength)
+            {
+                for (;_tail < Header.ByteLength; _tail++)
+                {
+                    _buffer[_tail] = bytes[i];
+                    i++;
+                }
+                header.FromBytes(_buffer);
                 Incomplete = bytes.Length < header.length; 
 
                 if (header.length > _buffer.Length)

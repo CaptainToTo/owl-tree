@@ -66,7 +66,7 @@ public class RudpSocket
         while (server.TryGetNextPacket(out var bytes, out source))
         {
             packet.Reset();
-            packet.FromBytes(bytes, 0);
+            packet.FromBytes(bytes, 0, bytes.Length);
             Assert.True(packet.header.packetNum == expectedPacket, $"Expected packet number {expectedPacket}, got {packet.header.packetNum} instead.");
             expectedPacket++;
 
@@ -134,7 +134,7 @@ public class RudpSocket
         while (client.TryGetNextPacket(out var bytes, out source))
         {
             packet.Reset();
-            packet.FromBytes(bytes, 0);
+            packet.FromBytes(bytes, 0, bytes.Length);
             Assert.True(packet.header.packetNum == expectedPacket, $"Expected packet number {expectedPacket}, got {packet.header.packetNum} instead.");
             expectedPacket++;
 

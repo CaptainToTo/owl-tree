@@ -157,7 +157,7 @@ namespace OwlTree
                         try
                         {
                             result = _udpServer.ReceiveFrom(ReadBuffer, ref source, out dataLen);
-                            ReadPacket.FromBytes(ReadBuffer, 0);
+                            ReadPacket.FromBytes(ReadBuffer, 0, dataLen);
 
                             if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
                             {
@@ -255,7 +255,7 @@ namespace OwlTree
                     while (_udpServer.TryGetNextPacket(out var packet, out var source))
                     {
                         ReadPacket.Clear();
-                        ReadPacket.FromBytes(packet, 0);
+                        ReadPacket.FromBytes(packet, 0, packet.Length);
 
                         var client = _clientData.Find(source);
                         
@@ -323,7 +323,7 @@ namespace OwlTree
                                     dataLen = socket.Receive(ReadBuffer);
                                     dataRemaining = dataLen;
                                 }
-                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining);
+                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining, dataLen);
                                 iters++;
                             }
                             catch
@@ -480,7 +480,7 @@ namespace OwlTree
             }
             foreach (var client in _clientData)
             {
-                if (!client.tcpPacket.IsEmpty)
+                while (!client.tcpPacket.IsEmpty)
                 {
                     client.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 

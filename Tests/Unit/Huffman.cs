@@ -125,7 +125,7 @@ public class HuffmanTests
         };
 
         var packet = new Packet(2048);
-        packet.FromBytes(compressed, 0);
+        packet.FromBytes(compressed, 0, compressed.Length);
 
         Assert.True(packet.header.compressionEnabled, "packet was not decoded with compression enabled, despite being compressed");
 
