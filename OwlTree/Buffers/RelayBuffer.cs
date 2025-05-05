@@ -557,7 +557,9 @@ namespace OwlTree
         {
             while (TryGetNextOutgoing(out var message))
             {
-
+                if (HandleClientEvent(message))
+                    continue;
+                
                 if (message.callee != ClientId.None)
                 {
                     var client = _clientData.Find(message.callee);
