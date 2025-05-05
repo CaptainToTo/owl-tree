@@ -81,8 +81,16 @@ namespace OwlTree
             _readList.Clear();
             _readList.Add(_tcpServer);
             _readList.Add(_udpServer.Socket);
+            ClientData toRemove = null;
             foreach (var data in _clientData)
-                _readList.Add(data.tcpSocket);
+            {
+                if (data.tcpSocket.Connected)
+                    _readList.Add(data.tcpSocket);
+                else
+                    toRemove = data;
+            }
+            if (toRemove != null)
+                Disconnect(toRemove);
             
             Socket.Select(_readList, null, null, 0);
 

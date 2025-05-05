@@ -456,13 +456,13 @@ namespace OwlTree
         private void NetworkLoop()
         {
             // try to connect if client
-            while (!_buffer.IsReady)
+            while (!_buffer.IsReady && IsActive)
             {
                 _buffer.Recv();
                 Thread.Sleep(_threadUpdateDelta);
             }
             // recv and send until this connection ends
-            while (_buffer.IsActive)
+            while (_buffer.IsActive && IsActive)
             {
                 long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 
@@ -494,6 +494,9 @@ namespace OwlTree
                         break;
                     }
                 }
+
+                if (!_buffer.IsActive)
+                    break;
                 
                 long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
 
