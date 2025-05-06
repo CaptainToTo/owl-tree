@@ -549,45 +549,6 @@ namespace OwlTree
 
         public override void Send()
         {
-            var curTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            for (int i = 0; i < _clientData.Count; i++)
-            {
-                var data = _clientData.Get(i);
-                if (curTime - data.lastConfirmed >= ConfirmationThreshold)
-                {
-                    ReadPacket.Clear();
-                    ReadPacket.header.timestamp = curTime;
-                    ReadPacket.header.connectionConfirmation = true;
-                    var bytes = ReadPacket.GetPacket();
-
-                    if (Logger.includes.connectionAttempts)
-                        Logger.Write($"Last confirmation from {data.id} was {curTime - data.lastConfirmed}ms ago. Sending connection confirmation.");
-
-                    try
-                    {
-                        data.tcpSocket.Send(bytes);
-                        data.lastConfirmed = data.tcpPacket.header.timestamp;
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.Write($"FAILED to send confirmation packet to {data.id}. Exception thrown:\n{e}");
-                    }
-
-                    if (!data.tcpSocket.Connected)
-                    {
-                        Disconnect(data);
-                        i--;
-                        if (Logger.includes.connectionAttempts)
-                            Logger.Write($"Connection confirmation to {data.id} failed. Disconnecting client.");
-                    }
-                    else if (Logger.includes.connectionAttempts)
-                    {
-                        Logger.Write($"Connection confirmation to {data.id} succeeded.");
-                    }
-                }
-            }
-
             while (TryGetNextOutgoing(out var message))
             {
                 if (HandleClientEvent(message))
