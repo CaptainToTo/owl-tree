@@ -224,6 +224,9 @@ namespace OwlTree
 
                         _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
 
+                        if (ReadPacket.header.connectionConfirmation)
+                            continue;
+
                         if (Logger.includes.tcpPostTransform)
                         {
                             var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform TCP packet from server by {LocalId}:\n");

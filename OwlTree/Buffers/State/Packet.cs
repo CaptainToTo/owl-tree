@@ -39,6 +39,10 @@ namespace OwlTree
             /// <summary>
             /// Available header flag for application specific use.
             /// </summary>
+            public bool connectionConfirmation { get; internal set; }
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
             public bool flag1;
             /// <summary>
             /// Available header flag for application specific use.
@@ -56,10 +60,6 @@ namespace OwlTree
             /// Available header flag for application specific use.
             /// </summary>
             public bool flag5;
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag6;
 
             // 8 bytes
             /// <summary>
@@ -119,12 +119,12 @@ namespace OwlTree
                 byte flags = 0;
                 flags |= (byte)(compressionEnabled ? 0x1 : 0);
                 flags |= (byte)(resendRequest ? 0x1 << 1 : 0);
-                flags |= (byte)(flag1 ? 0x1 << 2 : 0);
-                flags |= (byte)(flag2 ? 0x1 << 3 : 0);
-                flags |= (byte)(flag3 ? 0x1 << 4 : 0);
-                flags |= (byte)(flag4 ? 0x1 << 5 : 0);
-                flags |= (byte)(flag5 ? 0x1 << 6 : 0);
-                flags |= (byte)(flag6 ? 0x1 << 7 : 0);
+                flags |= (byte)(connectionConfirmation ? 0x1 << 2 : 0);
+                flags |= (byte)(flag1 ? 0x1 << 3 : 0);
+                flags |= (byte)(flag2 ? 0x1 << 4 : 0);
+                flags |= (byte)(flag3 ? 0x1 << 5 : 0);
+                flags |= (byte)(flag4 ? 0x1 << 6 : 0);
+                flags |= (byte)(flag5 ? 0x1 << 7 : 0);
                 bytes[ind] = flags;
             }
 
@@ -158,12 +158,12 @@ namespace OwlTree
                 byte flags = bytes[ind];
                 compressionEnabled = (flags & 0x1) == 1;
                 resendRequest = (flags & (0x1 << 1)) != 0;
-                flag1 = (flags & (0x1 << 2)) != 0;
-                flag2 = (flags & (0x1 << 3)) != 0;
-                flag3 = (flags & (0x1 << 4)) != 0;
-                flag4 = (flags & (0x1 << 5)) != 0;
-                flag5 = (flags & (0x1 << 6)) != 0;
-                flag6 = (flags & (0x1 << 7)) != 0;
+                connectionConfirmation = (flags & (0x1 << 2)) != 0;
+                flag1 = (flags & (0x1 << 3)) != 0;
+                flag2 = (flags & (0x1 << 4)) != 0;
+                flag3 = (flags & (0x1 << 5)) != 0;
+                flag4 = (flags & (0x1 << 6)) != 0;
+                flag5 = (flags & (0x1 << 7)) != 0;
             }
 
             public void Reset()
@@ -174,12 +174,12 @@ namespace OwlTree
                 hash = 0;
                 compressionEnabled = false;
                 resendRequest = false;
+                connectionConfirmation = false;
                 flag1 = false;
                 flag2 = false;
                 flag3 = false;
                 flag4 = false;
                 flag5 = false;
-                flag6 = false;
             }
         }
 

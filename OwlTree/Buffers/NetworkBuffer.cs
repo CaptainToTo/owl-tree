@@ -21,6 +21,12 @@ namespace OwlTree
         /// </summary>
         public delegate void IncomingDecoder(ClientId caller, ReadOnlySpan<byte> bytes, Protocol protocol);
 
+        /// <summary>
+        /// The number of milliseconds a client can go without receiving or sending anything
+        /// before a confirmation packet needs to be sent to ensure they are still connected.
+        /// </summary>
+        internal const int ConfirmationThreshold = 5000;
+
         public struct Args
         {
             public ushort owlTreeVer;

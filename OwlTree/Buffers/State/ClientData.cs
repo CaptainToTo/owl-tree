@@ -19,6 +19,7 @@ namespace OwlTree
         public IPEndPoint udpEndPoint;
         public int latency;
         public int failed;
+        public long lastConfirmed;
 
         public IPAddress Address => udpEndPoint.Address;
 
@@ -83,7 +84,8 @@ namespace OwlTree
                 tcpPacket = new Packet(_bufferSize, true),
                 tcpSocket = tcpSocket,
                 udpPacket = new Packet(_bufferSize, true),
-                udpEndPoint = udpEndPoint
+                udpEndPoint = udpEndPoint,
+                lastConfirmed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
             _data.Add(data);
             return data;
@@ -103,6 +105,8 @@ namespace OwlTree
                 }
             }
         }
+
+        public ClientData Get(int i) => _data[i];
 
         public ClientData Find(Socket s)
         {

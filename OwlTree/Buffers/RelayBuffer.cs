@@ -96,16 +96,8 @@ namespace OwlTree
             _readList.Clear();
             _readList.Add(_tcpRelay);
             _readList.Add(_udpRelay.Socket);
-            ClientData toRemove = null;
             foreach (var data in _clientData)
-            {
-                if (data.tcpSocket.Connected)
-                    _readList.Add(data.tcpSocket);
-                else
-                    toRemove = data;
-            }
-            if (toRemove != null)
-                Disconnect(toRemove);
+                _readList.Add(data.tcpSocket);
             
             Socket.Select(_readList, null, null, 0);
 
@@ -410,7 +402,9 @@ namespace OwlTree
                             }
                             client.failed = 0;
 
-                            client.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
+                            var time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            client.latency = (int)(time - ReadPacket.header.timestamp);
+                            client.lastConfirmed = time;
                         }
 
                         // disconnect if receive fails
@@ -555,6 +549,45 @@ namespace OwlTree
 
         public override void Send()
         {
+            var curTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            for (int i = 0; i < _clientData.Count; i++)
+            {
+                var data = _clientData.Get(i);
+                if (curTime - data.lastConfirmed >= ConfirmationThreshold)
+                {
+                    ReadPacket.Clear();
+                    ReadPacket.header.timestamp = curTime;
+                    ReadPacket.header.connectionConfirmation = true;
+                    var bytes = ReadPacket.GetPacket();
+
+                    if (Logger.includes.connectionAttempts)
+                        Logger.Write($"Last confirmation from {data.id} was {curTime - data.lastConfirmed}ms ago. Sending connection confirmation.");
+
+                    try
+                    {
+                        data.tcpSocket.Send(bytes);
+                        data.lastConfirmed = data.tcpPacket.header.timestamp;
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to send confirmation packet to {data.id}. Exception thrown:\n{e}");
+                    }
+
+                    if (!data.tcpSocket.Connected)
+                    {
+                        Disconnect(data);
+                        i--;
+                        if (Logger.includes.connectionAttempts)
+                            Logger.Write($"Connection confirmation to {data.id} failed. Disconnecting client.");
+                    }
+                    else if (Logger.includes.connectionAttempts)
+                    {
+                        Logger.Write($"Connection confirmation to {data.id} succeeded.");
+                    }
+                }
+            }
+
             while (TryGetNextOutgoing(out var message))
             {
                 if (HandleClientEvent(message))
@@ -574,16 +607,12 @@ namespace OwlTree
                     if (message.protocol == Protocol.Tcp)
                     {
                         foreach (var client in _clientData)
-                        {
                             AddToPacket(message, client.tcpPacket);
-                        }
                     }
                     else
                     {
                         foreach (var client in _clientData)
-                        {
                             AddToPacket(message, client.udpPacket);
-                        }
                     }
                 }
             }
@@ -613,6 +642,7 @@ namespace OwlTree
                     try
                     {
                         client.tcpSocket.Send(bytes);
+                        client.lastConfirmed = client.tcpPacket.header.timestamp;
                     }
                     catch (Exception e)
                     {
