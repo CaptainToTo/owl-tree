@@ -465,7 +465,7 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            if (!IsActive)
+            if (!_tcpClient.Connected)
                 return;
             IsActive = false;
             IsReady = false;

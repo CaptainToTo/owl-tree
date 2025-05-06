@@ -653,7 +653,7 @@ namespace OwlTree
 
         public override void Disconnect()
         {
-            if (!IsActive)
+            if (!_tcpRelay.Connected)
                 return;
 
             var ids = _clientData.GetIds();

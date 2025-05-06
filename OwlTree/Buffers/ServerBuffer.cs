@@ -555,7 +555,7 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            if (!IsActive)
+            if (!_tcpServer.Connected)
                 return;
             var ids = _clientData.GetIds();
             foreach (var id in ids)
