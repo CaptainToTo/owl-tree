@@ -70,4 +70,87 @@ public class PacketTests
 
         Assert.True(packetCount == 3, $"{packetCount} packets were read, not 3");
     }
+
+    [Fact]
+    public void Fragmentation()
+    {
+        Logs.InitPath("logs/Packet/Fragmentation");
+        Logs.InitFiles("logs/Packet/Fragmentation/Packets.log");
+
+        var packet = new Packet(2048, true);
+
+        var big = packet.GetSpan(428);
+
+        for (int i = 0; i < 101; i++)
+        {
+            var span = packet.GetSpan(24);
+            span[0] = (byte)(i + 1);
+        }
+
+        var p1 = packet.GetPacket().ToArray();
+        packet.Reset();
+        var p2 = packet.GetPacket().ToArray();
+        packet.Reset();
+
+        File.AppendAllText("logs/Packet/Fragmentation/Packets.log", BitConverter.ToString(p1) + "\n\n");
+        File.AppendAllText("logs/Packet/Fragmentation/Packets.log", BitConverter.ToString(p2) + "\n\n");
+
+        packet.Clear();
+        packet.FromBytes(p1, 0, p1.Length);
+
+        packet.StartMessageRead();
+        int j = 0;
+        while (packet.TryGetNextMessage(out var bytes))
+        {
+            if (j == 0)
+                Assert.True(bytes.Length == 428, "first messages was not 428 bytes, instead got " + bytes.Length);
+            else
+                Assert.True(bytes.Length == 24, "message " + j + " not 24 bytes, instead got " + bytes.Length);
+            j++;
+        }
+
+        packet.FromBytes(p2, 0, p2.Length);
+
+        packet.StartMessageRead();
+        while (packet.TryGetNextMessage(out var bytes))
+        {
+            Assert.True(bytes.Length == 24, "message " + j + " not 24 bytes, instead got " + bytes.Length);
+            j++;
+        }
+    }
+
+    [Fact]
+    public void IncompleteHeader()
+    {
+        Logs.InitPath("logs/Packet/Incomplete");
+        Logs.InitFiles("logs/Packet/Incomplete/Packets.log");
+
+        var buffer1 = new byte[]{
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x18, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00
+        };
+        var buffer2 = new byte[]{
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x18, 0x00, 0x00, 0x00, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+
+        var packet = new Packet(64);
+
+        int read = packet.FromBytes(buffer1, 0, buffer1.Length);
+        File.AppendAllText("logs/Packet/Incomplete/Packets.log", BitConverter.ToString(packet.GetPacket().ToArray()) + "\n\n");
+
+        Assert.True(read == 60, "packet did not read 60 bytes, instead got " + read);
+
+        read = packet.FromBytes(buffer1, read, buffer1.Length);
+
+        Assert.True(read == 4, "packet did not read 4 bytes, instead got " + read);
+        Assert.True(packet.Incomplete, "2nd packet is not considering itself incomplete");
+
+        read = packet.FromBytes(buffer2, 0, buffer2.Length);
+        File.AppendAllText("logs/Packet/Incomplete/Packets.log", BitConverter.ToString(packet.GetPacket().ToArray()) + "\n\n");
+
+        Assert.True(read == 56, "packet did not read 56 bytes, instead got " + read);
+        Assert.True(!packet.Incomplete, "packet is still considered incomplete despite getting all data.");
+
+    }
 }

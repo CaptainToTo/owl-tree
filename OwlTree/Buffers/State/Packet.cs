@@ -337,13 +337,12 @@ namespace OwlTree
                     i++;
                 }
                 header.FromBytes(_buffer);
-                Incomplete = bytes.Length < header.length; 
+                Incomplete = dataLen - i < header.length - Header.ByteLength; 
 
                 if (header.length > _buffer.Length)
                     Array.Resize(ref _buffer, header.length + 1);
                 
                 _tail = Header.ByteLength;
-                i = start + Header.ByteLength;
             }
 
             for (; (i < bytes.Length) && (_tail < header.length); i++)
@@ -393,6 +392,7 @@ namespace OwlTree
                 for (int i = 0; i < remainingBytes;)
                 {
                     var len = BitConverter.ToInt32(_buffer.AsSpan(lastByte + i));
+                    // mark the end of the next fragment once the size exceeds cutoff, then continue shifting down
                     if (nextFragmentLen + len + 4 > _fragmentSize && _endOfFragment == 0)
                     {
                         _endOfFragment = nextFragmentLen;
