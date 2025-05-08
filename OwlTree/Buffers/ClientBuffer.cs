@@ -284,45 +284,45 @@ namespace OwlTree
                         catch { }
 
                         if (dataLen <= 0)
-                        {
                             break;
-                        }
                     }
+                }
+            }
 
-                    while (_udpClient.TryGetNextPacket(out var packet, out var source))
+            _udpClient.RequestMissingPackets();
+
+            while (_udpClient.TryGetNextPacket(out var packet, out var source))
+            {
+                ReadPacket.Clear();
+                ReadPacket.FromBytes(packet, 0, packet.Length);
+
+                if (Logger.includes.udpPostTransform)
+                {
+                    var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from server by {LocalId}:\n");
+                    PacketToString(ReadPacket, packetStr);
+                    Logger.Write(packetStr.ToString());
+                }
+
+                ApplyReadSteps(ReadPacket);
+
+                if (Logger.includes.udpPreTransform)
+                {
+                    var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform UDP packet from server by {LocalId}:\n");
+                    PacketToString(ReadPacket, packetStr);
+                    Logger.Write(packetStr.ToString());
+                }
+
+                ReadPacket.StartMessageRead();
+                while (ReadPacket.TryGetNextMessage(out var bytes))
+                {
+                    try
                     {
-                        ReadPacket.Clear();
-                        ReadPacket.FromBytes(packet, 0, packet.Length);
-
-                        if (Logger.includes.udpPostTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from server by {LocalId}:\n");
-                            PacketToString(ReadPacket, packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
-
-                        ApplyReadSteps(ReadPacket);
-
-                        if (Logger.includes.udpPreTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform UDP packet from server by {LocalId}:\n");
-                            PacketToString(ReadPacket, packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
-
-                        ReadPacket.StartMessageRead();
-                        while (ReadPacket.TryGetNextMessage(out var bytes))
-                        {
-                            try
-                            {
-                                Decode(ClientId.None, bytes, Protocol.Udp);
-                            }
-                            catch (Exception e)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.Write($"FAILED to decode UDP message '{BitConverter.ToString(bytes.ToArray())}'. Exception thrown:\n{e}");
-                            }
-                        }
+                        Decode(ClientId.None, bytes, Protocol.Udp);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to decode UDP message '{BitConverter.ToString(bytes.ToArray())}'. Exception thrown:\n{e}");
                     }
                 }
             }

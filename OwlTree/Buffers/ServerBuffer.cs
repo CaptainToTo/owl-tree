@@ -251,51 +251,6 @@ namespace OwlTree
                             continue;
                         }
                     }
-
-                    while (_udpServer.TryGetNextPacket(out var packet, out var source))
-                    {
-                        ReadPacket.Clear();
-                        ReadPacket.FromBytes(packet, 0, packet.Length);
-
-                        var client = _clientData.Find(source);
-                        
-                        if (client.hash != ReadPacket.header.hash)
-                        {
-                            if (Logger.includes.exceptions)
-                                Logger.Write($"Incorrect hash received in UDP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
-                            continue;
-                        }
-
-                        if (Logger.includes.udpPostTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from {client.id}:\n");
-                            PacketToString(ReadPacket, packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
-
-                        ApplyReadSteps(ReadPacket);
-
-                        if (Logger.includes.udpPreTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: original Post-Transform UDP packet from {client.id}:\n");
-                            PacketToString(ReadPacket, packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
-
-                        ReadPacket.StartMessageRead();
-                        while (ReadPacket.TryGetNextMessage(out var bytes))
-                        {
-                            try
-                            {
-                                Decode(client.id, bytes, Protocol.Udp);
-                            }
-                            catch (Exception e)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.Write($"FAILED to decode UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
-                            }
-                        }
-                    }
                 }
                 else // receive client tcp messages
                 {
@@ -396,6 +351,53 @@ namespace OwlTree
                             }
                         }
                     } while (dataRemaining > 0);
+                }
+            }
+            
+            _udpServer.RequestMissingPackets();
+
+            while (_udpServer.TryGetNextPacket(out var packet, out var source))
+            {
+                ReadPacket.Clear();
+                ReadPacket.FromBytes(packet, 0, packet.Length);
+
+                var client = _clientData.Find(source);
+                
+                if (client.hash != ReadPacket.header.hash)
+                {
+                    if (Logger.includes.exceptions)
+                        Logger.Write($"Incorrect hash received in UDP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
+                    continue;
+                }
+
+                if (Logger.includes.udpPostTransform)
+                {
+                    var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from {client.id}:\n");
+                    PacketToString(ReadPacket, packetStr);
+                    Logger.Write(packetStr.ToString());
+                }
+
+                ApplyReadSteps(ReadPacket);
+
+                if (Logger.includes.udpPreTransform)
+                {
+                    var packetStr = new StringBuilder($"RECEIVED: original Post-Transform UDP packet from {client.id}:\n");
+                    PacketToString(ReadPacket, packetStr);
+                    Logger.Write(packetStr.ToString());
+                }
+
+                ReadPacket.StartMessageRead();
+                while (ReadPacket.TryGetNextMessage(out var bytes))
+                {
+                    try
+                    {
+                        Decode(client.id, bytes, Protocol.Udp);
+                    }
+                    catch (Exception e)
+                    {
+                        if (Logger.includes.exceptions)
+                            Logger.Write($"FAILED to decode UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
+                    }
                 }
             }
         }

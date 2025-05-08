@@ -124,7 +124,7 @@ namespace OwlTree
 
             packetNum = _incoming.GetPriority(_incoming.First);
             bytes = _incoming.Dequeue();
-            _nextIncomingPacketNum = packetNum + 1;
+            _nextIncomingPacketNum = Math.Max(packetNum + 1, _nextIncomingPacketNum);
             return true;
         }
 
@@ -182,7 +182,7 @@ namespace OwlTree
         /// </summary>
         public RudpClientSocket(IPEndPoint localEndpoint, IPEndPoint remoteEndpoint)
         {
-            _endpoint = new EndpointData(remoteEndpoint, 16);
+            _endpoint = new EndpointData(remoteEndpoint, 32);
             Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             Socket.Bind(localEndpoint);
             _resendRequest = new byte[Packet.Header.ByteLength + 1];
@@ -221,12 +221,19 @@ namespace OwlTree
             }
 
             _endpoint.AddIncomingPacket(buffer.AsSpan(0, length).ToArray(), packetNum, timestamp);
-            _endpoint.ClearExpiredMissingPackets();
 
+            return RudpResult.NewPacket;
+        }
+
+        public void RequestMissingPackets()
+        {
+            _endpoint.ClearExpiredMissingPackets();
             if (_endpoint.IsMissingPackets)
             {
+                var header = new Packet.Header();
                 header.resendRequest = true;
                 header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                header.length = Packet.Header.ByteLength;
                 foreach (var missing in _endpoint.MissingPackets)
                 {
                     header.packetNum = missing;
@@ -234,8 +241,6 @@ namespace OwlTree
                     Socket.SendTo(_resendRequest, _endpoint.Endpoint);
                 }
             }
-
-            return RudpResult.NewPacket;
         }
 
         /// <summary>
@@ -244,7 +249,6 @@ namespace OwlTree
         public bool TryGetNextPacket(out byte[] bytes, out IPEndPoint remoteEndpoint)
         {
             remoteEndpoint = _endpoint.Endpoint;
-            _endpoint.ClearExpiredMissingPackets();
             return _endpoint.TryGetNextPacket(out bytes, out var packetNum);
         }
 
@@ -360,21 +364,29 @@ namespace OwlTree
             }
 
             data.AddIncomingPacket(buffer.AsSpan(0, length).ToArray(), packetNum, timestamp);
-            data.ClearExpiredMissingPackets();
-
-            if (data.IsMissingPackets)
-            {
-                header.resendRequest = true;
-                header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                foreach (var missing in data.MissingPackets)
-                {
-                    header.packetNum = missing;
-                    header.InsertBytes(_resendRequest);
-                    Socket.SendTo(_resendRequest, data.Endpoint);
-                }
-            }
 
             return RudpResult.NewPacket;
+        }
+
+        public void RequestMissingPackets()
+        {
+            for (int i = 0; i < _endpoints.Count; i++)
+            {
+                _endpoints[i].ClearExpiredMissingPackets();
+                if (_endpoints[i].IsMissingPackets)
+                {
+                    var header = new Packet.Header();
+                    header.resendRequest = true;
+                    header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    header.length = Packet.Header.ByteLength;
+                    foreach (var missing in _endpoints[i].MissingPackets)
+                    {
+                        header.packetNum = missing;
+                        header.InsertBytes(_resendRequest);
+                        Socket.SendTo(_resendRequest, _endpoints[i].Endpoint);
+                    }
+                }
+            }
         }
 
         private EndpointData FindNextPacketSource(out int ind)
@@ -382,7 +394,6 @@ namespace OwlTree
             ind = 0;
             for (int i = 0; i < _endpoints.Count; i++)
             {
-                _endpoints[i].ClearExpiredMissingPackets();
                 if (_endpoints[i].NextPacketReady)
                 {
                     ind = i;
@@ -444,7 +455,7 @@ namespace OwlTree
         /// </summary>
         public void AddEndpoint(IPEndPoint endpoint)
         {
-            _endpoints.Add(new EndpointData(endpoint, 16));
+            _endpoints.Add(new EndpointData(endpoint, 32));
         }
 
         /// <summary>
