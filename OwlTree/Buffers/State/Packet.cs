@@ -309,7 +309,7 @@ namespace OwlTree
                 if (dataLen - start >= Header.ByteLength)
                 {
                     header.FromBytes(bytes.AsSpan(i));
-                    Incomplete = bytes.Length < header.length; 
+                    Incomplete = dataLen - start < header.length; 
 
                     if (header.length > _buffer.Length)
                         Array.Resize(ref _buffer, header.length + 1);
