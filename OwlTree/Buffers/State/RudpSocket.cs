@@ -77,7 +77,7 @@ namespace OwlTree
                 return;
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var cutOff = Math.Min(_latency * 3, 1000);
+            var cutOff = _latency * 3;
             for (int i = 0; i < _missingPackets.Count; i++)
             {
                 if (now - _missingPackets[i].timestamp > cutOff)
