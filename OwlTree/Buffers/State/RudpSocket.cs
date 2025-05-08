@@ -55,7 +55,7 @@ namespace OwlTree
         /// <summary>
         /// Returns true if the next packet has been received.
         /// </summary>
-        public bool NextPacketReady => _incoming.Count > 0 && _incoming.GetPriority(_incoming.First) == _nextIncomingPacketNum;
+        public bool NextPacketReady => _incoming.Count > 0 && _incoming.GetPriority(_incoming.First) <= _nextIncomingPacketNum;
 
         /// <summary>
         /// Iterable of missing packets. Over time, this clears itself as packets expire.
@@ -73,6 +73,9 @@ namespace OwlTree
         /// </summary>
         public void ClearExpiredMissingPackets()
         {
+            if (_missingPackets.Count == 0)
+                return;
+
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var cutOff = _latency * 3;
             for (int i = 0; i < _missingPackets.Count; i++)
@@ -241,6 +244,7 @@ namespace OwlTree
         public bool TryGetNextPacket(out byte[] bytes, out IPEndPoint remoteEndpoint)
         {
             remoteEndpoint = _endpoint.Endpoint;
+            _endpoint.ClearExpiredMissingPackets();
             return _endpoint.TryGetNextPacket(out bytes, out var packetNum);
         }
 
@@ -378,6 +382,7 @@ namespace OwlTree
             ind = 0;
             for (int i = 0; i < _endpoints.Count; i++)
             {
+                _endpoints[i].ClearExpiredMissingPackets();
                 if (_endpoints[i].NextPacketReady)
                 {
                     ind = i;
