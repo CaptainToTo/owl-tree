@@ -102,6 +102,12 @@ namespace OwlTree
             ReceiveTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
 
+        internal void PingReceivedAt(long timestamp)
+        {
+            if (ReceiveTime == 0)
+                ReceiveTime = timestamp;
+        }
+
         /// <summary>
         /// Called by source connection to complete the ping request.
         /// </summary>
@@ -109,6 +115,7 @@ namespace OwlTree
         {
             ResponseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         }
+
 
         /// <summary>
         /// Called by source connection if the ping expires.

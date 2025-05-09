@@ -516,12 +516,14 @@ namespace OwlTree
             if (request.Target == LocalId)
             {
                 PingResponse(request, _clientData.Find(request.Source).tcpPacket);
+                HasClientEvent = true;
             }
             else if (request.Source == LocalId)
             {
                 var original = _pingRequests.Find(request.Target);
                 if (original != null)
                 {
+                    original.PingReceivedAt(request.ReceiveTime);
                     original.PingResponded();
                     _pingRequests.Remove(original);
                     AddIncoming(new IncomingMessage{
