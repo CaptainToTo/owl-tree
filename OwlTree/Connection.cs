@@ -541,7 +541,7 @@ namespace OwlTree
         public int TimeBetween(Tick a, Tick b)
         {
             if (a >= b) return 0;
-            return (int)(b - a * TickRate);
+            return (int)((b - a) * TickRate);
         }
 
         /// <summary>
@@ -1169,7 +1169,7 @@ namespace OwlTree
         /// Returns a PingRequest, which is similar to a promise. The ping value will only be known
         /// once the ping request has been resolved.
         /// </summary>
-        public PingRequest Ping(ClientId target)
+        public PingRequest Ping(ClientId target, Protocol protocol = Protocol.Udp)
         {
             if (target == LocalId)
             {
@@ -1183,7 +1183,7 @@ namespace OwlTree
             if (target != ClientId.None && !ContainsClient(target))
                 throw new ArgumentException("Cannot ping a client that doesn't exist in this session.");
             
-            return _buffer.Ping(target);
+            return _buffer.Ping(target, protocol);
         }
 
         internal PingRequest TestPing(ClientId target)

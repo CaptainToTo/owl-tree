@@ -394,7 +394,7 @@ namespace OwlTree
                                 }
                                 else if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
                                 {
-                                    HandlePingRequest(request);
+                                    HandlePingRequest(request, Protocol.Tcp);
                                 }
                                 else if (rpcId.IsTickEvent())
                                 {
@@ -463,7 +463,11 @@ namespace OwlTree
                     try
                     {
                         var rpcId = new RpcId(bytes);
-                        if (rpcId >= RpcId.FirstRpcId)
+                        if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                        {
+                            HandlePingRequest(request, Protocol.Udp);
+                        }
+                        else if (rpcId >= RpcId.FirstRpcId)
                         {
                             RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
                             if (caller != client.id) continue;
@@ -511,7 +515,7 @@ namespace OwlTree
             HasRelayMessages = true;
         }
 
-        private void HandlePingRequest(PingRequest request)
+        private void HandlePingRequest(PingRequest request, Protocol protocol = Protocol.Udp)
         {
             if (request.Target == LocalId)
             {
@@ -531,7 +535,7 @@ namespace OwlTree
                         callee = request.Target,
                         rpcId = new RpcId(RpcId.PingRequestId),
                         target = NetworkId.None,
-                        protocol = Protocol.Tcp,
+                        protocol = protocol,
                         perms = RpcPerms.AnyToAll,
                         args = new object[]{original}
                     });

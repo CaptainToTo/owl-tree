@@ -254,7 +254,7 @@ namespace OwlTree
                                 }
                                 else if (TryPingRequestDecode(bytes, out var request))
                                 {
-                                    HandlePingRequest(request);
+                                    HandlePingRequest(request, Protocol.Tcp);
                                 }
                                 else
                                 {
@@ -317,7 +317,14 @@ namespace OwlTree
                 {
                     try
                     {
-                        Decode(ClientId.None, bytes, Protocol.Udp);
+                        if (TryPingRequestDecode(bytes, out var request))
+                        {
+                            HandlePingRequest(request, Protocol.Udp);
+                        }
+                        else
+                        {
+                            Decode(ClientId.None, bytes, Protocol.Udp);
+                        }
                     }
                     catch (Exception e)
                     {
@@ -362,7 +369,7 @@ namespace OwlTree
             }
         }
 
-        private void HandlePingRequest(PingRequest request)
+        private void HandlePingRequest(PingRequest request, Protocol protocol = Protocol.Udp)
         {
             if (request.Target == LocalId)
             {
@@ -382,7 +389,7 @@ namespace OwlTree
                         callee = LocalId, 
                         rpcId = new RpcId(RpcId.PingRequestId), 
                         target = NetworkId.None, 
-                        protocol = Protocol.Tcp, 
+                        protocol = protocol, 
                         perms = RpcPerms.AnyToAll, 
                         args = new object[]{original}
                     });

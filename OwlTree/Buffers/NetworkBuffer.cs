@@ -285,7 +285,7 @@ namespace OwlTree
         /// <summary>
         /// Send a ping to the targeted client.
         /// </summary>
-        public PingRequest Ping(ClientId target)
+        public PingRequest Ping(ClientId target, Protocol protocol = Protocol.Udp)
         {
             var request = _pingRequests.Add(LocalId, target);
             var message = new OutgoingMessage{
@@ -293,7 +293,7 @@ namespace OwlTree
                 callee = target, 
                 rpcId = new RpcId(RpcId.PingRequestId), 
                 target = NetworkId.None, 
-                protocol = Protocol.Tcp, 
+                protocol = protocol, 
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[PingRequestLength]
             };
