@@ -40,15 +40,15 @@ public class PingTests
     public void ToServer()
     {
         Logs.InitPath("logs/Ping/ToServer");
-        Logs.InitFiles("logs/Ping/Toserver/client.log");
-        Logs.InitFiles("logs/Ping/Toserver/server.log");
-        Logs.InitFiles("logs/Ping/Toserver/ping.log");
+        Logs.InitFiles("logs/Ping/ToServer/client.log");
+        Logs.InitFiles("logs/Ping/ToServer/server.log");
+        Logs.InitFiles("logs/Ping/ToServer/ping.log");
 
         var server = new Connection(new Connection.Args{
             role = NetRole.Relay,
             tcpPort = 0,
             udpPort = 0,
-            logger = (str) => File.AppendAllText("logs/Ping/Toserver/server.log", str),
+            logger = (str) => File.AppendAllText("logs/Ping/ToServer/server.log", str),
             verbosity = Logger.Includes().All(),
             threadUpdateDelta = 20
         });
@@ -59,7 +59,7 @@ public class PingTests
             sessionId = server.SessionId,
             tcpPort = server.LocalTcpPort,
             udpPort = server.LocalUdpPort,
-            logger = (str) => File.AppendAllText("logs/Ping/Toserver/client.log", str),
+            logger = (str) => File.AppendAllText("logs/Ping/ToServer/client.log", str),
             verbosity = Logger.Includes().All(),
             threadUpdateDelta = 40
         });
@@ -82,11 +82,11 @@ public class PingTests
             }
             avg += request.Ping;
 
-            File.AppendAllText("logs/Ping/Toserver/ping.log", 
+            File.AppendAllText("logs/Ping/ToServer/ping.log", 
                 $"{(request.Failed ? "failed" : "ping")}: {request.Ping}, Recevied in: {request.ReceiveTime - request.SendTime}ms, Responded in: {request.ResponseTime - request.ReceiveTime}ms, Cllient latency: {client.Latency}ms, Server latency: {server.Latency}ms\n");
         }
 
-        File.AppendAllText("logs/Ping/Toserver/ping.log", "Average ping: " + (avg / 20));
+        File.AppendAllText("logs/Ping/ToServer/ping.log", "Average ping: " + (avg / 20));
 
         client.Disconnect();
         server.Disconnect();
