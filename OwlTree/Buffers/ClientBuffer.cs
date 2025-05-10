@@ -402,9 +402,9 @@ namespace OwlTree
                 ReadPacket.header.pingRequest = true;
                 PingResponse(request, ReadPacket);
                 if (protocol == Protocol.Udp)
-                    _udpClient.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
+                    _udpClient.Socket.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
                 else
-                    _tcpClient.Send(ReadPacket.GetPacket().ToArray());
+                    _tcpClient.Send(ReadPacket.GetPacket());
                 HasClientEvent = true;
             }
             else if (request.Source == LocalId)
