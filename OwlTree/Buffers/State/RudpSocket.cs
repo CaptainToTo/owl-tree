@@ -211,7 +211,11 @@ namespace OwlTree
             var timestamp = header.timestamp;
             var packetNum = header.packetNum;
             var isResendRequest = header.resendRequest;
+            var isPingRequest = header.pingRequest;
             var length = header.length;
+
+            if (isPingRequest)
+                return RudpResult.PingRequest;
 
             if (isResendRequest)
             {

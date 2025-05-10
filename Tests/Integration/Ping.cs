@@ -83,7 +83,7 @@ public class PingTests
             avg += request.Ping;
 
             File.AppendAllText("logs/Ping/ToServer/ping.log", 
-                $"{(request.Failed ? "failed" : "ping")}: {request.Ping}, Recevied in: {request.ReceiveTime - request.SendTime}ms, Responded in: {request.ResponseTime - request.ReceiveTime}ms, Cllient latency: {client.Latency}ms, Server latency: {server.Latency}ms\n");
+                $"{(request.Failed ? "failed" : "ping")}: {request.Ping}, Recevied in: {request.TimeToTarget}ms, Responded in: {request.TimeToResponse}ms, Cllient latency: {client.Latency}ms, Server latency: {server.Latency}ms\n");
         }
 
         File.AppendAllText("logs/Ping/ToServer/ping.log", "Average ping: " + (avg / 20));

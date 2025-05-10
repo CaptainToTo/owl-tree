@@ -405,7 +405,6 @@ namespace OwlTree
                     _udpClient.Socket.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
                 else
                     _tcpClient.Send(ReadPacket.GetPacket());
-                HasClientEvent = true;
             }
             else if (request.Source == LocalId)
             {
@@ -453,9 +452,9 @@ namespace OwlTree
                     AddToPacket(message, ReadPacket);
 
                     if (message.protocol == Protocol.Udp)
-                        _udpClient.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
+                        _udpClient.Socket.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
                     else
-                        _tcpClient.Send(ReadPacket.GetPacket().ToArray());
+                        _tcpClient.Send(ReadPacket.GetPacket());
                     continue;
                 }
                 

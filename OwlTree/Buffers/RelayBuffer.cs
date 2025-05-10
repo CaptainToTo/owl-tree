@@ -569,7 +569,6 @@ namespace OwlTree
                     _udpRelay.Socket.SendTo(ReadPacket.GetPacket().ToArray(), data.udpEndPoint);
                 else
                     data.tcpSocket.Send(ReadPacket.GetPacket());
-                HasClientEvent = true;
             }
             else if (request.Source == LocalId)
             {

@@ -39,14 +39,24 @@ namespace OwlTree
         public bool Received => ReceiveTime != 0;
 
         /// <summary>
+        /// The time in milliseconds it took for the ping request to get to the target.
+        /// </summary>
+        public int TimeToTarget => Received ? (int)(ReceiveTime - SendTime) : 0;
+
+        /// <summary>
         /// The millisecond timestamp the ping returned back to the source client.
         /// </summary>
         public long ResponseTime { get; private set; } = 0;
 
         /// <summary>
+        /// The time in milliseconds it took for the ping request to get back to the source.
+        /// </summary>
+        public int TimeToResponse => Resolved && !Failed ? (int)(ResponseTime - ReceiveTime) : 0;
+
+        /// <summary>
         /// The millisecond time for a round trip from the source to the target, and back to the source.
         /// </summary>
-        public int Ping => Resolved ? (int)(ResponseTime - SendTime) : 0;
+        public int Ping => Resolved && !Failed ? (int)(ResponseTime - SendTime) : 0;
 
         /// <summary>
         /// Whether or not the ping request has resolved. This may be in failure.
@@ -61,7 +71,7 @@ namespace OwlTree
         public override string ToString()
         {
             var resolution = "sent at " + SendTime.ToString();
-            if (Resolved && Failed)
+            if (Failed)
                 resolution = "failed";
             else if (Resolved && !Failed)
                 resolution = Ping + " ms";
