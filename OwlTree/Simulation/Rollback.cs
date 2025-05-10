@@ -147,6 +147,12 @@ namespace OwlTree
 
         protected override void AddIncomingInternal(IncomingMessage m)
         {
+            if (m.rpcId == RpcId.PingRequestId)
+            {
+                _incoming.Enqueue(m, 0);
+                return;
+            }
+
             if (!_sessionTicks.ContainsKey(m.caller))
             {
                 m.tick = _localTick;
@@ -255,7 +261,8 @@ namespace OwlTree
                     return false;
                 }
                 _incoming.Dequeue();
-                _past?.Push(m);
+                if (m.rpcId != RpcId.PingRequestId)
+                    _past?.Push(m);
                 return true;
             }
             _presentTick = _exitTick;

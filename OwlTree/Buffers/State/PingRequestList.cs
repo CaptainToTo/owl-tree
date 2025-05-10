@@ -31,10 +31,10 @@ namespace OwlTree
         /// Searches for a ping request, given the target client id.
         /// Returns null if no such request is found.
         /// </summary>
-        public PingRequest Find(ClientId target)
+        public PingRequest Find(PingRequest request)
         {
             foreach (var r in _requests)
-                if (r.Target == target) return r;
+                if (r.Target == request.Target && r.SendTime == request.SendTime) return r;
             return null;
         }
 

@@ -171,8 +171,43 @@ namespace OwlTree
                             break;
                         }
 
+                        if (result == RudpResult.PingRequest)
+                        {
+                            var client = _clientData.Find(source);
+
+                            if (client == null)
+                            {
+                                if (Logger.includes.exceptions)
+                                    Logger.Write($"Ping request received from an unknown client. Ignoring packet.");
+                                continue;
+                            }
+                
+                            if (client.hash != ReadPacket.header.hash)
+                            {
+                                if (Logger.includes.exceptions)
+                                    Logger.Write($"Incorrect hash received in UDP ping request from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
+                                continue;
+                            }
+
+                            ReadPacket.StartMessageRead();
+                            if (ReadPacket.TryGetNextMessage(out var bytes))
+                            {
+                                try
+                                {
+                                    var rpcId = new RpcId(bytes);
+
+                                    if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                                        HandlePingRequest(request, Protocol.Udp);
+                                }
+                                catch (Exception e)
+                                {
+                                    if (Logger.includes.exceptions)
+                                        Logger.Write($"FAILED to handle UDP ping request '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
+                                }
+                            }
+                        }
                         // try to verify a new client connection
-                        if (result == RudpResult.UnregisteredEndpoint)
+                        else if (result == RudpResult.UnregisteredEndpoint)
                         {
                             if (HasWhitelist && !IsOnWhitelist(source.Address))
                                 continue;
@@ -413,12 +448,22 @@ namespace OwlTree
         {
             if (request.Target == LocalId)
             {
-                PingResponse(request, _clientData.Find(request.Source).tcpPacket);
+                var data = _clientData.Find(request.Source);
+                ReadPacket.Clear();
+                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                ReadPacket.header.sender = 0;
+                ReadPacket.header.hash = data.hash;
+                ReadPacket.header.pingRequest = true;
+                PingResponse(request, ReadPacket);
+                if (protocol == Protocol.Udp)
+                    _udpServer.SendTo(ReadPacket.GetPacket().ToArray(), data.udpEndPoint);
+                else
+                    data.tcpSocket.Send(ReadPacket.GetPacket().ToArray());
                 HasClientEvent = true;
             }
             else if (request.Source == LocalId)
             {
-                var original = _pingRequests.Find(request.Target);
+                var original = _pingRequests.Find(request);
                 if (original != null)
                 {
                     original.PingReceivedAt(request.ReceiveTime);
@@ -459,6 +504,32 @@ namespace OwlTree
             {
                 if (HandleClientEvent(message))
                     continue;
+                
+                if (message.rpcId == RpcId.PingRequestId && TryPingRequestDecode(message.bytes, out var request))
+                {
+                    var data = _clientData.Find(message.callee);
+
+                    if (data == null)
+                        continue;
+
+                    var original = _pingRequests.Find(request);
+                    original.PingSent();
+                    PingRequestEncode(message.bytes, original);
+
+                    ReadPacket.Clear();
+                    ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ReadPacket.header.sender = 0;
+                    ReadPacket.header.hash = data.hash;
+                    ReadPacket.header.pingRequest = true;
+                    AddToPacket(message, ReadPacket);
+
+
+                    if (message.protocol == Protocol.Udp)
+                        _udpServer.SendTo(ReadPacket.GetPacket().ToArray(), data.udpEndPoint);
+                    else
+                        data.tcpSocket.Send(ReadPacket.GetPacket().ToArray());
+                    continue;
+                }
 
                 if (message.callee != ClientId.None)
                 {

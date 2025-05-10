@@ -122,6 +122,12 @@ namespace OwlTree
 
         protected override void AddIncomingInternal(IncomingMessage m)
         {
+            if (m.rpcId == RpcId.PingRequestId)
+            {
+                _incoming.Enqueue(m, 0);
+                return;
+            }
+
             if (!_sessionTicks.ContainsKey(m.caller))
             {
                 m.tick = _localTick;

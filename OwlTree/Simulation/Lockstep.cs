@@ -119,6 +119,11 @@ namespace OwlTree
 
         protected override void AddIncomingInternal(IncomingMessage m)
         {
+            if (m.rpcId == RpcId.PingRequestId)
+            {
+                _incoming.Enqueue(m, 0);
+                return;
+            }
 
             if (!_sessionTicks.ContainsKey(m.caller))
             {
@@ -210,7 +215,8 @@ namespace OwlTree
         protected override bool TryGetNextIncomingInternal(out IncomingMessage m)
         {
             // wait for the present tick to be ready before simulating
-            if (_sessionTicks.Count > 0 && _presentTick > _lastCompleteTick)
+            if (_sessionTicks.Count > 0 && _presentTick > _lastCompleteTick && 
+                (_incoming.Count == 0 || _incoming.First.rpcId != RpcId.PingRequestId))
             {
                 m = new IncomingMessage();
                 return false;

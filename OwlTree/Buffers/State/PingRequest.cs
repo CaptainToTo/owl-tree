@@ -95,6 +95,14 @@ namespace OwlTree
         }
 
         /// <summary>
+        /// Called by source to set the time the ping was sent at.
+        /// </summary>
+        internal void PingSent()
+        {
+            SendTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+
+        /// <summary>
         /// Called by target to signify that they have received the ping request.
         /// </summary>
         internal void PingReceived()

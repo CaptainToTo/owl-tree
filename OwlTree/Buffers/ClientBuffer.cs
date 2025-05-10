@@ -277,14 +277,36 @@ namespace OwlTree
 
                         IPEndPoint source = new IPEndPoint(IPAddress.Any, 0);
                         int dataLen = -1;
+                        var result = RudpResult.Failed;
                         try
                         {
-                            var result = _udpClient.ReceiveFrom(ReadBuffer, ref source, out dataLen);
+                            result = _udpClient.ReceiveFrom(ReadBuffer, ref source, out dataLen);
                         }
                         catch { }
 
                         if (dataLen <= 0)
                             break;
+                        
+                        if (result == RudpResult.PingRequest)
+                        {
+                            ReadPacket.FromBytes(ReadBuffer, 0, dataLen);
+                            ReadPacket.StartMessageRead();
+                            if (ReadPacket.TryGetNextMessage(out var bytes))
+                            {
+                                try
+                                {
+                                    var rpcId = new RpcId(bytes);
+
+                                    if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                                        HandlePingRequest(request, Protocol.Udp);
+                                }
+                                catch (Exception e)
+                                {
+                                    if (Logger.includes.exceptions)
+                                        Logger.Write($"FAILED to handle UDP ping request '{BitConverter.ToString(bytes.ToArray())}'. Exception thrown:\n{e}");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -373,12 +395,21 @@ namespace OwlTree
         {
             if (request.Target == LocalId)
             {
-                PingResponse(request, _tcpPacket);
+                ReadPacket.Clear();
+                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                ReadPacket.header.sender = LocalId.Id;
+                ReadPacket.header.hash = _hash;
+                ReadPacket.header.pingRequest = true;
+                PingResponse(request, ReadPacket);
+                if (protocol == Protocol.Udp)
+                    _udpClient.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
+                else
+                    _tcpClient.Send(ReadPacket.GetPacket().ToArray());
                 HasClientEvent = true;
             }
             else if (request.Source == LocalId)
             {
-                var original = _pingRequests.Find(request.Target);
+                var original = _pingRequests.Find(request);
                 if (original != null)
                 {
                     original.PingReceivedAt(request.ReceiveTime);
@@ -407,6 +438,26 @@ namespace OwlTree
             {
                 if (HandleClientEvent(message))
                     continue;
+                
+                if (message.rpcId == RpcId.PingRequestId && TryPingRequestDecode(message.bytes, out var request))
+                {
+                    var original = _pingRequests.Find(request);
+                    original.PingSent();
+                    PingRequestEncode(message.bytes, original);
+
+                    ReadPacket.Clear();
+                    ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ReadPacket.header.sender = LocalId.Id;
+                    ReadPacket.header.hash = _hash;
+                    ReadPacket.header.pingRequest = true;
+                    AddToPacket(message, ReadPacket);
+
+                    if (message.protocol == Protocol.Udp)
+                        _udpClient.SendTo(ReadPacket.GetPacket().ToArray(), _udpEndPoint);
+                    else
+                        _tcpClient.Send(ReadPacket.GetPacket().ToArray());
+                    continue;
+                }
                 
                 Packet p = message.protocol == Protocol.Tcp ? _tcpPacket : _udpPacket;
                 AddToPacket(message, p);

@@ -43,7 +43,7 @@ namespace OwlTree
             /// <summary>
             /// Available header flag for application specific use.
             /// </summary>
-            public bool flag1;
+            public bool pingRequest {get; internal set; }
             /// <summary>
             /// Available header flag for application specific use.
             /// </summary>
@@ -120,7 +120,7 @@ namespace OwlTree
                 flags |= (byte)(compressionEnabled ? 0x1 : 0);
                 flags |= (byte)(resendRequest ? 0x1 << 1 : 0);
                 flags |= (byte)(connectionConfirmation ? 0x1 << 2 : 0);
-                flags |= (byte)(flag1 ? 0x1 << 3 : 0);
+                flags |= (byte)(pingRequest ? 0x1 << 3 : 0);
                 flags |= (byte)(flag2 ? 0x1 << 4 : 0);
                 flags |= (byte)(flag3 ? 0x1 << 5 : 0);
                 flags |= (byte)(flag4 ? 0x1 << 6 : 0);
@@ -159,7 +159,7 @@ namespace OwlTree
                 compressionEnabled = (flags & 0x1) == 1;
                 resendRequest = (flags & (0x1 << 1)) != 0;
                 connectionConfirmation = (flags & (0x1 << 2)) != 0;
-                flag1 = (flags & (0x1 << 3)) != 0;
+                pingRequest = (flags & (0x1 << 3)) != 0;
                 flag2 = (flags & (0x1 << 4)) != 0;
                 flag3 = (flags & (0x1 << 5)) != 0;
                 flag4 = (flags & (0x1 << 6)) != 0;
@@ -175,7 +175,7 @@ namespace OwlTree
                 compressionEnabled = false;
                 resendRequest = false;
                 connectionConfirmation = false;
-                flag1 = false;
+                pingRequest = false;
                 flag2 = false;
                 flag3 = false;
                 flag4 = false;
