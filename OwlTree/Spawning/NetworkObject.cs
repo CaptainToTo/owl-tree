@@ -50,15 +50,13 @@ namespace OwlTree
         internal void InitializeSimulatedProperties()
         {
             var t = GetType();
-            var simulated = t.GetProperties()
-                .Where(p => p.CanWrite && typeof(ISimulated).IsAssignableFrom(p.PropertyType)).ToArray();
+            var simulated = t.GetFields()
+                .Where(p => typeof(ISimulated).IsAssignableFrom(p.FieldType)).ToArray();
 
-
-            var args = new object[]{Connection.Latency * 2, Connection};
-            var bufferSize = (int)MathF.Ceiling(Connection.Latency * 2f / Connection.TickRate);
+            var bufferSize = Math.Max((int)MathF.Ceiling(Connection.Latency * 3f / Connection.TickRate), 16);
             for (int i = 0; i < simulated.Length; i++)
             {
-                var newInstance = (ISimulated)Activator.CreateInstance(simulated[i].PropertyType);
+                var newInstance = (ISimulated)Activator.CreateInstance(simulated[i].FieldType);
                 newInstance.Initialize(bufferSize, Connection);
                 simulated[i].SetValue(this, newInstance);
             }

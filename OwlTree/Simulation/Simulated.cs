@@ -53,6 +53,21 @@ namespace OwlTree
             }
         }
 
+        /// <summary>
+        /// Gets the value of the property at a given tick.
+        /// </summary>
+        public T ValueAt(Tick t)
+        {
+            if (_simulator == null)
+                throw new InvalidOperationException("Cannot access a simulated value until it has been initialized.");
+
+            if (_newestTick < t)
+                return _values[_newestTick % _values.Length];
+            else if (_newestTick - t > _values.Length)
+                return _values[OldestTick() % _values.Length];
+            return _values[t % _values.Length];
+        }
+
         private Tick OldestTick() => new Tick(Math.Max(_newestTick - ((uint)_values.Length - 1), _firstTick));
 
         private T[] _values;

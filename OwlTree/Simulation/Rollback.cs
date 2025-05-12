@@ -21,12 +21,8 @@ namespace OwlTree
         // restores the simulation back to this tick
         private void RewindTo(Tick tick)
         {
-            var count = 0;
             foreach (var m in _past.RewindFrom(tick))
-            {
                 _incoming.Enqueue(m, m.tick);
-                count++;
-            }
             
             _requiresResimulation = true;
             _resimulationStart = true;
@@ -261,7 +257,7 @@ namespace OwlTree
                     return false;
                 }
                 _incoming.Dequeue();
-                if (m.rpcId != RpcId.PingRequestId)
+                if (m.rpcId != RpcId.PingRequestId && !m.rpcId.IsClientEvent() && !m.rpcId.IsObjectEvent())
                     _past?.Push(m);
                 return true;
             }

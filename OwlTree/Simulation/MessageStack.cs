@@ -12,14 +12,13 @@ namespace OwlTree
 
         private LinkedListNode<IncomingMessage>[] _tickStarts;
         private Tick _newestTick = new Tick(0);
-        private Tick _oldestTick = new Tick(0);
 
         /// <summary>
         /// Gets the first incoming message of the given tick. Returns null if the tick doesn't exist.
         /// </summary>
-        public LinkedListNode<IncomingMessage> GetTickStart(Tick t)
+        public LinkedListNode<IncomingMessage> GetTickStart(Tick t, out int ind)
         {
-            var ind = (_tickStarts.Length - 1) - (_newestTick - t);
+            ind = (int)((_tickStarts.Length - 1) - (_newestTick - t));
             if (ind < 0 || _tickStarts.Length <= ind)
                 return null;
             return _tickStarts[ind];
@@ -48,13 +47,9 @@ namespace OwlTree
         private void AddTickStart(LinkedListNode<IncomingMessage> node)
         {
             RemoveRange(_tickStarts[0], _tickStarts[1]);
-            for (int i = _tickStarts.Length - 1; i > 0; i--)
+            for (int i = 1; i < _tickStarts.Length; i++)
                 _tickStarts[i - 1] = _tickStarts[i];
             _tickStarts[_tickStarts.Length - 1] = node;
-            if (_newestTick == 0)
-                _oldestTick = node.Value.tick;
-            else
-                _oldestTick = _oldestTick.Next();
             _newestTick = node.Value.tick;
         }
 
@@ -77,9 +72,13 @@ namespace OwlTree
         /// </summary>
         public IEnumerable<IncomingMessage> RewindFrom(Tick t)
         {
-            var node = GetTickStart(t);
+            var node = GetTickStart(t, out var ind);
             if (node is null)
                 yield break;
+            
+            for (int i = 0; i < _tickStarts.Length; i++)
+                _tickStarts[_tickStarts.Length - (i + 1)] = ind - (i + 1) < 0 ? null : _tickStarts[ind - (i + 1)];
+            _newestTick = t.Prev();
             
             LinkedListNode<IncomingMessage> next;
             
@@ -90,6 +89,29 @@ namespace OwlTree
                 _stack.Remove(node);
                 node = next;
             }
+        }
+
+        public override string ToString()
+        {
+            var str = "";
+
+            var cur = _stack.First;
+            var tick = new Tick(0);
+            while (cur != null)
+            {
+                var isNextTick = false;
+                if (tick != cur.Value.tick)
+                {
+                    tick = cur.Value.tick;
+                    isNextTick = true;
+                }
+                if (isNextTick && cur != _stack.First)
+                    str += "\n";
+                str += $"{(isNextTick ? "*" : "")}({cur.Value.tick}: {cur.Value.rpcId}){(cur.Next != null ? ", " : "")}";
+                cur = cur.Next;
+            }
+
+            return str;
         }
     }
 }
