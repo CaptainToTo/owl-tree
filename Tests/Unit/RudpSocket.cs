@@ -159,21 +159,21 @@ public class RudpSocket
         Assert.True(endpoint != null, "server RUDP socket failed to bind to an endpoint.");
 
         var packet = new Packet(512, true);
-        packet.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        packet.header.timestamp = Timestamp.Now;
         packet.header.packetNum = 0;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
 
-        packet.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        packet.header.timestamp = Timestamp.Now;
         packet.header.packetNum = 1;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
 
         // drop packet 2
 
-        packet.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        packet.header.timestamp = Timestamp.Now;
         packet.header.packetNum = 3;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
 
-        packet.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        packet.header.timestamp = Timestamp.Now;
         packet.header.packetNum = 4;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
 

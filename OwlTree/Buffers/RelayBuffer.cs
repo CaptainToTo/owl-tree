@@ -34,7 +34,7 @@ namespace OwlTree
                 _hostAddr = IPAddress.Parse(hostAddr);
             Migratable = ShutdownWhenEmpty ? migratable : true;
 
-            _clientData = new ClientDataList(BufferSize, DateTimeOffset.UtcNow.Millisecond);
+            _clientData = new ClientDataList(BufferSize, Timestamp.Millisecond);
 
             MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
             _requests = new(MaxClients, requestTimeout);
@@ -126,7 +126,7 @@ namespace OwlTree
                     clientData.tcpPacket.header.appVer = AppVersion;
                     clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
                     clientData.udpPacket.header.appVer = AppVersion;
-                    clientData.latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - timestamp);
+                    clientData.latency = (int)(Timestamp.Now - timestamp);
                     _udpRelay.AddEndpoint(udpEndPoint);
 
                     if (Logger.includes.connectionAttempts)
@@ -165,7 +165,7 @@ namespace OwlTree
                     }
                     HasClientEvent = true;
                     
-                    clientData.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    clientData.tcpPacket.header.timestamp = Timestamp.Now;
                     ApplySendSteps(clientData.tcpPacket);
                     var bytes = clientData.tcpPacket.GetPacket();
                     tcpClient.Send(bytes);
@@ -285,7 +285,7 @@ namespace OwlTree
                             ReadPacket.Clear();
                             ReadPacket.header.owlTreeVer = OwlTreeVersion;
                             ReadPacket.header.appVer = AppVersion;
-                            ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            ReadPacket.header.timestamp = Timestamp.Now;
                             ReadPacket.header.sender = 0;
                             ReadPacket.header.hash = 0;
                             var response = ReadPacket.GetSpan(4);
@@ -380,7 +380,7 @@ namespace OwlTree
                             }
                             client.failed = 0;
 
-                            var time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            var time = Timestamp.Now;
                             client.latency = (int)(time - ReadPacket.header.timestamp);
                             client.lastConfirmed = time;
                         }
@@ -560,7 +560,7 @@ namespace OwlTree
                     return;
 
                 ReadPacket.Clear();
-                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                ReadPacket.header.timestamp = Timestamp.Now;
                 ReadPacket.header.sender = 0;
                 ReadPacket.header.hash = data.hash;
                 ReadPacket.header.pingRequest = true;
@@ -622,7 +622,7 @@ namespace OwlTree
                     PingRequestEncode(message.bytes, original);
 
                     ReadPacket.Clear();
-                    ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ReadPacket.header.timestamp = Timestamp.Now;
                     ReadPacket.header.sender = 0;
                     ReadPacket.header.hash = data.hash;
                     ReadPacket.header.pingRequest = true;
@@ -663,7 +663,7 @@ namespace OwlTree
             {
                 while (!client.tcpPacket.IsEmpty)
                 {
-                    client.tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    client.tcpPacket.header.timestamp = Timestamp.Now;
 
                     if (Logger.includes.tcpPreTransform)
                     {
@@ -697,7 +697,7 @@ namespace OwlTree
 
                 while (!client.udpPacket.IsEmpty)
                 {
-                    client.udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    client.udpPacket.header.timestamp = Timestamp.Now;
 
                     if (Logger.includes.tcpPreTransform)
                     {

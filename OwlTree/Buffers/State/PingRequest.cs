@@ -101,7 +101,7 @@ namespace OwlTree
         {
             Source = source;
             Target = target;
-            SendTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            SendTime = Timestamp.Now;
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace OwlTree
         /// </summary>
         internal void PingSent()
         {
-            SendTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            SendTime = Timestamp.Now;
         }
 
         /// <summary>
@@ -117,7 +117,7 @@ namespace OwlTree
         /// </summary>
         internal void PingReceived()
         {
-            ReceiveTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            ReceiveTime = Timestamp.Now;
         }
 
         internal void PingReceivedAt(long timestamp)
@@ -131,7 +131,7 @@ namespace OwlTree
         /// </summary>
         internal void PingResponded()
         {
-            ResponseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            ResponseTime = Timestamp.Now;
         }
 
 

@@ -384,7 +384,7 @@ namespace OwlTree
             if (args.measureBandwidth)
             {
                 Bandwidth = new Bandwidth(args.bandwidthReporter == null ? (b) => {
-                    var str = $"Bandwidth report at {DateTimeOffset.Now.ToUnixTimeMilliseconds()}:\n";
+                    var str = $"Bandwidth report at {Timestamp.NowString}:\n";
                     str += $"   Incoming: {b.IncomingKbPerSecond()} KB/s\n";
                     str += $"   Outgoing: {b.OutgoingKbPerSecond()} KB/s";
                     _logger.Write(str);
@@ -464,7 +464,7 @@ namespace OwlTree
             // recv and send until this connection ends
             while (_buffer.IsActive && IsActive)
             {
-                long start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                long start = Timestamp.Now;
                 
                 try
                 {
@@ -498,7 +498,7 @@ namespace OwlTree
                 if (!_buffer.IsActive)
                     break;
                 
-                long diff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - start;
+                long diff = Timestamp.Now - start;
 
                 Thread.Sleep(Math.Max(_minUpdateDelta, _threadUpdateDelta - (int)diff));
             }

@@ -77,7 +77,7 @@ namespace OwlTree
             if (_missingPackets.Count == 0)
                 return;
 
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var now = Timestamp.Now;
             var cutOff = _latency * 3;
             for (int i = 0; i < _missingPackets.Count; i++)
             {
@@ -93,7 +93,7 @@ namespace OwlTree
 
         public void AddIncomingPacket(byte[] bytes, uint packetNum, long sentAt)
         {
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var timestamp = Timestamp.Now;
             _latency = timestamp - sentAt;
             if (_expectedPacketNum <= packetNum)
             {
@@ -237,7 +237,7 @@ namespace OwlTree
             {
                 var header = new Packet.Header();
                 header.resendRequest = true;
-                header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                header.timestamp = Timestamp.Now;
                 header.length = Packet.Header.ByteLength;
                 foreach (var missing in _endpoint.MissingPackets)
                 {
@@ -386,7 +386,7 @@ namespace OwlTree
                 {
                     var header = new Packet.Header();
                     header.resendRequest = true;
-                    header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    header.timestamp = Timestamp.Now;
                     header.length = Packet.Header.ByteLength;
                     foreach (var missing in _endpoints[i].MissingPackets)
                     {

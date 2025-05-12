@@ -49,7 +49,7 @@ namespace OwlTree
         /// </summary>
         public void ClearTimeouts(PingRequest.Delegate timeoutHandler)
         {
-            var time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var time = Timestamp.Now;
             for (int i = 0; i < _requests.Count; i++)
             {
                 if (time - _requests[i].SendTime >= _requestTimeout)

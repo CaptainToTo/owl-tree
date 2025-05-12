@@ -26,7 +26,7 @@ namespace OwlTree
         {
             _max = max;
             _report = report;
-            _startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _startTime = Timestamp.Now;
         }
 
         /// <summary>
@@ -35,7 +35,7 @@ namespace OwlTree
         public void RecordOutgoing(Packet packet)
         {
             var size = packet.GetPacket().Length;
-            _outgoingRecords.Add((size, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+            _outgoingRecords.Add((size, Timestamp.Now));
             _totalSent += size;
             if (_outgoingRecords.Count > _max)
                 _outgoingRecords.RemoveAt(0);
@@ -53,7 +53,7 @@ namespace OwlTree
         public void RecordIncoming(Packet packet)
         {
             var size = packet.GetPacket().Length;
-            _incomingRecords.Add((size, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+            _incomingRecords.Add((size, Timestamp.Now));
             _totalRecv += size;
             if (_incomingRecords.Count > _max)
                 _incomingRecords.RemoveAt(0);
@@ -72,7 +72,7 @@ namespace OwlTree
             int sum = 0;
             for (int i = 0; i < _outgoingRecords.Count; i++)
                 sum += _outgoingRecords[i].bytes;
-            return sum / ((DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _outgoingRecords[0].time) / 1000f);
+            return sum / ((Timestamp.Now - _outgoingRecords[0].time) / 1000f);
         }
 
         public float OutgoingKbPerSecond() => OutgoingBytesPerSecond() / 1000f;
@@ -84,17 +84,17 @@ namespace OwlTree
             int sum = 0;
             for (int i = 0; i < _incomingRecords.Count; i++)
                 sum += _incomingRecords[i].bytes;
-            return sum / ((DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _incomingRecords[0].time) / 1000f);
+            return sum / ((Timestamp.Now - _incomingRecords[0].time) / 1000f);
         }
 
         public float IncomingKbPerSecond() => IncomingBytesPerSecond() / 1000f;
 
         public float TotalMbSent() => _totalSent / 1000000f;
 
-        public float OutgoingMbPerHour() => TotalMbSent() / ((DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _startTime) / 3600000f);
+        public float OutgoingMbPerHour() => TotalMbSent() / ((Timestamp.Now - _startTime) / 3600000f);
 
         public float TotalMbRecv() => _totalRecv / 1000000f;
 
-        public float IncomingMbPerHour() => TotalMbRecv() / ((DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _startTime) / 3600000f);
+        public float IncomingMbPerHour() => TotalMbRecv() / ((Timestamp.Now - _startTime) / 3600000f);
     }
 }

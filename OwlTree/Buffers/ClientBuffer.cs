@@ -77,16 +77,16 @@ namespace OwlTree
         {
             if (_acceptedRequest) return;
 
-            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastRequest > _requestRate)
+            if (Timestamp.Now - _lastRequest > _requestRate)
             {
                 try
                 {
                     ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem, TickRate));
-                    _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    _udpPacket.header.timestamp = Timestamp.Now;
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
 
                     if (Logger.includes.connectionAttempts)
-                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {DateTime.UtcNow}. Sent:\n{PacketToString(_udpPacket)}");
+                        Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) at {Timestamp.NowString}. Sent:\n{PacketToString(_udpPacket)}");
 
                     _udpPacket.Clear();
                 }
@@ -95,7 +95,7 @@ namespace OwlTree
                     if (Logger.includes.exceptions)
                         Logger.Write($"Connection request made to {Address} (TCP: {ServerTcpPort}, UDP: {ServerUdpPort}) failed with the exception:\n{e}");
                 }
-                _lastRequest = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _lastRequest = Timestamp.Now;
                 _remainingRequests--;
             }
 
@@ -132,18 +132,18 @@ namespace OwlTree
                     {
                         if (Logger.includes.connectionAttempts)
                         {
-                            Logger.Write("Connection request to " + Address.ToString() + " accepted at " + DateTime.UtcNow);
+                            Logger.Write("Connection request to " + Address.ToString() + " accepted at " + Timestamp.NowString);
                         }
 
                         _acceptedRequest = true;
                         _tcpClient.Connect(_tcpEndPoint);
-                        _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
+                        _latency = (int)(Timestamp.Now - ReadPacket.header.timestamp);
                     }
                     else
                     {
                         if (Logger.includes.connectionAttempts)
                         {
-                            Logger.Write("Connection request to " + Address.ToString() + " rejected at " + DateTime.UtcNow + " with response code of: " + response.ToString());
+                            Logger.Write("Connection request to " + Address.ToString() + " rejected at " + Timestamp.NowString + " with response code of: " + response.ToString());
                         }
 
                         _remainingRequests = 0;
@@ -222,7 +222,7 @@ namespace OwlTree
                             return;
                         }
 
-                        _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ReadPacket.header.timestamp);
+                        _latency = (int)(Timestamp.Now - ReadPacket.header.timestamp);
 
                         if (ReadPacket.header.connectionConfirmation)
                             continue;
@@ -396,7 +396,7 @@ namespace OwlTree
             if (request.Target == LocalId)
             {
                 ReadPacket.Clear();
-                ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                ReadPacket.header.timestamp = Timestamp.Now;
                 ReadPacket.header.sender = LocalId.Id;
                 ReadPacket.header.hash = _hash;
                 ReadPacket.header.pingRequest = true;
@@ -445,7 +445,7 @@ namespace OwlTree
                     PingRequestEncode(message.bytes, original);
 
                     ReadPacket.Clear();
-                    ReadPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    ReadPacket.header.timestamp = Timestamp.Now;
                     ReadPacket.header.sender = LocalId.Id;
                     ReadPacket.header.hash = _hash;
                     ReadPacket.header.pingRequest = true;
@@ -464,7 +464,7 @@ namespace OwlTree
 
             while (!_tcpPacket.IsEmpty)
             {
-                _tcpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _tcpPacket.header.timestamp = Timestamp.Now;
                 _tcpPacket.header.sender = LocalId.Id;
                 _tcpPacket.header.hash = _hash;
 
@@ -492,13 +492,13 @@ namespace OwlTree
 
             while (!_udpPacket.IsEmpty)
             {
-                _udpPacket.header.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _udpPacket.header.timestamp = Timestamp.Now;
                 _udpPacket.header.sender = LocalId.Id;
                 _udpPacket.header.hash = _hash;
 
                 if (Logger.includes.udpPreTransform)
                 {
-                    var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to server from {LocalId}:\n");
                     PacketToString(_udpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }
@@ -507,7 +507,7 @@ namespace OwlTree
 
                 if (Logger.includes.udpPostTransform)
                 {
-                    var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to server at {DateTime.UtcNow}:\n");
+                    var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to server from {LocalId}:\n");
                     PacketToString(_udpPacket, packetStr);
                     Logger.Write(packetStr.ToString());
                 }

@@ -85,7 +85,7 @@ namespace OwlTree
                 tcpSocket = tcpSocket,
                 udpPacket = new Packet(_bufferSize, true),
                 udpEndPoint = udpEndPoint,
-                lastConfirmed = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                lastConfirmed = Timestamp.Now
             };
             _data.Add(data);
             return data;

@@ -88,7 +88,7 @@ namespace OwlTree
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[TickMessageLength]
             };
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var timestamp = Timestamp.Now;
             EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
             EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
             _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
@@ -140,7 +140,7 @@ namespace OwlTree
                 if (_logger.includes.rpcReceiveEncodings)
                     _logger.Write("RECEIVING:\n" + TickEncodingSummary(m.rpcId, m.caller, m.callee, m.tick, (long)m.args[0]));
 
-                _latency = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (long)m.args[0]);
+                _latency = (int)(Timestamp.Now - (long)m.args[0]);
                 _localTick = new Tick(m.tick.Value + (uint)((float)_latency / _tickRate));
                 _presentTick = m.tick;
                 _exitTick = _presentTick.Next();
@@ -166,7 +166,7 @@ namespace OwlTree
                     perms = RpcPerms.AnyToAll,
                     bytes = new byte[TickMessageLength]
                 };
-                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var timestamp = Timestamp.Now;
                 EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
                 EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
                 _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
@@ -251,7 +251,7 @@ namespace OwlTree
                     perms = RpcPerms.AuthorityToClients,
                     bytes = new byte[TickMessageLength]
                 };
-                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var timestamp = Timestamp.Now;
                 EncodeCurTick(outgoing.bytes, _localId, client, _localTick, timestamp);
                 _outgoing.Enqueue(outgoing, _localTick);
 
