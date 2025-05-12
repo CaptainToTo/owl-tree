@@ -297,7 +297,7 @@ namespace OwlTree
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[PingRequestLength]
             };
-            if (Logger.includes.rpcCalls)
+            if (Logger.includes.pings)
                 Logger.Write("SENDING ping request: " + request.ToString());
             PingRequestEncode(message.bytes, request);
             AddOutgoing(message);
@@ -313,7 +313,7 @@ namespace OwlTree
             request.PingReceived();
             var bytes = packet.GetSpan(PingRequestLength);
             PingRequestEncode(bytes, request);
-            if (Logger.includes.rpcReceives)
+            if (Logger.includes.pings)
                 Logger.Write("RECEIVING ping request: " + request.ToString());
         }
 
@@ -333,7 +333,7 @@ namespace OwlTree
                 perms = RpcPerms.AnyToAll, 
                 args = new object[]{request}
             });
-            if (Logger.includes.rpcCalls)
+            if (Logger.includes.pings)
                 Logger.Write("FAILING ping request due to timeout: " + request.ToString());
         }
         

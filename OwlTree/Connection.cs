@@ -781,7 +781,7 @@ namespace OwlTree
                 else if (message.rpcId == RpcId.PingRequestId)
                 {
                     var request = (PingRequest)message.args[0];
-                    if (_logger.includes.rpcReceives)
+                    if (_logger.includes.pings)
                         _logger.Write("Resolved ping request: " + request.ToString());
                     request.PingResolved();
                 }
