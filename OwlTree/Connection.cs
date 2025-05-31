@@ -1194,22 +1194,24 @@ namespace OwlTree
         /// <summary>
         /// Disconnect the local connection. If this is a server, the server is shut down.
         /// if this is a client, disconnect from the server.
+        /// If the connection is threaded, the connection will not automatically
+        /// become inactive. Listen to the OnLocalDisconnect event for when the connection
+        /// is truly inactive.
         /// </summary>
         public void Disconnect()
         {
-            if (!IsActive)
+            if (!IsActive || !_buffer.IsActive)
                 return;
-            if (_buffer.IsActive)
+            else if (Threaded)
+                _buffer.SendDisconnectSignal();
+            else
             {
-                if (Threaded)
-                    _buffer.SendDisconnectSignal();
-                else
-                    _buffer.Disconnect();
+                _buffer.Disconnect();
+                IsActive = false;
+                IsReady = false;
+                OnLocalDisconnect?.Invoke(LocalId);
+                _spawner?.DespawnAll();
             }
-            IsActive = false;
-            IsReady = false;
-            OnLocalDisconnect?.Invoke(LocalId);
-            _spawner?.DespawnAll();
         }
 
         /// <summary>
