@@ -176,7 +176,11 @@ namespace OwlTree
             }
 
             if (!_tcpClient.Connected)
+            {
+                if (IsActive)
+                    Disconnect();
                 return;
+            }
 
             _readList.Clear();
             _readList.Add(_tcpClient);
@@ -524,13 +528,13 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            if (!_tcpClient.Connected)
-                return;
+            if (IsActive)
+                AddClientDisconnectedMessage(LocalId);
             IsActive = false;
             IsReady = false;
-            _tcpClient.Close();
+            if (_tcpClient.Connected)
+                _tcpClient.Close();
             _udpClient.Close();
-            AddClientDisconnectedMessage(LocalId);
         }
 
         /// <summary>
