@@ -272,10 +272,7 @@ namespace OwlTree
             else if (m.rpcId == RpcId.HostMigrationId)
                 MigrateHost(m.callee);
             else if (m.rpcId == RpcId.LocalClientConnectedId)
-            {
-                Logger.Write("received shutdown signal");
                 Disconnect();
-            }
             return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId || m.rpcId == RpcId.LocalClientConnectedId;
         }
 
