@@ -739,8 +739,11 @@ namespace OwlTree
 
         public override void Disconnect()
         {
-            if (!_tcpRelay.Connected)
+            if (!IsActive)
                 return;
+            
+            IsReady = false;
+            IsActive = false;
 
             var ids = _clientData.GetIds();
             foreach (var id in ids)
@@ -749,10 +752,9 @@ namespace OwlTree
                 Disconnect(id);
             }
             Disconnect(Authority);
-            _tcpRelay.Close();
+            if (!_tcpRelay.Connected)
+                _tcpRelay.Close();
             _udpRelay.Close();
-            IsReady = false;
-            IsActive = false;
             AddClientDisconnectedMessage(LocalId);
         }
 
