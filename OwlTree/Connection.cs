@@ -1194,9 +1194,9 @@ namespace OwlTree
         /// <summary>
         /// Disconnect the local connection. If this is a server, the server is shut down.
         /// if this is a client, disconnect from the server.
-        /// If the connection is threaded, the connection will not automatically
-        /// become inactive. Listen to the OnLocalDisconnect event for when the connection
-        /// is truly inactive.
+        /// If connection is threaded, then connection will not immediately become inactive
+        /// as resources are cleaned up. Listen to OnLocalDisconnect event for when the 
+        /// connection becomes inactive.
         /// </summary>
         public void Disconnect()
         {

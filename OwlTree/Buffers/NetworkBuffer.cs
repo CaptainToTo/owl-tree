@@ -271,7 +271,9 @@ namespace OwlTree
                 Disconnect(m.callee);
             else if (m.rpcId == RpcId.HostMigrationId)
                 MigrateHost(m.callee);
-            return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId;
+            else if (m.rpcId == RpcId.LocalClientConnectedId)
+                Disconnect();
+            return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId || m.rpcId == RpcId.LocalClientConnectedId;
         }
 
         /// <summary>
@@ -438,7 +440,10 @@ namespace OwlTree
         /// </summary>
         public void SendDisconnectSignal()
         {
-            IsActive = false;
+            AddOutgoing(new OutgoingMessage
+            {
+                rpcId = new RpcId(RpcId.LocalClientConnectedId)
+            });
         }
 
         /// <summary>

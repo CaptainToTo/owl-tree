@@ -608,7 +608,11 @@ namespace OwlTree
             while (TryGetNextOutgoing(out var message))
             {
                 if (HandleClientEvent(message))
+                {
+                    if (!IsActive)
+                        return;
                     continue;
+                }
                 
                 if (message.rpcId == RpcId.PingRequestId && TryPingRequestDecode(message.bytes, out var request))
                 {
