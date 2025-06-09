@@ -17,12 +17,12 @@ Feel free to use it in anything you like. :)
 
 # Setting Up
 
-To start using OwlTree, you can download the latest release [here](https://github.com/CaptainToTo/owl-tree/releases/download/v0.2.0/OwlTree-v0.2.0.zip). This contains both the OwlTree project, and the OwlTree source generator. Include both in your project's .csproj file:
+To start using OwlTree, you can download the latest release [here](https://github.com/CaptainToTo/owl-tree/releases). This contains both the OwlTree project, and the OwlTree source generator. Include both in your project's .csproj file:
 
 ```xml
 <ItemGroup>
-    <ProjectReference Include="../OwlTree/OwlTree.csproj" />
-    <Analyzer Include="../OwlTree.Generator/OwlTree.Generator.dll" />
+    <ProjectReference Include="../OwlTree/OwlTree/OwlTree.csproj" />
+    <Analyzer Include="../OwlTree/OwlTree.Generator/OwlTree.Generator.dll" />
 </ItemGroup>
 ```
 
