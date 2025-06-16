@@ -1,6 +1,6 @@
 ![Tests](https://github.com/CaptainToTo/owl-tree/actions/workflows/dotnet.yml/badge.svg)
 
-# OwlTree (v0.3.0)
+# OwlTree (v0.4.0)
 A C# framework for server-client RPCs intended for games.
 
 View the full documentation on the [wiki](https://github.com/CaptainToTo/owl-tree/wiki).
@@ -38,11 +38,15 @@ See specific set-up procedures for other environments:
 - [Unity](https://github.com/CaptainToTo/owl-tree-unity/wiki)
 - Godot - under construction
 
-# v0.3.0 - The Simulation Update
+# v0.4.0 - The Generator Update
 
 New to OwlTree:
-- Simulation buffer control: allows you to choose between lockstep, rollback, simple snapshot, or no simulation control.
-- RUDP: UDP packets are now managed with reliable UDP, improving the stability of your project at runtime.
+- **Replication:** Use `Networked` properties to replicate state from the authority to clients.
+- **Auto Encoding:** Create encodable types with ease using auto-encoding utilities.
+- **Inheritance & Generics Support:** `NetworkObject` types can now be inherited from, and be generic types, allowing for more extensible and expressive networking solutions.
+- **Multi-Project Awareness:** The OwlTree source generator can now be applied across multiple C# projects, allowing for easier library development and usage.
+- **Simple Message Sending:** Use `Connection.SendMessage(str)` to send simple string messages without the need to create `NetworkObject`s.
+- **Global NetworkObject:** Optionally create a "global" `NetworkObject` which will be automatically spawned, and assigned to `Connection.State`.
 
 # Creating a Connection
 
