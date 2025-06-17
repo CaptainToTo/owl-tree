@@ -7,7 +7,7 @@ namespace OwlTree
         public const int MaxByteLength = 4;
 
         // reserved rpc ids
-        internal const UInt32 NoneId                  = 0;
+        internal const UInt32 NoneId = 0;
         internal const UInt32 ClientConnectedId       = 1;
         internal const UInt32 LocalClientConnectedId  = 2;
         internal const UInt32 ClientDisconnectedId    = 3;
@@ -20,9 +20,11 @@ namespace OwlTree
         internal const UInt32 CurTickId               = 10;
         internal const UInt32 EndTickId               = 11;
         internal const UInt32 TickReadyId             = 12;
-
+        
+        internal const UInt32 ReplicatePropertyId     = 14;
         internal const UInt32 LocalReadyId            = 15;
         internal const UInt32 ConnectionRejectedId    = 16;
+
         
         /// <summary>
         /// Returns true if the given id is for a client event, such as connecting or disconnecting.
