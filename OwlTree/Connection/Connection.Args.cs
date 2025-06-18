@@ -136,7 +136,7 @@ namespace OwlTree
             /// Add custom transformers that will be apply to data received from sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.Transformer[] readSteps = new NetworkBuffer.Transformer[0];
+            public NetworkBuffer.Transformer[] recvSteps = new NetworkBuffer.Transformer[0];
 
             /// <summary>
             /// Add custom transformers that will be apply to data sent to sockets. Steps will be sorted by priority, least to greatest,

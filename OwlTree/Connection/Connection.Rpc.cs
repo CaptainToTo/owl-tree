@@ -14,19 +14,21 @@ namespace OwlTree
             {
                 if (Logger.includes.rpcReceiveEncodings)
                     Logger.Write("RECEIVING:\n" + SimulationBuffer.TickEncodingSummary(rpcId, caller, callee, tick, timestamp, protocol));
-                _simBuffer.AddIncoming(new IncomingMessage{
+                _simBuffer.AddIncoming(new IncomingMessage
+                {
                     caller = caller,
                     callee = LocalId,
                     tick = tick,
                     rpcId = rpcId,
                     protocol = protocol,
                     perms = RpcPerms.AnyToAll,
-                    args = new object[]{timestamp}
+                    args = new object[] { timestamp }
                 });
             }
             else if (NetRole != NetRole.Server && NetworkSpawner.TryDecode(bytes, out rpcId, out var args))
             {
-                _simBuffer.AddIncoming(new IncomingMessage{
+                _simBuffer.AddIncoming(new IncomingMessage
+                {
                     caller = source,
                     callee = LocalId,
                     rpcId = rpcId,
@@ -44,7 +46,8 @@ namespace OwlTree
             }
             else if (Protocols != null && Protocols.TryDecodeRpc(bytes, out rpcId, out caller, out callee, out var target, out args))
             {
-                var incoming = new IncomingMessage{
+                var incoming = new IncomingMessage
+                {
                     caller = caller,
                     callee = callee,
                     rpcId = rpcId,
@@ -74,7 +77,8 @@ namespace OwlTree
                 // cannot be intended for the server
                 if (incoming.perms == RpcPerms.ClientsToClients)
                 {
-                    _simBuffer.AddOutgoing(new OutgoingMessage{
+                    _simBuffer.AddOutgoing(new OutgoingMessage
+                    {
                         caller = caller,
                         callee = callee,
                         rpcId = rpcId,
@@ -86,7 +90,7 @@ namespace OwlTree
                 }
 
                 // otherwise perms are ClientsToAll or AnyToAll
-                
+
                 if (Protocols.HasCalleeIdParam(incoming.rpcId))
                 {
                     if (incoming.callee == LocalId) // an RPC w/ a callee id param can target the server with ClientId.None
@@ -95,7 +99,8 @@ namespace OwlTree
                     }
                     else // otherwise relay to the intended client
                     {
-                        _simBuffer.AddOutgoing(new OutgoingMessage{
+                        _simBuffer.AddOutgoing(new OutgoingMessage
+                        {
                             caller = caller,
                             callee = callee,
                             rpcId = rpcId,
@@ -109,7 +114,8 @@ namespace OwlTree
 
                 // otherwise the RPC should be run on the server, and sent to all other clients
                 _simBuffer.AddIncoming(incoming);
-                _simBuffer.AddOutgoing(new OutgoingMessage{
+                _simBuffer.AddOutgoing(new OutgoingMessage
+                {
                     caller = caller,
                     callee = callee,
                     rpcId = rpcId,
@@ -168,7 +174,8 @@ namespace OwlTree
             Protocols.EncodeRpc(bytes, rpcId, LocalId, ClientId.None, target, args);
             foreach (var callee in callees)
             {
-                var message = new OutgoingMessage{
+                var message = new OutgoingMessage
+                {
                     tick = LocalTick,
                     caller = LocalId,
                     callee = callee,
@@ -191,7 +198,8 @@ namespace OwlTree
 
             if (Protocols.IsInvokeOnCaller(rpcId))
             {
-                var message = new IncomingMessage{
+                var message = new IncomingMessage
+                {
                     tick = LocalTick,
                     caller = LocalId,
                     callee = LocalId,
@@ -207,7 +215,8 @@ namespace OwlTree
 
         private void AddRpcTo(ClientId callee, RpcId rpcId, NetworkId target, Protocol protocol, RpcPerms perms, object[] args)
         {
-            var message = new OutgoingMessage{
+            var message = new OutgoingMessage
+            {
                 tick = LocalTick,
                 caller = LocalId,
                 callee = callee,
@@ -230,7 +239,8 @@ namespace OwlTree
 
             if (Protocols.IsInvokeOnCaller(rpcId))
             {
-                var incomingMessage = new IncomingMessage{
+                var incomingMessage = new IncomingMessage
+                {
                     tick = LocalTick,
                     caller = LocalId,
                     callee = LocalId,
@@ -246,5 +256,19 @@ namespace OwlTree
 
         internal void AddRpc(ClientId callee, RpcId rpcId, Protocol protocol, object[] args) => AddRpc(callee, rpcId, NetworkId.None, protocol, args);
         internal void AddRpc(RpcId rpcId, object[] args) => AddRpc(ClientId.None, rpcId, NetworkId.None, Protocol.Tcp, args);
+
+        // called in execute queue
+        private void InvokeRpc(IncomingMessage message, NetworkObject target)
+        {
+            try
+            {
+                Protocols.InvokeRpc(message.caller, message.callee, message.rpcId, target, message.args);
+            }
+            catch (Exception e)
+            {
+                if (Logger.includes.exceptions)
+                    Logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n{e}");
+            }
+        }
     }
 }

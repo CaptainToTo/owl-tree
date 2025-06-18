@@ -225,5 +225,40 @@ namespace OwlTree
         {
             _idSearches.Add(new IdSearch<K, V>(id, callback));
         }
+
+        // called in execute queue
+        private void HandleSpawnerMessage(IncomingMessage message)
+        {
+            try
+            {
+                _spawner.ReceiveInstruction(message.rpcId, message.args);
+            }
+            catch (Exception e)
+            {
+                if (Logger.includes.exceptions)
+                    Logger.Write($"Failed to run {(message.rpcId == RpcId.NetworkObjectSpawnId ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
+            }
+        }
+
+        private void SearchForObjects()
+        {
+            for (int i = 0; i < _idSearches.Count; i++)
+            {
+                var search = _idSearches[i];
+                try
+                {
+                    if (search.SearchForObject(this))
+                    {
+                        _idSearches.RemoveAt(i);
+                        i--;
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (Logger.includes.exceptions)
+                        Logger.Write($"FAILED to find object with id {search.Id()}, threw exception:\n{e}");
+                }
+            }
+        }
     }
 }

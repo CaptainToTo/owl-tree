@@ -356,7 +356,7 @@ namespace OwlTree
                             Logger.Write(packetStr.ToString());
                         }
 
-                        ApplyReadSteps(ReadPacket);
+                        ApplyRecvSteps(ReadPacket);
 
                         if (Logger.includes.tcpPreTransform)
                         {
@@ -412,7 +412,7 @@ namespace OwlTree
                     Logger.Write(packetStr.ToString());
                 }
 
-                ApplyReadSteps(ReadPacket);
+                ApplyRecvSteps(ReadPacket);
 
                 if (Logger.includes.udpPreTransform)
                 {
@@ -468,7 +468,7 @@ namespace OwlTree
                     original.PingReceivedAt(request.ReceiveTime);
                     original.PingResponded();
                     _pingRequests.Remove(original);
-                    AddIncoming(new IncomingMessage{
+                    MessageQueue.AddIncoming(new IncomingMessage{
                         caller = request.Source, 
                         callee = request.Target, 
                         rpcId = new RpcId(RpcId.PingRequestId), 
@@ -499,7 +499,7 @@ namespace OwlTree
         /// </summary>
         public override void Send()
         {
-            while (TryGetNextOutgoing(out var message))
+            while (MessageQueue.TryGetNextOutgoing(out var message))
             {
                 if (HandleClientEvent(message))
                 {

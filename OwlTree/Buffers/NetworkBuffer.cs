@@ -43,10 +43,8 @@ namespace OwlTree
             public int bufferSize;
 
             public IncomingDecoder incomingDecoder;
-            public OutgoingProvider outgoingProvider;
 
-            public IncomingMessage.Delegate addIncoming;
-            public OutgoingMessage.Delegate addOutgoing;
+            public SimulationBuffer messageQueue;
 
             public SimulationSystem simulationSystem;
             public int tickRate;
@@ -74,14 +72,16 @@ namespace OwlTree
 
         public int MaxClients { get; protected set; } = int.MaxValue;
 
-        public ushort OwlTreeVersion { get; private set; }
-        public ushort MinOwlTreeVersion { get; private set; }
-        public ushort AppVersion { get; private set; }
-        public ushort MinAppVersion { get; private set; }
-        public StringId ApplicationId { get; private set; }
-        public StringId SessionId { get; private set; }
+        public readonly ushort OwlTreeVersion;
+        public readonly ushort MinOwlTreeVersion;
+        public readonly ushort AppVersion;
+        public readonly ushort MinAppVersion;
+        public readonly StringId ApplicationId;
+        public readonly StringId SessionId;
 
-        protected Logger Logger { get; private set; }
+        protected readonly Logger Logger;
+
+        protected readonly SimulationBuffer MessageQueue;
 
         public NetworkBuffer(Args args)
         {
@@ -108,9 +108,7 @@ namespace OwlTree
             BufferSize = args.bufferSize;
             ReadBuffer = new byte[BufferSize];
             Decode = args.incomingDecoder;
-            TryGetNextOutgoing = args.outgoingProvider;
-            AddIncoming = args.addIncoming;
-            AddOutgoing = args.addOutgoing;
+            MessageQueue = args.messageQueue;
             ReadPacket = new Packet(BufferSize);
             SimulationSystem = args.simulationSystem;
             TickRate = args.tickRate;
@@ -153,7 +151,7 @@ namespace OwlTree
 
         protected void AddClientConnectedMessage(ClientId id)
         {
-            AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.ClientConnectedId),
                 caller = id
             });
@@ -161,7 +159,7 @@ namespace OwlTree
 
         protected void AddClientDisconnectedMessage(ClientId id)
         {
-            AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.ClientDisconnectedId),
                 caller = id
             });
@@ -169,7 +167,7 @@ namespace OwlTree
 
         protected void AddReadyMessage(ClientId id)
         {
-            AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.LocalReadyId),
                 caller = id
             });
@@ -177,7 +175,7 @@ namespace OwlTree
 
         protected void AddHostMigrationMessage(ClientId id)
         {
-            AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage{
                 rpcId = new RpcId(RpcId.HostMigrationId),
                 caller = id
             });
@@ -302,7 +300,7 @@ namespace OwlTree
             if (Logger.includes.pings)
                 Logger.Write("SENDING ping request: " + request.ToString());
             PingRequestEncode(message.bytes, request);
-            AddOutgoing(message);
+            MessageQueue.AddOutgoing(message);
             return request;
         }
 
@@ -326,7 +324,7 @@ namespace OwlTree
         protected void PingTimeout(PingRequest request)
         {
             request.PingFailed();
-            AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage{
                 caller = LocalId, 
                 callee = LocalId, 
                 rpcId = new RpcId(RpcId.PingRequestId), 
@@ -343,7 +341,6 @@ namespace OwlTree
         /// Function signature for transformer steps. Should return the same span of bytes
         /// provided as an argument.
         /// </summary>
-        /// <returns></returns>
         public delegate void BufferAction(Packet packet);
 
         /// <summary>
@@ -359,7 +356,7 @@ namespace OwlTree
 
         // buffer transformer steps
         private List<Transformer> _sendProcess = new List<Transformer>();
-        private List<Transformer> _readProcess = new List<Transformer>();
+        private List<Transformer> _recvProcess = new List<Transformer>();
 
         /// <summary>
         /// Adds the given transformer step to the send process.
@@ -402,26 +399,26 @@ namespace OwlTree
         /// Adds the given transformer step to the read process.
         /// The provided BufferAction will be applied to all buffers that are received.
         /// </summary>
-        public void AddReadStep(Transformer step)
+        public void AddRecvStep(Transformer step)
         {
-            for (int i = 0; i < _readProcess.Count; i++)
+            for (int i = 0; i < _recvProcess.Count; i++)
             {
-                if (_readProcess[i].priority > step.priority)
+                if (_recvProcess[i].priority > step.priority)
                 {
-                    _readProcess.Insert(i, step);
+                    _recvProcess.Insert(i, step);
                     return;
                 }
             }
-            _readProcess.Add(step);
+            _recvProcess.Add(step);
         }
         
         /// <summary>
         /// Apply all of the currently added read transformer steps. Returns the 
         /// same span, with transformations applied to the underlying bytes.
         /// </summary>
-        protected void ApplyReadSteps(Packet packet)
+        protected void ApplyRecvSteps(Packet packet)
         {
-            foreach (var step in _readProcess)
+            foreach (var step in _recvProcess)
             {
                 try
                 {
@@ -440,7 +437,7 @@ namespace OwlTree
         /// </summary>
         public void SendDisconnectSignal()
         {
-            AddOutgoing(new OutgoingMessage
+            MessageQueue.AddOutgoing(new OutgoingMessage
             {
                 rpcId = new RpcId(RpcId.LocalClientConnectedId)
             });

@@ -93,7 +93,8 @@ namespace OwlTree
                 throw new InvalidOperationException("Only the authority can disconnect other clients.");
             if (Threaded)
             {
-                _simBuffer.AddOutgoing(new OutgoingMessage{
+                _simBuffer.AddOutgoing(new OutgoingMessage
+                {
                     tick = LocalTick,
                     rpcId = new RpcId(RpcId.ClientDisconnectedId),
                     callee = id
@@ -125,7 +126,7 @@ namespace OwlTree
             else
                 _buffer.MigrateHost(id);
         }
-        
+
         /// <summary>
         /// Ping the target client. A target of <c>ClientId.None</c> will ping the server.
         /// Returns a PingRequest, which is similar to a promise. The ping value will only be known
@@ -144,7 +145,7 @@ namespace OwlTree
 
             if (target != ClientId.None && !ContainsClient(target))
                 throw new ArgumentException("Cannot ping a client that doesn't exist in this session.");
-            
+
             return _buffer.Ping(target, protocol);
         }
 
@@ -152,95 +153,134 @@ namespace OwlTree
         {
             return _buffer.Ping(target);
         }
-        
+
+        // * RPC HANDLERS
+
         // client id associated with event placed in caller prop
         private void HandleClientEvent(IncomingMessage m)
         {
-            switch (m.rpcId)
+            try
             {
-                case RpcId.ClientConnectedId:
-                    if (Logger.includes.clientEvents)
-                        Logger.Write("New client connected: " + m.caller.ToString());
+                switch (m.rpcId)
+                {
+                    case RpcId.ClientConnectedId:
+                        AddClient(m);
+                        break;
 
-                    if (IsAuthority)
-                        _spawner.SendNetworkObjects(m.caller);
-                    else if (IsRelay && m.caller == _buffer.Authority)
-                    {
-                        Authority = m.caller;
-                        if (Logger.includes.clientEvents)
-                            Logger.Write("Host client has been assigned to: " + m.caller.ToString());
-                    }
+                    case RpcId.ClientDisconnectedId:
+                        RemoveClient(m);
+                        break;
 
-                    if (IsRelayed || IsServer)
-                        _simBuffer.AddTickSource(m.caller);
+                    case RpcId.LocalReadyId:
+                        LocalReady(m);
+                        break;
 
-                    _clients.Add(m.caller);
-                    OnClientConnected?.Invoke(m.caller);
-                    break;
+                    case RpcId.HostMigrationId:
+                        MigrateHost(m);
+                        break;
 
-                case RpcId.ClientDisconnectedId:
-                    if (m.caller == LocalId)
-                    {
-                        if (Logger.includes.clientEvents)
-                            Logger.Write(IsServer || IsRelay ? "Local server shutdown." : "Local client disconnected.");
+                    case RpcId.ConnectionRejectedId:
                         IsActive = false;
-                        IsReady = false;
-                        OnLocalDisconnect?.Invoke(LocalId);
-                        _spawner?.DespawnAll();
-                    }
-                    else
-                    {
-                        if (Logger.includes.clientEvents)
-                            Logger.Write("Remote client disconnected: " + m.caller.ToString());
-                        if (IsRelayed || IsServer)
-                            _simBuffer.RemoveTickSource(m.caller);
-                        _clients.Remove(m.caller);
-                        OnClientDisconnected?.Invoke(m.caller);
-                    }
-                    break;
-
-                case RpcId.LocalReadyId:
-                    IsReady = true;
-                    Authority = _buffer.Authority;
-                    if (Logger.includes.clientEvents)
-                        Logger.Write($"Connection is ready. Local client id is: {LocalId}, authority id is: {Authority}");
-                    if (LocalId == Authority && IsClient)
-                    {
-                        NetRole = NetRole.Host;
-                        if (Logger.includes.clientEvents)
-                            Logger.Write("Local client assigned as host, this connection now has authority privileges.");
-                    }
-                    else if (LocalId != Authority && IsHost)
-                    {
-                        NetRole = NetRole.Client;
-                        if (Logger.includes.clientEvents)
-                            Logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
-                    }
-                    _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, Authority);
-                    if (IsServerAuthoritative)
-                        _simBuffer.AddTickSource(ClientId.None);
-                    if (!IsServer && !IsRelay)
-                        _clients.Add(m.caller);
-                    OnReady?.Invoke(m.caller);
-                    break;
-
-                case RpcId.HostMigrationId:
-                    Authority = m.caller;
-                    if (NetRole == NetRole.Host && Authority != LocalId)
-                        NetRole = NetRole.Client;
-                    if (NetRole != NetRole.Relay && m.caller == LocalId)
-                        NetRole = NetRole.Host;
-                    if (Logger.includes.clientEvents)
-                        Logger.Write("Host migrated, new authority is: " + m.caller.ToString());
-                    _simBuffer.UpdateAuthority(Authority);
-                    OnHostMigration?.Invoke(m.caller);
-                    break;
-
-                case RpcId.ConnectionRejectedId:
-                    IsActive = false;
-                    OnConnectionRejected?.Invoke((ConnectionResponseCode)m.args[0]);
-                    break;
+                        OnConnectionRejected?.Invoke((ConnectionResponseCode)m.args[0]);
+                        break;
+                }
             }
+            catch (Exception e)
+            {
+                if (Logger.includes.exceptions)
+                    Logger.Write($"Failed to dispatch client event {RpcId.SpecialIdToString(m.rpcId)}. Exception Thrown:\n{e}");
+            }
+        }
+
+        private void AddClient(IncomingMessage m)
+        {
+            if (Logger.includes.clientEvents)
+                Logger.Write("New client connected: " + m.caller.ToString());
+
+            if (IsAuthority)
+                _spawner.SendNetworkObjects(m.caller);
+            else if (IsRelay && m.caller == _buffer.Authority)
+            {
+                Authority = m.caller;
+                if (Logger.includes.clientEvents)
+                    Logger.Write("Host client has been assigned to: " + m.caller.ToString());
+            }
+
+            // clients in server auth sessions only receive sim updates from the server
+            if (IsRelayed || IsServer)
+                _simBuffer.AddTickSource(m.caller);
+
+            _clients.Add(m.caller);
+            OnClientConnected?.Invoke(m.caller);
+        }
+
+        private void RemoveClient(IncomingMessage m)
+        {
+            if (m.caller == LocalId)
+            {
+                if (Logger.includes.clientEvents)
+                    Logger.Write(IsServer || IsRelay ? "Local server shutdown." : "Local client disconnected.");
+                IsActive = false;
+                IsReady = false;
+                OnLocalDisconnect?.Invoke(LocalId);
+                _spawner?.DespawnAll();
+            }
+            else
+            {
+                if (Logger.includes.clientEvents)
+                    Logger.Write("Remote client disconnected: " + m.caller.ToString());
+                if (IsRelayed || IsServer)
+                    _simBuffer.RemoveTickSource(m.caller);
+                _clients.Remove(m.caller);
+                OnClientDisconnected?.Invoke(m.caller);
+            }
+        }
+
+        private void LocalReady(IncomingMessage m)
+        {
+            IsReady = true;
+            Authority = _buffer.Authority;
+            if (Logger.includes.clientEvents)
+                Logger.Write($"Connection is ready. Local client id is: {LocalId}, authority id is: {Authority}");
+            if (LocalId == Authority && IsClient)
+            {
+                NetRole = NetRole.Host;
+                if (Logger.includes.clientEvents)
+                    Logger.Write("Local client assigned as host, this connection now has authority privileges.");
+            }
+            else if (LocalId != Authority && IsHost)
+            {
+                NetRole = NetRole.Client;
+                if (Logger.includes.clientEvents)
+                    Logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
+            }
+            _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, Authority);
+            if (IsServerAuthoritative)
+                _simBuffer.AddTickSource(ClientId.None);
+            if (!IsServer && !IsRelay)
+                _clients.Add(m.caller);
+            OnReady?.Invoke(m.caller);
+        }
+
+        private void MigrateHost(IncomingMessage m)
+        {
+            Authority = m.caller;
+            if (NetRole == NetRole.Host && Authority != LocalId)
+                NetRole = NetRole.Client;
+            if (NetRole != NetRole.Relay && m.caller == LocalId)
+                NetRole = NetRole.Host;
+            if (Logger.includes.clientEvents)
+                Logger.Write("Host migrated, new authority is: " + m.caller.ToString());
+            _simBuffer.UpdateAuthority(Authority);
+            OnHostMigration?.Invoke(m.caller);
+        }
+
+        private void ResolvePing(IncomingMessage message)
+        {
+            var request = (PingRequest)message.args[0];
+            if (Logger.includes.pings)
+                Logger.Write("Resolved ping request: " + request.ToString());
+            request.PingResolved();
         }
     }
 }

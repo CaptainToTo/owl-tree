@@ -115,9 +115,7 @@ namespace OwlTree
                 serverUdpPort = args.udpPort,
                 bufferSize = args.bufferSize,
                 incomingDecoder = DecodeIncoming,
-                outgoingProvider = _simBuffer.TryGetNextOutgoing,
-                addIncoming = _simBuffer.AddIncoming,
-                addOutgoing = _simBuffer.AddOutgoing,
+                messageQueue = _simBuffer,
                 logger = Logger,
                 simulationSystem = args.simulationSystem,
                 tickRate = TickRate
@@ -165,7 +163,7 @@ namespace OwlTree
                 };
             }
 
-            _buffer.AddReadStep(new NetworkBuffer.Transformer{
+            _buffer.AddRecvStep(new NetworkBuffer.Transformer{
                 priority = 100,
                 step = Huffman.Decode
             });
@@ -186,7 +184,7 @@ namespace OwlTree
                     Logger.Write(str);
                 } : args.bandwidthReporter);
 
-                _buffer.AddReadStep(new NetworkBuffer.Transformer{
+                _buffer.AddRecvStep(new NetworkBuffer.Transformer{
                     priority = 0,
                     step = Bandwidth.RecordIncoming
                 });
@@ -197,8 +195,8 @@ namespace OwlTree
                 });
             }
 
-            foreach (var step in args.readSteps)
-                _buffer.AddReadStep(step);
+            foreach (var step in args.recvSteps)
+                _buffer.AddRecvStep(step);
             foreach (var step in args.sendSteps)
                 _buffer.AddSendStep(step);
 
@@ -244,7 +242,7 @@ namespace OwlTree
         private void NetworkLoop()
         {
             // try to connect if client
-            while (!_buffer.IsReady && IsActive)
+            while (!_buffer.IsReady && _buffer.IsActive)
             {
                 _buffer.Recv();
                 Thread.Sleep(_threadUpdateDelta);
@@ -330,7 +328,7 @@ namespace OwlTree
         {
             if (Threaded)
                 throw new InvalidOperationException("Cannot perform await connection operation on a threaded connection. This is handled for you in a dedicated thread.");
-            while (!_buffer.IsReady)
+            while (!_buffer.IsReady && _buffer.IsActive)
             {
                 _buffer.Recv();
                 Thread.Sleep(_threadUpdateDelta);
@@ -350,47 +348,19 @@ namespace OwlTree
             {
                 if (message.rpcId.IsClientEvent())
                 {
-                    try
-                    {
-                        HandleClientEvent(message);
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.Write($"Failed to dispatch client event {RpcId.SpecialIdToString(message.rpcId)}. Exception Thrown:\n{e}");
-                    }
+                    HandleClientEvent(message);
                 }
                 else if (NetRole == NetRole.Client && message.rpcId.IsObjectEvent())
                 {
-                    try
-                    {
-                        _spawner.ReceiveInstruction(message.rpcId, message.args);
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.Write($"Failed to run {(message.rpcId == RpcId.NetworkObjectSpawnId ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
-                    }
+                    HandleSpawnerMessage(message);
                 }
-                // pings sent by this connection will
                 else if (message.rpcId == RpcId.PingRequestId)
                 {
-                    var request = (PingRequest)message.args[0];
-                    if (Logger.includes.pings)
-                        Logger.Write("Resolved ping request: " + request.ToString());
-                    request.PingResolved();
+                    ResolvePing(message);
                 }
                 else if (TryGetObject(message.target, out var target))
                 {
-                    try
-                    {
-                        Protocols.InvokeRpc(message.caller, message.callee, message.rpcId, target, message.args);
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n   {e}");
-                    }
+                    InvokeRpc(message, target);
                 }
 
                 // if local connection was disconnected in a client event received, exit
@@ -398,21 +368,7 @@ namespace OwlTree
                     return;
             }
 
-            for (int i = 0; i < _idSearches.Count; i++)
-            {
-                var search = _idSearches[i];
-                try {
-                    if (search.SearchForObject(this))
-                    {
-                        _idSearches.RemoveAt(i);
-                        i--;
-                    }
-                }
-                catch (Exception e) {
-                    if (Logger.includes.exceptions)
-                        Logger.Write($"FAILED to find object with id {search.Id()}, threw exception:\n{e}");
-                }
-            }
+            SearchForObjects();
 
             _simBuffer.NextTick();
         }
