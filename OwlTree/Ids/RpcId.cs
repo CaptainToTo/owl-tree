@@ -20,7 +20,7 @@ namespace OwlTree
         internal const UInt32 CurTickId               = 10;
         internal const UInt32 EndTickId               = 11;
         internal const UInt32 TickReadyId             = 12;
-        
+        internal const UInt32 LocalDisconnectId       = 13;
         internal const UInt32 ReplicatePropertyId     = 14;
         internal const UInt32 LocalReadyId            = 15;
         internal const UInt32 ConnectionRejectedId    = 16;

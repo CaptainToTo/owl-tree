@@ -35,6 +35,8 @@ namespace OwlTree
             public ushort minAppVer;
             public string appId;
             public string sessionId;
+            public bool migratable;
+            public bool shutdownWhenEmpty;
 
             public string addr;
             public int serverTcpPort;
@@ -78,6 +80,8 @@ namespace OwlTree
         public readonly ushort MinAppVersion;
         public readonly StringId ApplicationId;
         public readonly StringId SessionId;
+        public bool ShutdownWhenEmpty { get; protected set; }
+        public bool Migratable { get; protected set; }
 
         protected readonly Logger Logger;
 
@@ -101,6 +105,8 @@ namespace OwlTree
             MinAppVersion = args.minAppVer;
             ApplicationId = new StringId(args.appId);
             SessionId = new StringId(args.sessionId);
+            ShutdownWhenEmpty = args.shutdownWhenEmpty;
+            Migratable = ShutdownWhenEmpty ? args.migratable : true;
 
             Address = IPAddress.Parse(args.addr);
             ServerTcpPort = args.serverTcpPort;
@@ -194,22 +200,6 @@ namespace OwlTree
         protected IncomingDecoder Decode;
 
         /// <summary>
-        /// Gets outgoing messages to insert into packets and send.
-        /// </summary>
-        protected OutgoingProvider TryGetNextOutgoing;
-
-        /// <summary>
-        /// Direct access to add incoming messages to the message buffer.
-        /// </summary>
-        protected IncomingMessage.Delegate AddIncoming;
-
-        /// <summary>
-        /// Direct access to add outgoing messages to the message buffer. The added message will eventually be consumed
-        /// by <c>TryGetNextOutgoing</c>.
-        /// </summary>
-        protected OutgoingMessage.Delegate AddOutgoing;
-
-        /// <summary>
         /// The simulation system this connection is using. All connections in this session must
         /// have the same control system.
         /// </summary>
@@ -269,9 +259,9 @@ namespace OwlTree
                 Disconnect(m.callee);
             else if (m.rpcId == RpcId.HostMigrationId)
                 MigrateHost(m.callee);
-            else if (m.rpcId == RpcId.LocalClientConnectedId)
+            else if (m.rpcId == RpcId.LocalDisconnectId)
                 Disconnect();
-            return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId || m.rpcId == RpcId.LocalClientConnectedId;
+            return m.rpcId == RpcId.ClientDisconnectedId || m.rpcId == RpcId.HostMigrationId || m.rpcId == RpcId.LocalDisconnectId;
         }
 
         /// <summary>
@@ -430,17 +420,6 @@ namespace OwlTree
                         Logger.Write($"Failed to apply recv step with priority {step.priority}. Exception thrown:\n{e}");
                 }
             }
-        }
-
-        /// <summary>
-        /// Begin shutdown of the local connection. Ensures clean escape.
-        /// </summary>
-        public void SendDisconnectSignal()
-        {
-            MessageQueue.AddOutgoing(new OutgoingMessage
-            {
-                rpcId = new RpcId(RpcId.LocalClientConnectedId)
-            });
         }
 
         /// <summary>

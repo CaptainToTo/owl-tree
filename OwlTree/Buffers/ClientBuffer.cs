@@ -379,6 +379,8 @@ namespace OwlTree
                     Authority = assignment.authorityId;
                     _hash = assignment.assignedHash;
                     MaxClients = assignment.maxClients;
+                    Migratable = assignment.migratable;
+                    ShutdownWhenEmpty = assignment.shutdownWhenEmpty;
                     IsReady = true;
                     AddReadyMessage(LocalId);
                     break;

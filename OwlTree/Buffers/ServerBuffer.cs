@@ -32,6 +32,8 @@ namespace OwlTree
             ServerUdpPort = _udpServer.Port;
             _readList.Add(_udpServer.Socket);
 
+            Migratable = false;
+
             _clientData = new ClientDataList(BufferSize, Timestamp.Millisecond);
             _whitelist = whitelist;
 
@@ -123,7 +125,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients, Migratable, ShutdownWhenEmpty));
 
                     foreach (var otherClient in _clientData)
                     {

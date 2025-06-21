@@ -110,6 +110,8 @@ namespace OwlTree
                 minAppVer = args.minAppVersion,
                 appId = args.appId,
                 sessionId = args.sessionId,
+                migratable = args.migratable,
+                shutdownWhenEmpty = args.shutdownWhenEmpty,
                 addr = args.serverAddr,
                 serverTcpPort = args.tcpPort,
                 serverUdpPort = args.udpPort,
@@ -128,7 +130,7 @@ namespace OwlTree
                     IsReady = true;
                     break;
                 case NetRole.Relay:
-                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.migratable, args.shutdownWhenEmpty, args.whitelist);
+                    _buffer = new RelayBuffer(bufferArgs, args.maxClients, args.connectionRequestTimeout, args.hostAddr, args.whitelist);
                     IsReady = true;
                     break;
                 case NetRole.Client:
@@ -234,7 +236,7 @@ namespace OwlTree
         /// <summary>
         /// Whether or not this connection is using a send/recv thread.
         /// </summary>
-        public bool Threaded { get; private set; } = false;
+        public readonly bool Threaded = false;
         private int _threadUpdateDelta = 40;
         private Thread _bufferThread = null;
 

@@ -141,12 +141,24 @@ namespace OwlTree
         /// </summary>
         public int maxClients;
 
-        public ClientIdAssignment(ClientId assigned, ClientId authority, uint hash, int maxClients)
+        /// <summary>
+        /// Whether or not the authority of a relayed peer-to-peer session (the host) can be reassigned.
+        /// </summary>
+        public bool migratable;
+
+        /// <summary>
+        /// Whether or not the session will be shutdown once all clients disconnect.
+        /// </summary>
+        public bool shutdownWhenEmpty;
+
+        public ClientIdAssignment(ClientId assigned, ClientId authority, uint hash, int maxClients, bool migratable, bool shutdownWhenEmpty)
         {
             assignedId = assigned;
             authorityId = authority;
             assignedHash = hash;
             this.maxClients = maxClients;
+            this.migratable = migratable;
+            this.shutdownWhenEmpty = shutdownWhenEmpty;
         }
 
         public ClientIdAssignment(ReadOnlySpan<byte> bytes)
@@ -155,17 +167,19 @@ namespace OwlTree
             authorityId = ClientId.None;
             assignedHash = 0;
             maxClients = int.MaxValue;
+            migratable = false;
+            shutdownWhenEmpty = true;
             FromBytes(bytes);
         }
 
         public static int MaxLength()
         {
-            return ClientId.MaxByteLength + ClientId.MaxByteLength + 4 + 4;
+            return ClientId.MaxByteLength + ClientId.MaxByteLength + 4 + 4 + 2;
         }
 
         public int ByteLength()
         {
-            return assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4;
+            return assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4 + 2;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
@@ -174,6 +188,8 @@ namespace OwlTree
             authorityId.FromBytes(bytes.Slice(assignedId.ByteLength()));
             assignedHash = BitConverter.ToUInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()));
             maxClients = BitConverter.ToInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4));
+            migratable = bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4] == 0 ? false : true;
+            shutdownWhenEmpty = bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 5] == 0 ? false : true;
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -182,6 +198,8 @@ namespace OwlTree
             authorityId.InsertBytes(bytes.Slice(assignedId.ByteLength()));
             BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()), assignedHash);
             BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4), maxClients);
+            bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4] = (byte)(migratable ? 1 : 0);
+            bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 5] = (byte)(shutdownWhenEmpty ? 1 : 0);
         }
     }
 }

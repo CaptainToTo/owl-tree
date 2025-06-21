@@ -63,8 +63,8 @@ namespace OwlTree
         /// <summary>
         /// Disconnect the local connection. If this is a server, the server is shut down.
         /// if this is a client, disconnect from the server.
-        /// If connection is threaded, then connection will not immediately become inactive
-        /// as resources are cleaned up. Listen to OnLocalDisconnect event for when the 
+        /// If this connection is threaded, then it will not immediately become inactive
+        /// as resources are cleaned up. Listen to the <c>OnLocalDisconnect</c> event for when the 
         /// connection becomes inactive.
         /// </summary>
         public void Disconnect()
@@ -72,7 +72,12 @@ namespace OwlTree
             if (!IsActive || !_buffer.IsActive)
                 return;
             else if (Threaded)
-                _buffer.SendDisconnectSignal();
+            {
+                _simBuffer.AddOutgoing(new OutgoingMessage
+                {
+                    rpcId = new RpcId(RpcId.LocalDisconnectId)
+                });
+            }
             else
             {
                 _buffer.Disconnect();
@@ -111,9 +116,11 @@ namespace OwlTree
         public void MigrateHost(ClientId id)
         {
             if (IsClient)
-                throw new InvalidOperationException("Only the current host or the relay server can initiate a host migration.");
+                    throw new InvalidOperationException("Only the current host or the relay server can initiate a host migration.");
             if (IsServer)
                 throw new InvalidOperationException("Server authoritative sessions cannot have authority migrated off of the server.");
+            if (!Migratable)
+                throw new InvalidOperationException("This session cannot have its authority migrated because the 'migratable' argument was set to false at session configuration.");
             if (Threaded)
             {
                 _simBuffer.AddOutgoing(new OutgoingMessage

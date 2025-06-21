@@ -54,7 +54,13 @@ namespace OwlTree
         /// Returns true if the current session supports host migration.
         /// This can only be the case for relayed sessions.
         /// </summary>
-        public bool Migratable => IsRelay ? ((RelayBuffer)_buffer).Migratable : false;
+        public bool Migratable => _buffer.Migratable;
+
+        /// <summary>
+        /// Returns true if this session will automatically end once all
+        /// clients disconnect, closing the server connection.
+        /// </summary>
+        public bool ShutdownWhenEmpty => _buffer.ShutdownWhenEmpty;
 
         /// <summary>
         /// The TCP port the server connection managing this session is listening to.

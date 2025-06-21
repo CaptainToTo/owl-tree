@@ -13,7 +13,7 @@ namespace OwlTree
     /// </summary>
     public class RelayBuffer : NetworkBuffer
     {
-        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr, bool migratable, bool shutdownWhenEmpty, IPAddress[] whitelist) : base(args)
+        public RelayBuffer(Args args, int maxClients, long requestTimeout, string hostAddr, IPAddress[] whitelist) : base(args)
         {
             IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, ServerTcpPort);
             _tcpRelay = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -29,10 +29,8 @@ namespace OwlTree
 
             _whitelist = whitelist;
 
-            ShutdownWhenEmpty = shutdownWhenEmpty;
             if (hostAddr != null)
                 _hostAddr = IPAddress.Parse(hostAddr);
-            Migratable = ShutdownWhenEmpty ? migratable : true;
 
             _clientData = new ClientDataList(BufferSize, Timestamp.Millisecond);
 
@@ -76,17 +74,6 @@ namespace OwlTree
                 if (a.Equals(addr)) return true;
             return false;
         }
-
-        /// <summary>
-        /// Whether or not the host role can be migrated or not. 
-        /// If not, then the relay server will shutdown when the host disconnects.
-        /// </summary>
-        public bool Migratable { get; private set; }
-
-        /// <summary>
-        /// Whether or not to shutdown the server if it is empty.
-        /// </summary>
-        public bool ShutdownWhenEmpty { get; private set; }
 
         public override void Recv()
         {
@@ -149,7 +136,7 @@ namespace OwlTree
 
                     // send new client their id
                     var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients));
+                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients, Migratable, ShutdownWhenEmpty));
 
                     foreach (var otherClient in _clientData)
                     {
