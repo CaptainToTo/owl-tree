@@ -227,7 +227,7 @@ namespace OwlTree
 
                             if (Logger.includes.connectionAttempts)
                             {
-                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") received: \n" + PacketToString(ReadPacket));
+                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") received: \n" + ReadPacket.ToString());
                             }
 
                             // if the pre-assigned host hasn't connected yet, no-one else can join 
@@ -382,7 +382,7 @@ namespace OwlTree
                         if (Logger.includes.tcpPostTransform)
                         {
                             var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform TCP packet from {client.id}:\n");
-                            PacketToString(ReadPacket, packetStr);
+                            ReadPacket.ToString(packetStr);
                             Logger.Write(packetStr.ToString());
                         }
 
@@ -391,7 +391,7 @@ namespace OwlTree
                         if (Logger.includes.tcpPreTransform)
                         {
                             var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform TCP packet from {client.id}:\n");
-                            PacketToString(ReadPacket, packetStr);
+                            ReadPacket.ToString(packetStr);
                             Logger.Write(packetStr.ToString());
                         }
                         
@@ -466,7 +466,7 @@ namespace OwlTree
                 if (Logger.includes.udpPostTransform)
                 {
                     var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from {client.id}:\n");
-                    PacketToString(ReadPacket, packetStr);
+                    ReadPacket.ToString(packetStr);
                     Logger.Write(packetStr.ToString());
                 }
 
@@ -475,7 +475,7 @@ namespace OwlTree
                 if (Logger.includes.udpPreTransform)
                 {
                     var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform UDP packet from {client.id}:\n");
-                    PacketToString(ReadPacket, packetStr);
+                    ReadPacket.ToString(packetStr);
                     Logger.Write(packetStr.ToString());
                 }
 
@@ -659,7 +659,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPreTransform)
                     {
                         var packetStr = new StringBuilder($"SENDING: Pre-Transform TCP packet to {client.id}:\n");
-                        PacketToString(client.tcpPacket, packetStr);
+                        client.tcpPacket.ToString(packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -669,7 +669,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPostTransform)
                     {
                         var packetStr = new StringBuilder($"SENDING: Post-Transform TCP packet to {client.id}:\n");
-                        PacketToString(client.tcpPacket, packetStr);
+                        client.tcpPacket.ToString(packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -693,7 +693,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPreTransform)
                     {
                         var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to {client.id}:\n");
-                        PacketToString(client.udpPacket, packetStr);
+                        client.udpPacket.ToString(packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 
@@ -703,7 +703,7 @@ namespace OwlTree
                     if (Logger.includes.tcpPostTransform)
                     {
                         var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to {client.id}:\n");
-                        PacketToString(client.udpPacket, packetStr);
+                        client.udpPacket.ToString(packetStr);
                         Logger.Write(packetStr.ToString());
                     }
 

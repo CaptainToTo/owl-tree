@@ -125,34 +125,6 @@ namespace OwlTree
             IsActive = true;
         }
 
-        protected void PacketToString(Packet p, StringBuilder str)
-        {
-            var packet = p.GetPacket();
-            for (int i = 0; i < packet.Length; i++)
-            {
-                str.Append(packet[i].ToString("X2"));
-                if (i < packet.Length - 1)
-                    str.Append('-');
-                if (i % 32 == 0 && i != 0)
-                    str.Append('\n');
-            }
-        }
-
-        protected string PacketToString(Packet p)
-        {
-            var str = "";
-            var packet = p.GetPacket();
-            for (int i = 0; i < packet.Length; i++)
-            {
-                str += packet[i].ToString("X2");
-                if (i < packet.Length - 1)
-                    str += '-';
-                if (i % 32 == 0 && i != 0)
-                    str += '\n';
-            }
-            return str;
-        }
-
         // add client events to incoming queue
 
         protected void AddClientConnectedMessage(ClientId id)

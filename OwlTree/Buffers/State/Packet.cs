@@ -1,6 +1,7 @@
 
 using System;
 using System.Linq;
+using System.Text;
 
 namespace OwlTree
 {
@@ -26,40 +27,6 @@ namespace OwlTree
             /// The specific version of your application this packet was sent from.
             /// </summary>
             public ushort appVer { get; internal set; }
-
-            // 1 byte
-            /// <summary>
-            /// Reserved flag for signifying whether or not compression was used on this packet.
-            /// </summary>
-            public bool compressionEnabled { get; internal set; }
-            /// <summary>
-            /// Reserved flag for signifying a specific packet number needs to be resent.
-            /// </summary>
-            public bool resendRequest { get; internal set; }
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool connectionConfirmation { get; internal set; }
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool pingRequest {get; internal set; }
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag2;
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag3;
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag4;
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag5;
 
             // 8 bytes
             /// <summary>
@@ -91,6 +58,40 @@ namespace OwlTree
             /// The ordered id of the packet. Used for reliable UDP packet transfer.
             /// </summary>
             public uint packetNum { get; internal set; }
+            
+            // 1 byte
+            /// <summary>
+            /// Reserved flag for signifying whether or not compression was used on this packet.
+            /// </summary>
+            public bool compressionEnabled { get; internal set; }
+            /// <summary>
+            /// Reserved flag for signifying a specific packet number needs to be resent.
+            /// </summary>
+            public bool resendRequest { get; internal set; }
+            /// <summary>
+            /// Reserved flag for signifying a specific packet is for sending ping requests.
+            /// </summary>
+            public bool pingRequest { get; internal set; }
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag1;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag2;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag3;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag4;
+            /// <summary>
+            /// Available header flag for application specific use.
+            /// </summary>
+            public bool flag5;
 
             public void InsertBytes(Span<byte> bytes)
             {
@@ -119,8 +120,8 @@ namespace OwlTree
                 byte flags = 0;
                 flags |= (byte)(compressionEnabled ? 0x1 : 0);
                 flags |= (byte)(resendRequest ? 0x1 << 1 : 0);
-                flags |= (byte)(connectionConfirmation ? 0x1 << 2 : 0);
-                flags |= (byte)(pingRequest ? 0x1 << 3 : 0);
+                flags |= (byte)(pingRequest ? 0x1 << 2 : 0);
+                flags |= (byte)(flag1 ? 0x1 << 3 : 0);
                 flags |= (byte)(flag2 ? 0x1 << 4 : 0);
                 flags |= (byte)(flag3 ? 0x1 << 5 : 0);
                 flags |= (byte)(flag4 ? 0x1 << 6 : 0);
@@ -158,8 +159,8 @@ namespace OwlTree
                 byte flags = bytes[ind];
                 compressionEnabled = (flags & 0x1) == 1;
                 resendRequest = (flags & (0x1 << 1)) != 0;
-                connectionConfirmation = (flags & (0x1 << 2)) != 0;
-                pingRequest = (flags & (0x1 << 3)) != 0;
+                pingRequest = (flags & (0x1 << 2)) != 0;
+                flag1 = (flags & (0x1 << 3)) != 0;
                 flag2 = (flags & (0x1 << 4)) != 0;
                 flag3 = (flags & (0x1 << 5)) != 0;
                 flag4 = (flags & (0x1 << 6)) != 0;
@@ -174,8 +175,8 @@ namespace OwlTree
                 hash = 0;
                 compressionEnabled = false;
                 resendRequest = false;
-                connectionConfirmation = false;
                 pingRequest = false;
+                flag1 = false;
                 flag2 = false;
                 flag3 = false;
                 flag4 = false;
@@ -225,7 +226,7 @@ namespace OwlTree
         {
             return _tail + bytes < _buffer.Length;
         }
-        
+
         /// <summary>
         /// If the packet data has been resized from outside the class (such as for compression),
         /// update the byte length of the message portion of this packet. The given size excludes the 
@@ -242,7 +243,7 @@ namespace OwlTree
                 _tail = Header.ByteLength + size;
             }
         }
-        
+
         /// <summary>
         /// Gets a span of the full packet. This will exclude empty bytes at the end of the buffer.
         /// </summary>
@@ -283,7 +284,7 @@ namespace OwlTree
                 _endOfFragment = _tail;
                 _startOfNextFragment = _tail;
             }
-            
+
             BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), byteCount);
             _tail += 4;
 
@@ -309,11 +310,11 @@ namespace OwlTree
                 if (dataLen - start >= Header.ByteLength)
                 {
                     header.FromBytes(bytes.AsSpan(i));
-                    Incomplete = dataLen - start < header.length; 
+                    Incomplete = dataLen - start < header.length;
 
                     if (header.length > _buffer.Length)
                         Array.Resize(ref _buffer, header.length + 1);
-                    
+
                     _tail = Header.ByteLength;
                     i = start + Header.ByteLength;
                 }
@@ -331,17 +332,17 @@ namespace OwlTree
             }
             else if (_tail < Header.ByteLength)
             {
-                for (;_tail < Header.ByteLength; _tail++)
+                for (; _tail < Header.ByteLength; _tail++)
                 {
                     _buffer[_tail] = bytes[i];
                     i++;
                 }
                 header.FromBytes(_buffer);
-                Incomplete = dataLen - i < header.length - Header.ByteLength; 
+                Incomplete = dataLen - i < header.length - Header.ByteLength;
 
                 if (header.length > _buffer.Length)
                     Array.Resize(ref _buffer, header.length + 1);
-                
+
                 _tail = Header.ByteLength;
             }
 
@@ -371,8 +372,8 @@ namespace OwlTree
         /// <summary>
         /// Empty the buffer of bytes that currently would be sent using <c>GetPacket()</c>.
         /// </summary>
-        internal void Reset() 
-        { 
+        internal void Reset()
+        {
             header.Reset();
             // if no fragmentation used, just reset indices
             if (!_useFragments || !FragmentationNeeded)
@@ -444,23 +445,43 @@ namespace OwlTree
             message = new Span<byte>();
             if (_start >= bytes.Length - 4)
                 return false;
-            
+
             var len = BitConverter.ToInt32(bytes.Slice(_start));
 
             if (len == 0 || _start + len + 4 > bytes.Length)
                 return false;
-            
+
             message = bytes.Slice(_start + 4, len);
             _start += 4 + len;
             return true;
         }
+        
+        public void ToString(StringBuilder str)
+        {
+            var packet = GetPacket();
+            for (int i = 0; i < packet.Length; i++)
+            {
+                str.Append(packet[i].ToString("X2"));
+                if (i < packet.Length - 1)
+                    str.Append('-');
+                if (i % 32 == 0 && i != 0)
+                    str.Append('\n');
+            }
+        }
 
-        /// <summary>
-        /// Get the current buffer as a string of hex values.
-        /// </summary>
         public override string ToString()
         {
-            return BitConverter.ToString(GetPacket().ToArray());
+            var str = "";
+            var packet = GetPacket();
+            for (int i = 0; i < packet.Length; i++)
+            {
+                str += packet[i].ToString("X2");
+                if (i < packet.Length - 1)
+                    str += '-';
+                if (i % 32 == 0 && i != 0)
+                    str += '\n';
+            }
+            return str;
         }
     }
 }
