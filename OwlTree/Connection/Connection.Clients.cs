@@ -195,7 +195,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"Failed to dispatch client event {RpcId.SpecialIdToString(m.rpcId)}. Exception Thrown:\n{e}");
+                    Logger.WriteError($"Failed to dispatch client event {RpcId.SpecialIdToString(m.rpcId)}.", e);
             }
         }
 

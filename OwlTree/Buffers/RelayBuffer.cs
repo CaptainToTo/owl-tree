@@ -127,9 +127,7 @@ namespace OwlTree
                         Authority = clientData.id;
 
                         if (Logger.includes.connectionAttempts)
-                        {
                             Logger.Write($"Client {clientData.id} assigned as host.");
-                        }
                     }
 
                     AddClientConnectedMessage(clientData.id);
@@ -177,7 +175,11 @@ namespace OwlTree
                                 throw new InvalidOperationException("Cannot accept packets from outdated OwlTree or app versions.");
                             }
                         }
-                        catch { }
+                        catch (Exception e)
+                        {
+                            if (Logger.includes.exceptions)
+                                Logger.WriteError("Failed to receive UDP packet.", e);
+                        }
 
                         if (dataLen <= 0)
                         {
@@ -215,7 +217,7 @@ namespace OwlTree
                                 catch (Exception e)
                                 {
                                     if (Logger.includes.exceptions)
-                                        Logger.Write($"FAILED to handle UDP ping request message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
+                                        Logger.WriteError($"Failed to handle UDP ping request message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
                                 }
                             }
                         }
@@ -336,8 +338,11 @@ namespace OwlTree
                                 dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining, dataLen);
                                 iters++;
                             }
-                            catch
+                            catch (Exception e)
                             {
+                                if (Logger.includes.exceptions)
+                                    Logger.WriteError($"Failed to receive TCP packet from {((IPEndPoint)socket.RemoteEndPoint).Address} ({((IPEndPoint)socket.RemoteEndPoint).Port})", e);
+
                                 dataLen = -1;
                                 break;
                             }
@@ -380,20 +385,12 @@ namespace OwlTree
                         }
 
                         if (Logger.includes.tcpPostTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform TCP packet from {client.id}:\n");
-                            ReadPacket.ToString(packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
+                            Logger.WriteRecv($"mutated Post-Transform TCP packet from {client.id}:", ReadPacket);
 
                         ApplyRecvSteps(ReadPacket);
 
                         if (Logger.includes.tcpPreTransform)
-                        {
-                            var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform TCP packet from {client.id}:\n");
-                            ReadPacket.ToString(packetStr);
-                            Logger.Write(packetStr.ToString());
-                        }
+                            Logger.WriteRecv($"original Pre-Transform TCP packet from {client.id}:", ReadPacket);
                         
                         ReadPacket.StartMessageRead();
                         while (ReadPacket.TryGetNextMessage(out var bytes))
@@ -440,7 +437,7 @@ namespace OwlTree
                             catch (Exception e)
                             {
                                 if (Logger.includes.exceptions)
-                                    Logger.Write($"FAILED to relay TCP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
+                                    Logger.WriteError($"Failed to relay TCP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
                             }
                         }
                     } while (dataRemaining > 0);
@@ -464,20 +461,12 @@ namespace OwlTree
                 }
 
                 if (Logger.includes.udpPostTransform)
-                {
-                    var packetStr = new StringBuilder($"RECEIVED: mutated Post-Transform UDP packet from {client.id}:\n");
-                    ReadPacket.ToString(packetStr);
-                    Logger.Write(packetStr.ToString());
-                }
+                    Logger.WriteRecv($"mutated Post-Transform UDP packet from {client.id}:", ReadPacket);
 
                 ApplyRecvSteps(ReadPacket);
 
                 if (Logger.includes.udpPreTransform)
-                {
-                    var packetStr = new StringBuilder($"RECEIVED: original Pre-Transform UDP packet from {client.id}:\n");
-                    ReadPacket.ToString(packetStr);
-                    Logger.Write(packetStr.ToString());
-                }
+                    Logger.WriteRecv($"original Pre-Transform UDP packet from {client.id}:", ReadPacket);
 
                 ReadPacket.StartMessageRead();
                 while (ReadPacket.TryGetNextMessage(out var bytes))
@@ -505,7 +494,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.Write($"FAILED to relay UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}. Exception thrown:\n{e}");
+                            Logger.WriteError($"Failed to relay UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
                     }
                 }
             }
@@ -657,21 +646,13 @@ namespace OwlTree
                     client.tcpPacket.header.timestamp = Timestamp.Now;
 
                     if (Logger.includes.tcpPreTransform)
-                    {
-                        var packetStr = new StringBuilder($"SENDING: Pre-Transform TCP packet to {client.id}:\n");
-                        client.tcpPacket.ToString(packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
+                        Logger.WriteSend($"Pre-Transform TCP packet to {client.id}:", client.tcpPacket);
 
                     ApplySendSteps(client.tcpPacket);
                     var bytes = client.tcpPacket.GetPacket();
 
                     if (Logger.includes.tcpPostTransform)
-                    {
-                        var packetStr = new StringBuilder($"SENDING: Post-Transform TCP packet to {client.id}:\n");
-                        client.tcpPacket.ToString(packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
+                        Logger.WriteSend($"Post-Transform TCP packet to {client.id}:", client.tcpPacket);
 
                     try
                     {
@@ -681,7 +662,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.Write($"FAILED to send TCP packet to {client.id}. Exception thrown:\n{e}");
+                            Logger.WriteError($"Failed to send TCP packet to {client.id}.", e);
                     }
                     client.tcpPacket.Reset();
                 }
@@ -691,21 +672,13 @@ namespace OwlTree
                     client.udpPacket.header.timestamp = Timestamp.Now;
 
                     if (Logger.includes.tcpPreTransform)
-                    {
-                        var packetStr = new StringBuilder($"SENDING: Pre-Transform UDP packet to {client.id}:\n");
-                        client.udpPacket.ToString(packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
+                        Logger.WriteSend($"Pre-Transform UDP packet to {client.id}:", client.udpPacket);
 
                     ApplySendSteps(client.udpPacket);
                     var bytes = client.udpPacket.GetPacket();
 
                     if (Logger.includes.tcpPostTransform)
-                    {
-                        var packetStr = new StringBuilder($"SENDING: Post-Transform UDP packet to {client.id}:\n");
-                        client.udpPacket.ToString(packetStr);
-                        Logger.Write(packetStr.ToString());
-                    }
+                        Logger.WriteSend($"Post-Transform UDP packet to {client.id}:", client.udpPacket);
 
                     try
                     {
@@ -714,7 +687,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.Write($"FAILED to send UDP packet to {client.id}. Exception throw:\n{e}");
+                            Logger.WriteError($"Failed to send UDP packet to {client.id}.", e);
                     }
                     client.udpPacket.Reset();
                 }

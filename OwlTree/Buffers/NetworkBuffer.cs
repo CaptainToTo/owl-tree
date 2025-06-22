@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
-using System.Text;
 
 namespace OwlTree
 {
@@ -20,12 +18,6 @@ namespace OwlTree
         /// Function signature used to collect individual incoming messages for decoding.
         /// </summary>
         public delegate void IncomingDecoder(ClientId caller, ReadOnlySpan<byte> bytes, Protocol protocol);
-
-        /// <summary>
-        /// The number of milliseconds a client can go without receiving or sending anything
-        /// before a confirmation packet needs to be sent to ensure they are still connected.
-        /// </summary>
-        internal const int ConfirmationThreshold = 5000;
 
         public struct Args
         {
@@ -260,7 +252,7 @@ namespace OwlTree
                 bytes = new byte[PingRequestLength]
             };
             if (Logger.includes.pings)
-                Logger.Write("SENDING ping request: " + request.ToString());
+                Logger.WriteSend("ping request: " + request.ToString());
             PingRequestEncode(message.bytes, request);
             MessageQueue.AddOutgoing(message);
             return request;
@@ -276,7 +268,7 @@ namespace OwlTree
             var bytes = packet.GetSpan(PingRequestLength);
             PingRequestEncode(bytes, request);
             if (Logger.includes.pings)
-                Logger.Write("RECEIVING ping request: " + request.ToString());
+                Logger.WriteRecv("ping request: " + request.ToString());
         }
 
         /// <summary>
@@ -296,7 +288,7 @@ namespace OwlTree
                 args = new object[]{request}
             });
             if (Logger.includes.pings)
-                Logger.Write("FAILING ping request due to timeout: " + request.ToString());
+                Logger.WriteError("Failing ping request due to timeout: " + request.ToString());
         }
         
         /// <summary>
@@ -352,7 +344,7 @@ namespace OwlTree
                 catch (Exception e)
                 {
                     if (Logger.includes.exceptions)
-                        Logger.Write($"Failed to apply send step with priority {step.priority}. Exception throw:\n{e}");
+                        Logger.WriteError($"Failed to apply send step with priority {step.priority}.", e);
                 }
             }
         }
@@ -389,7 +381,7 @@ namespace OwlTree
                 catch (Exception e)
                 {
                     if (Logger.includes.exceptions)
-                        Logger.Write($"Failed to apply recv step with priority {step.priority}. Exception thrown:\n{e}");
+                        Logger.WriteError($"Failed to apply recv step with priority {step.priority}.", e);
                 }
             }
         }

@@ -92,7 +92,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"FAILED to spawn new NetworkObject. Exception thrown:\n{e}");
+                    Logger.WriteError("Failed to spawn new NetworkObject.", e);
                 return null;
             }
         }
@@ -117,7 +117,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"FAILED to spawn new NetworkObject. Exception thrown:\n{e}");
+                    Logger.WriteError("Failed to spawn new NetworkObject.", e);
                 return null;
             }
         }
@@ -141,7 +141,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"FAILED to despawn NetworkObject. Exception thrown:\n{e}");
+                    Logger.WriteError("Failed to despawn NetworkObject.", e);
             }
         }
 
@@ -236,7 +236,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"Failed to run {(message.rpcId == RpcId.NetworkObjectSpawnId ? "spawn" : "despawn")} instruction. Exception thrown:\n   {e}");
+                    Logger.WriteError($"Failed to run {(message.rpcId == RpcId.NetworkObjectSpawnId ? "spawn" : "despawn")} instruction.", e);
             }
         }
 
@@ -256,7 +256,7 @@ namespace OwlTree
                 catch (Exception e)
                 {
                     if (Logger.includes.exceptions)
-                        Logger.Write($"FAILED to find object with id {search.Id()}, threw exception:\n{e}");
+                        Logger.WriteError($"Failed to find object with id {search.Id()}.", e);
                 }
             }
         }

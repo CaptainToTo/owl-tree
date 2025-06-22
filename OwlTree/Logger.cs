@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace OwlTree
 {
@@ -153,7 +154,7 @@ namespace OwlTree
             }
 
             internal bool tcpPreTransform { get; private set; }
-            
+
             /// <summary>
             /// Output TCP packets in full, before any transformer steps are applied.
             /// </summary>
@@ -282,6 +283,44 @@ namespace OwlTree
                     text = text + "\n";
                 _printer.Invoke(text);
             }
+        }
+
+        /// <summary>
+        /// Logs an error following a set format. Wraps the normal <c>Write()</c> method.
+        /// </summary>
+        public void WriteError(string text, Exception e = null)
+        {
+            Write("ERROR: " + text + (e != null ? "\nException Thrown:\n" + e.ToString() : ""));
+        }
+
+        /// <summary>
+        /// Logs a sent packet following a set format. Wraps the normal <c>Write()</c> method.
+        /// </summary>
+        public void WriteSend(string text, Packet p = null)
+        {
+            var str = new StringBuilder("SENDING: ");
+            str.Append(text);
+            if (p != null)
+            {
+                str.Append("\nPacket:\n");
+                p.ToString(str);
+            }
+            Write(str.ToString());
+        }
+
+        /// <summary>
+        /// Logs a received packet following a set format. Wraps the normal <c>Write()</c> method.
+        /// </summary>
+        public void WriteRecv(string text, Packet p = null)
+        {
+            var str = new StringBuilder("RECEIVED: ");
+            str.Append(text);
+            if (p != null)
+            {
+                str.Append("\nPacket:\n");
+                p.ToString(str);
+            }
+            Write(str.ToString());
         }
     }
 }

@@ -261,7 +261,7 @@ namespace OwlTree
                 catch (Exception e)
                 {
                     if (Logger.includes.exceptions)
-                        Logger.Write("FAILED during receive in network thread. Connection will be closed. Exception thrown:\n" + e.ToString());
+                        Logger.WriteError("Failed during receive in network thread. Connection will be closed.", e);
                     _buffer.Disconnect();
                 }
 
@@ -277,7 +277,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.Write("FAILED during send in network thread. Connection will be closed. Exception thrown:\n" + e.ToString());
+                            Logger.WriteError("Failed during send in network thread. Connection will be closed.", e);
                         _buffer.Disconnect();
                         break;
                     }

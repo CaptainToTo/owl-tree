@@ -162,7 +162,7 @@ namespace OwlTree
                     var str = new StringBuilder();
                     for (int i = 0; i < args.Length; i++)
                         str.Append($"{i + 1}: {args[i]}\n");
-                    Logger.Write($"FAILED to encode RPC {rpcId}, with arguments:\n{str}\nThrown exception:\n{e}");
+                    Logger.WriteError($"Failed to encode RPC {rpcId}, with arguments:\n{str}", e);
                 }
                 return;
             }
@@ -267,7 +267,7 @@ namespace OwlTree
             catch (Exception e)
             {
                 if (Logger.includes.exceptions)
-                    Logger.Write($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}. Exception thrown:\n{e}");
+                    Logger.WriteError($"Failed to run RPC {(Protocols?.GetRpcName(message.rpcId) ?? "Unknown")} {message.rpcId} on network object: {message.target}.", e);
             }
         }
     }
