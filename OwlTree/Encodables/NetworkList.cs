@@ -7,7 +7,7 @@ namespace OwlTree
     /// <summary>
     /// A variable length list of IEncodable objects. NetworkLists have a fixed capacity.
     /// </summary>
-    public class NetworkList<C, T> : IEncodable, IVariableLength, IEnumerable<T> where C : ICapacity, new() where T : new()
+    public class NetworkList<C, T> : IVariableLength, IEnumerable<T> where C : ICapacity, new() where T : new()
     {
         private List<T> _list;
 
@@ -32,14 +32,14 @@ namespace OwlTree
                 throw new ArgumentException("NetworkList capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcEncoding.IsEncodable<T>())
+            if (!Encoder.IsEncodable<T>())
             {
                 throw new ArgumentException("NetworkList must have an encodable type.");
             }
 
             _list = new List<T>(capacity);
 
-            _maxLen = 4 + (Capacity * RpcEncoding.GetMaxLength(typeof(T)));
+            _maxLen = 4 + (Capacity * Encoder.GetMaxLength(typeof(T)));
         }
 
         /// <summary>
@@ -108,14 +108,14 @@ namespace OwlTree
             int total = 4;
             foreach (var elem in this)
             {
-                total +=  RpcEncoding.GetExpectedLength(elem);
+                total +=  Encoder.GetByteLength(elem);
             }
             return total;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            int count = BitConverter.ToInt32(bytes);
+            int count = Encoder.DecodeInt32(bytes);
             count = Math.Min(Capacity, count);
 
             Clear();
@@ -124,7 +124,7 @@ namespace OwlTree
             int len = 0;
             while (count > 0)
             {
-                var nextElem = (T)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(T), out len);
+                var nextElem = (T)Encoder.DecodeObject(bytes.Slice(ind), typeof(T), out len);
                 ind += len;
                 Add(nextElem);
                 count -= 1;
@@ -133,13 +133,13 @@ namespace OwlTree
 
         public void InsertBytes(Span<byte> bytes)
         {
-            BitConverter.TryWriteBytes(bytes, Count);
+            Encoder.InsertBytes(bytes, Count);
 
             int ind = 4;
             foreach (var elem in this)
             {
-                int len = RpcEncoding.GetExpectedLength(elem);
-                RpcEncoding.InsertBytes(bytes.Slice(ind, len), elem);
+                int len = Encoder.GetByteLength(elem);
+                Encoder.InsertBytes(bytes.Slice(ind, len), elem);
                 ind += len;
             }
         }

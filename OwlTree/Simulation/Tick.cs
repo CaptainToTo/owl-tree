@@ -51,12 +51,12 @@ namespace OwlTree
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            _val = BitConverter.ToUInt32(bytes);
+            _val = Encoder.DecodeUInt32(bytes);
         }
 
         public void InsertBytes(Span<byte> bytes)
         {
-            BitConverter.TryWriteBytes(bytes, _val);
+            Encoder.InsertBytes(bytes, _val);
         }
 
         public override string ToString() => "<Tick: " + _val + ">";

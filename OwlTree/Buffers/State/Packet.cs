@@ -96,25 +96,25 @@ namespace OwlTree
             public void InsertBytes(Span<byte> bytes)
             {
                 int ind = 0;
-                BitConverter.TryWriteBytes(bytes, owlTreeVer);
+                Encoder.InsertBytes(bytes, owlTreeVer);
                 ind += 2;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), appVer);
+                Encoder.InsertBytes(bytes.Slice(ind), appVer);
                 ind += 2;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), timestamp);
+                Encoder.InsertBytes(bytes.Slice(ind), timestamp);
                 ind += 8;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), length);
+                Encoder.InsertBytes(bytes.Slice(ind), length);
                 ind += 4;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), sender);
+                Encoder.InsertBytes(bytes.Slice(ind), sender);
                 ind += 4;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), hash);
+                Encoder.InsertBytes(bytes.Slice(ind), hash);
                 ind += 4;
 
-                BitConverter.TryWriteBytes(bytes.Slice(ind), packetNum);
+                Encoder.InsertBytes(bytes.Slice(ind), packetNum);
                 ind += 4;
 
                 byte flags = 0;
@@ -132,28 +132,28 @@ namespace OwlTree
             public void FromBytes(ReadOnlySpan<byte> bytes)
             {
                 int ind = 0;
-                owlTreeVer = BitConverter.ToUInt16(bytes);
+                owlTreeVer = Encoder.DecodeUInt16(bytes);
                 ind += 2;
 
-                appVer = BitConverter.ToUInt16(bytes.Slice(ind));
+                appVer = Encoder.DecodeUInt16(bytes.Slice(ind));
                 ind += 2;
 
-                timestamp = BitConverter.ToInt64(bytes.Slice(ind));
+                timestamp = Encoder.DecodeInt64(bytes.Slice(ind));
                 ind += 8;
 
-                length = BitConverter.ToInt32(bytes.Slice(ind));
+                length = Encoder.DecodeInt32(bytes.Slice(ind));
                 ind += 4;
 
                 if (length < ByteLength)
                     throw new ArgumentException("Packet length is less than the minimum, this is not a complete packet.");
 
-                sender = BitConverter.ToUInt32(bytes.Slice(ind));
+                sender = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
 
-                hash = BitConverter.ToUInt32(bytes.Slice(ind));
+                hash = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
 
-                packetNum = BitConverter.ToUInt32(bytes.Slice(ind));
+                packetNum = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
 
                 byte flags = bytes[ind];
@@ -285,7 +285,7 @@ namespace OwlTree
                 _startOfNextFragment = _tail;
             }
 
-            BitConverter.TryWriteBytes(_buffer.AsSpan(_tail), byteCount);
+            Encoder.InsertBytes(_buffer.AsSpan(_tail), byteCount);
             _tail += 4;
 
             for (int i = _tail; i < _tail + byteCount; i++)
@@ -392,7 +392,7 @@ namespace OwlTree
                 _startOfNextFragment = 0;
                 for (int i = 0; i < remainingBytes;)
                 {
-                    var len = BitConverter.ToInt32(_buffer.AsSpan(lastByte + i));
+                    var len = Encoder.DecodeInt32(_buffer.AsSpan(lastByte + i));
                     // mark the end of the next fragment once the size exceeds cutoff, then continue shifting down
                     if (nextFragmentLen + len + 4 > _fragmentSize && _endOfFragment == 0)
                     {
@@ -402,7 +402,7 @@ namespace OwlTree
                     else
                         nextFragmentLen += len + 4;
 
-                    BitConverter.TryWriteBytes(_buffer.AsSpan(Header.ByteLength + i), len);
+                    Encoder.InsertBytes(_buffer.AsSpan(Header.ByteLength + i), len);
                     i += 4;
                     for (int j = 0; j < len; j++)
                     {
@@ -446,7 +446,7 @@ namespace OwlTree
             if (_start >= bytes.Length - 4)
                 return false;
 
-            var len = BitConverter.ToInt32(bytes.Slice(_start));
+            var len = Encoder.DecodeInt32(bytes.Slice(_start));
 
             if (len == 0 || _start + len + 4 > bytes.Length)
                 return false;

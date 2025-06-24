@@ -202,84 +202,22 @@ namespace OwlTree
 
         // RPCs ================
 
-        public static int TickMessageLength => RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength + Tick.MaxByteLength + 8;
-
-        public static void EncodeNextTick(Span<byte> bytes, ClientId source, ClientId callee, Tick nextTick, long timestamp = 0)
-        {
-            var rpcId = new RpcId(RpcId.NextTickId);
-            rpcId.InsertBytes(bytes);
-            source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            nextTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
-                timestamp == 0 ? Timestamp.Now : timestamp);
-        }
-
-        public static void EncodeCurTick(Span<byte> bytes, ClientId source, ClientId callee, Tick curTick, long timestamp = 0)
-        {
-            var rpcId = new RpcId(RpcId.CurTickId);
-            rpcId.InsertBytes(bytes);
-            source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            curTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
-                timestamp == 0 ? Timestamp.Now : timestamp);
-        }
-
-        public static void EncodeEndTick(Span<byte> bytes, ClientId source, ClientId callee, Tick prevTick, long timestamp = 0)
-        {
-            var rpcId = new RpcId(RpcId.EndTickId);
-            rpcId.InsertBytes(bytes);
-            source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
-            callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
-            prevTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            BitConverter.TryWriteBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
-                timestamp == 0 ? Timestamp.Now : timestamp);
-        }
-
-        public static bool TryDecodeTickMessage(ReadOnlySpan<byte> bytes, out RpcId rpc, out ClientId source, out ClientId callee, out Tick tick, out long timestamp)
-        {
-            rpc = new RpcId(bytes);
-            switch(rpc.Id)
-            {
-                case RpcId.NextTickId:
-                case RpcId.CurTickId:
-                case RpcId.EndTickId:
-                    source = new ClientId(bytes.Slice(rpc.ByteLength()));
-                    callee = new ClientId(bytes.Slice(rpc.ByteLength(), source.ByteLength()));
-                    tick = new Tick(bytes.Slice(rpc.ByteLength() + source.ByteLength() + callee.ByteLength()));
-                    timestamp = BitConverter.ToInt64(bytes.Slice(rpc.ByteLength() + source.ByteLength() + callee.ByteLength() + tick.ByteLength()));
-                    return true;
-
-                default:
-                    source = ClientId.None;
-                    callee = ClientId.None;
-                    tick = new Tick(0);
-                    timestamp = 0;
-                    return false;
-            }
-        }
-
-        public static void DecodeClients(ReadOnlySpan<byte> bytes, out ClientId caller, out ClientId callee)
-        {
-            caller = new ClientId(bytes);
-            callee = new ClientId(bytes.Slice(ClientId.MaxByteLength));
-        }
+        
 
         public static string TickEncodingSummary(RpcId rpcId, ClientId source, ClientId callee, Tick tick, long timestamp, Protocol protocol)
         {
             string title = null;
             string sourceStr = source == ClientId.None ? "Server" : ("Client " + source.ToString());
-            byte[] bytes = new byte[TickMessageLength];
+            byte[] bytes = new byte[Encoder.TickMessageLength];
             switch (rpcId)
             {
                 case RpcId.NextTickId:
                     title += $"{(protocol == Protocol.Tcp ? "TCP" : "UDP")} Next Tick message from {sourceStr}, updated to {tick} at {timestamp}:";
-                    EncodeNextTick(bytes, source, callee, tick, timestamp);
+                    Encoder.EncodeNextTick(bytes, source, callee, tick, timestamp);
                     break;
                 case RpcId.CurTickId:
                     title += $"Authority sent session tick of {tick} at {timestamp} to {callee}:";
-                    EncodeCurTick(bytes, source, callee, tick, timestamp);
+                    Encoder.EncodeCurTick(bytes, source, callee, tick, timestamp);
                     break;
             }
             string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";
@@ -291,16 +229,16 @@ namespace OwlTree
         {
             string title = null;
             string sourceStr = source == ClientId.None ? "Server" : ("Client " + source.ToString());
-            byte[] bytes = new byte[TickMessageLength];
+            byte[] bytes = new byte[Encoder.TickMessageLength];
             switch (rpcId)
             {
                 case RpcId.NextTickId:
                     title += $"Next Tick message from {sourceStr}, updated to {tick} at {timestamp}:";
-                    EncodeNextTick(bytes, source, callee, tick, timestamp);
+                    Encoder.EncodeNextTick(bytes, source, callee, tick, timestamp);
                     break;
                 case RpcId.CurTickId:
                     title += $"Authority sent session tick of {tick} at {timestamp} to {callee}:";
-                    EncodeCurTick(bytes, source, callee, tick, timestamp);
+                    Encoder.EncodeCurTick(bytes, source, callee, tick, timestamp);
                     break;
             }
             string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";

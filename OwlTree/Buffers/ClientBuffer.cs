@@ -80,7 +80,7 @@ namespace OwlTree
             {
                 try
                 {
-                    ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem, TickRate));
+                    Encoder.ConnectionRequestEncode(_udpPacket, new ConnectionRequest(ApplicationId, SessionId, _requestAsHost, SimulationSystem, TickRate));
                     _udpPacket.header.timestamp = Timestamp.Now;
                     _udpClient.SendTo(_udpPacket.GetPacket().ToArray(), _udpEndPoint);
 
@@ -127,7 +127,7 @@ namespace OwlTree
                     
                     ReadPacket.StartMessageRead();
                     ReadPacket.TryGetNextMessage(out var message);
-                    var response = (ConnectionResponseCode)BitConverter.ToInt32(message);
+                    var response = (ConnectionResponseCode)Encoder.DecodeInt32(message);
 
                     if (response == ConnectionResponseCode.Accepted)
                     {
@@ -241,11 +241,11 @@ namespace OwlTree
                         {
                             try
                             {
-                                if (TryClientMessageDecode(bytes, out var rpcId))
+                                if (Encoder.TryClientMessageDecode(bytes, out var rpcId))
                                 {
                                     HandleClientConnectionMessage(rpcId, bytes.Slice(RpcId.MaxByteLength));
                                 }
-                                else if (TryPingRequestDecode(bytes, out var request))
+                                else if (Encoder.TryPingRequestDecode(bytes, out var request))
                                 {
                                     HandlePingRequest(request, Protocol.Tcp);
                                 }
@@ -290,7 +290,7 @@ namespace OwlTree
                                 {
                                     var rpcId = new RpcId(bytes);
 
-                                    if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                                    if (rpcId.Id == RpcId.PingRequestId && Encoder.TryPingRequestDecode(bytes, out var request))
                                         HandlePingRequest(request, Protocol.Udp);
                                 }
                                 catch (Exception e)
@@ -324,7 +324,7 @@ namespace OwlTree
                 {
                     try
                     {
-                        if (TryPingRequestDecode(bytes, out var request))
+                        if (Encoder.TryPingRequestDecode(bytes, out var request))
                         {
                             HandlePingRequest(request, Protocol.Udp);
                         }
@@ -429,11 +429,11 @@ namespace OwlTree
                     continue;
                 }
                 
-                if (message.rpcId == RpcId.PingRequestId && TryPingRequestDecode(message.bytes, out var request))
+                if (message.rpcId == RpcId.PingRequestId && Encoder.TryPingRequestDecode(message.bytes, out var request))
                 {
                     var original = _pingRequests.Find(request);
                     original.PingSent();
-                    PingRequestEncode(message.bytes, original);
+                    Encoder.PingRequestEncode(message.bytes, original);
 
                     ReadPacket.Clear();
                     ReadPacket.header.timestamp = Timestamp.Now;
@@ -515,8 +515,8 @@ namespace OwlTree
         {
             if (LocalId != Authority)
                 throw new InvalidOperationException("Only the authority can disconnect other clients.");
-            var span = _tcpPacket.GetSpan(ClientMessageLength);
-            ClientDisconnectEncode(span, id);
+            var span = _tcpPacket.GetSpan(Encoder.ClientMessageLength);
+            Encoder.ClientDisconnectEncode(span, id);
             HasClientEvent = true;
         }
 
@@ -526,8 +526,8 @@ namespace OwlTree
                 throw new InvalidOperationException("Only the authority can migrate the host role.");
             if (!_clients.Contains(newHost))
                 return;
-            var span = _tcpPacket.GetSpan(ClientMessageLength);
-            HostMigrationEncode(span, newHost);
+            var span = _tcpPacket.GetSpan(Encoder.ClientMessageLength);
+            Encoder.HostMigrationEncode(span, newHost);
             HasClientEvent = true;
         }
     }

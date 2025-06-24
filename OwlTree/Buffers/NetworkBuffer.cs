@@ -249,11 +249,11 @@ namespace OwlTree
                 target = NetworkId.None, 
                 protocol = protocol, 
                 perms = RpcPerms.AnyToAll,
-                bytes = new byte[PingRequestLength]
+                bytes = new byte[Encoder.PingRequestLength]
             };
             if (Logger.includes.pings)
                 Logger.WriteSend("ping request: " + request.ToString());
-            PingRequestEncode(message.bytes, request);
+            Encoder.PingRequestEncode(message.bytes, request);
             MessageQueue.AddOutgoing(message);
             return request;
         }
@@ -265,8 +265,8 @@ namespace OwlTree
         protected void PingResponse(PingRequest request, Packet packet)
         {
             request.PingReceived();
-            var bytes = packet.GetSpan(PingRequestLength);
-            PingRequestEncode(bytes, request);
+            var bytes = packet.GetSpan(Encoder.PingRequestLength);
+            Encoder.PingRequestEncode(bytes, request);
             if (Logger.includes.pings)
                 Logger.WriteRecv("ping request: " + request.ToString());
         }
@@ -403,107 +403,5 @@ namespace OwlTree
         /// The previous host will be down-graded to a client if they are still connected.
         /// </summary>
         public abstract void MigrateHost(ClientId newHost);
-
-        // * Connection and Disconnection Message Protocols
-
-        /// <summary>
-        /// The number of bytes required to encode client events.
-        /// </summary>
-        protected static int ClientMessageLength => RpcId.MaxByteLength + ClientId.MaxByteLength;
-
-        /// <summary>
-        /// The number of bytes required to encode the local client connected event.
-        /// </summary>
-        protected static int LocalClientConnectLength => RpcId.MaxByteLength + ClientIdAssignment.MaxLength();
-
-        /// <summary>
-        /// The number of bytes required to encode a ping request.
-        /// </summary>
-        protected static int PingRequestLength => RpcId.MaxByteLength + PingRequest.MaxLength();
-
-        protected static void ClientConnectEncode(Span<byte> bytes, ClientId id)
-        {
-            var rpcId = new RpcId(RpcId.ClientConnectedId);
-            var ind = rpcId.ByteLength();
-            rpcId.InsertBytes(bytes.Slice(0, ind));
-            id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
-        }
-
-        protected static void LocalClientConnectEncode(Span<byte> bytes, ClientIdAssignment assignment)
-        {
-            var rpcId = new RpcId(RpcId.LocalClientConnectedId);
-            var ind = rpcId.ByteLength();
-            rpcId.InsertBytes(bytes.Slice(0, ind));
-            assignment.InsertBytes(bytes.Slice(ind));
-        }
-
-        protected static void ClientDisconnectEncode(Span<byte> bytes, ClientId id)
-        {
-            var rpcId = new RpcId(RpcId.ClientDisconnectedId);
-            var ind = rpcId.ByteLength();
-            rpcId.InsertBytes(bytes.Slice(0, ind));
-            id.InsertBytes(bytes.Slice(ind, id.ByteLength()));
-        }
-
-        protected static void ConnectionRequestEncode(Packet packet, ConnectionRequest request)
-        {
-            var bytes = packet.GetSpan(RpcId.MaxByteLength + request.ByteLength());
-            var rpc = new RpcId(RpcId.ConnectionRequestId);
-            rpc.InsertBytes(bytes);
-            request.InsertBytes(bytes.Slice(rpc.ByteLength()));
-        }
-
-        protected static void HostMigrationEncode(Span<byte> bytes, ClientId newHost)
-        {
-            var rpcId = new RpcId(RpcId.HostMigrationId);
-            var ind = rpcId.ByteLength();
-            rpcId.InsertBytes(bytes.Slice(0, ind));
-            newHost.InsertBytes(bytes.Slice(ind, newHost.ByteLength()));
-        }
-
-        protected static void PingRequestEncode(Span<byte> bytes, PingRequest request)
-        {
-            var rpcId = new RpcId(RpcId.PingRequestId);
-            rpcId.InsertBytes(bytes);
-            request.InsertBytes(bytes.Slice(rpcId.ByteLength()));
-        }
-
-        protected static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest connectRequest)
-        {
-            RpcId result = RpcId.None;
-            result.FromBytes(bytes);
-            connectRequest = new ConnectionRequest();
-            switch (result.Id)
-            {
-                case RpcId.ConnectionRequestId:
-                    connectRequest.FromBytes(bytes.Slice(result.ByteLength()));
-                    break;
-            }
-            return result;
-        }
-
-        protected static bool TryClientMessageDecode(ReadOnlySpan<byte> bytes, out RpcId rpcId)
-        {
-            rpcId = new RpcId(bytes);
-            switch(rpcId.Id)
-            {
-                case RpcId.ClientConnectedId:
-                case RpcId.LocalClientConnectedId:
-                case RpcId.ClientDisconnectedId:
-                case RpcId.HostMigrationId:
-                    return true;
-            }
-            return false;
-        }
-
-        protected static bool TryPingRequestDecode(ReadOnlySpan<byte> bytes, out PingRequest request)
-        {
-            var rpcId = new RpcId(bytes);
-            request = null;
-            if (rpcId.Id != RpcId.PingRequestId)
-                return false;
-            request = new PingRequest(bytes.Slice(rpcId.ByteLength()));
-            return true;
-        }
     }
 }

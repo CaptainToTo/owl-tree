@@ -8,7 +8,7 @@ namespace OwlTree
 /// <summary>
 /// Implement with IEncodable to allow an encoding to have variable length.
 /// </summary>
-public interface IVariableLength
+public interface IVariableLength : IEncodable
 {
     /// <summary>
     /// The number of bytes an IVariableLength length number will take up in the encoding.
@@ -17,12 +17,12 @@ public interface IVariableLength
 
     internal static void InsertLength(Span<byte> bytes, int length)
     {
-        BitConverter.TryWriteBytes(bytes, (uint)length);
+        Encoder.InsertBytes(bytes, (uint)length);
     }
 
     internal static int GetLength(ReadOnlySpan<byte> bytes)
     {
-        return BitConverter.ToInt32(bytes);
+        return Encoder.DecodeInt32(bytes);
     }
 
     /// <summary>

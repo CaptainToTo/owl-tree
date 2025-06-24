@@ -12,7 +12,7 @@ namespace OwlTree
     /// This does not implement a majority of the string interface,
     /// and is only meant to be used to safely pass strings as RPC arguments.
     /// </summary>
-    public struct NetworkString<C> : IEncodable, IVariableLength where C : ICapacity
+    public struct NetworkString<C> : IVariableLength where C : ICapacity
     {
         private string _str;
         

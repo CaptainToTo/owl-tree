@@ -127,7 +127,7 @@ namespace OwlTree
 
         public int GetRpcByteLength(RpcId rpcId, object[] args)
         {
-            return RpcEncoding.GetExpectedRpcLength(args, GetCallerIdParam(rpcId), GetCalleeIdParam(rpcId));
+            return Encoder.GetExpectedRpcLength(args, GetCallerIdParam(rpcId), GetCalleeIdParam(rpcId));
         }
 
         public void EncodeRpc(Span<byte> bytes, RpcId rpcId, ClientId caller, ClientId callee, NetworkId target, object[] args)
@@ -136,12 +136,12 @@ namespace OwlTree
                 throw new ArgumentException("Invalid RPC arguments given to RPC " + rpcId.ToString());
             var callerInd = GetCallerIdParam(rpcId.Id);
             var calleeInd = GetCalleeIdParam(rpcId.Id);
-            RpcEncoding.EncodeRpc(bytes, rpcId, caller, callee, target, args, callerInd, calleeInd);
+            Encoder.EncodeRpc(bytes, rpcId, caller, callee, target, args, callerInd, calleeInd);
         }
 
         public bool TryDecodeRpc(ReadOnlySpan<byte> bytes, out RpcId rpcId, out ClientId caller, out ClientId callee, out NetworkId target, out object[] args)
         {
-            RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out caller, out callee, out target);
+            Encoder.DecodeRpcHeader(bytes, out rpcId, out caller, out callee, out target);
             var paramTypes = GetProtocol(rpcId.Id);
             if (paramTypes == null)
             {
@@ -158,7 +158,7 @@ namespace OwlTree
                 return true;
             }
 
-            args = RpcEncoding.DecodeRpcArgs(bytes.Slice(RpcEncoding.RpcHeaderLength), caller, callee, paramTypes, GetCallerIdParam(rpcId.Id), GetCalleeIdParam(rpcId.Id));
+            args = Encoder.DecodeRpcArgs(bytes.Slice(Encoder.RpcHeaderLength), caller, callee, paramTypes, GetCallerIdParam(rpcId.Id), GetCalleeIdParam(rpcId.Id));
             return true;
         }
         
@@ -230,13 +230,13 @@ namespace OwlTree
                 $"  Bytes: [ RpcId:{RpcId.MaxByteLength}b ][ Caller:{ClientId.MaxByteLength}b ][ Callee:{ClientId.MaxByteLength}b ][ NetId:{NetworkId.MaxByteLength}b ]");
             var paramStr = new StringBuilder();
 
-            int maxSize = RpcEncoding.RpcHeaderLength;
+            int maxSize = Encoder.RpcHeaderLength;
 
             var parameters = GetProtocol(id.Id);
             for (int i = 0; i < parameters.Length; i++)
             {
                 var param = parameters[i];
-                int size = RpcEncoding.GetMaxLength(param);
+                int size = Encoder.GetMaxLength(param);
                 maxSize += size;
                 if (!IsCalleeIdParam(id.Id, i) && !IsCallerIdParam(id.Id, i))
                     encoding.Append($"[ {i + 1}:{size}b ]");
@@ -264,13 +264,13 @@ namespace OwlTree
             if (!ValidateArgs(id, args))
                 return "Invalid Args...";
 
-            int len = RpcEncoding.GetExpectedRpcLength(args, GetCallerIdParam(id), GetCalleeIdParam(id));
+            int len = Encoder.GetExpectedRpcLength(args, GetCallerIdParam(id), GetCalleeIdParam(id));
             byte[] bytes = new byte[len];
 
             var callerInd = GetCallerIdParam(id.Id);
             var calleeInd = GetCalleeIdParam(id.Id);
 
-            RpcEncoding.EncodeRpc(bytes, id, caller, callee, target, args, callerInd, calleeInd);
+            Encoder.EncodeRpc(bytes, id, caller, callee, target, args, callerInd, calleeInd);
 
             var str = new StringBuilder($"     Bytes: {BitConverter.ToString(bytes)}\n");
             str.Append("  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__NetId__|");
@@ -283,7 +283,7 @@ namespace OwlTree
                 {
                     var arg = args[i];
 
-                    int size = RpcEncoding.GetExpectedLength(arg);
+                    int size = Encoder.GetByteLength(arg);
                     int strLen = (size * 2) + (size - 1);
                     string iStr = (i + 1).ToString();
 

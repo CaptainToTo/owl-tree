@@ -10,7 +10,6 @@ namespace OwlTree
     /// </summary>
     public abstract class ProxyFactory
     {
-        // TODO: remove reflection usage
         /// <summary>
         /// Gets the specific project implementation.
         /// </summary>

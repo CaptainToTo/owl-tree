@@ -56,7 +56,7 @@ namespace OwlTree
             sessionId.FromBytes(bytes.Slice(appId.ByteLength()));
             isHost = bytes[appId.ByteLength() + sessionId.ByteLength()] == 1;
             simulationSystem = (SimulationSystem)bytes[appId.ByteLength() + sessionId.ByteLength() + 1];
-            tickRate = BitConverter.ToInt32(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2));
+            tickRate = Encoder.DecodeInt32(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2));
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -65,7 +65,7 @@ namespace OwlTree
             sessionId.InsertBytes(bytes.Slice(appId.ByteLength()));
             bytes[appId.ByteLength() + sessionId.ByteLength()] = (byte)(isHost ? 1 : 0);
             bytes[appId.ByteLength() + sessionId.ByteLength() + 1] = (byte) simulationSystem;
-            BitConverter.TryWriteBytes(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2), tickRate);
+            Encoder.InsertBytes(bytes.Slice(appId.ByteLength() + sessionId.ByteLength() + 2), tickRate);
         }
     }
 
@@ -186,8 +186,8 @@ namespace OwlTree
         {
             assignedId.FromBytes(bytes);
             authorityId.FromBytes(bytes.Slice(assignedId.ByteLength()));
-            assignedHash = BitConverter.ToUInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()));
-            maxClients = BitConverter.ToInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4));
+            assignedHash = Encoder.DecodeUInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()));
+            maxClients = Encoder.DecodeInt32(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4));
             migratable = bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4] == 0 ? false : true;
             shutdownWhenEmpty = bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 5] == 0 ? false : true;
         }
@@ -196,8 +196,8 @@ namespace OwlTree
         {
             assignedId.InsertBytes(bytes);
             authorityId.InsertBytes(bytes.Slice(assignedId.ByteLength()));
-            BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()), assignedHash);
-            BitConverter.TryWriteBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4), maxClients);
+            Encoder.InsertBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength()), assignedHash);
+            Encoder.InsertBytes(bytes.Slice(assignedId.ByteLength() + authorityId.ByteLength() + 4), maxClients);
             bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 4] = (byte)(migratable ? 1 : 0);
             bytes[assignedId.ByteLength() + authorityId.ByteLength() + 4 + 5] = (byte)(shutdownWhenEmpty ? 1 : 0);
         }

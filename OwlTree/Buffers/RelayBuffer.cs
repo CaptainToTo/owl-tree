@@ -133,20 +133,20 @@ namespace OwlTree
                     AddClientConnectedMessage(clientData.id);
 
                     // send new client their id
-                    var span = clientData.tcpPacket.GetSpan(LocalClientConnectLength);
-                    LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients, Migratable, ShutdownWhenEmpty));
+                    var span = clientData.tcpPacket.GetSpan(Encoder.LocalClientConnectLength);
+                    Encoder.LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients, Migratable, ShutdownWhenEmpty));
 
                     foreach (var otherClient in _clientData)
                     {
                         if (otherClient.id == clientData.id) continue;
 
                         // notify clients of a new client in the next send
-                        span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                        ClientConnectEncode(span, clientData.id);
+                        span = otherClient.tcpPacket.GetSpan(Encoder.ClientMessageLength);
+                        Encoder.ClientConnectEncode(span, clientData.id);
 
                         // add existing clients to new client
-                        span = clientData.tcpPacket.GetSpan(ClientMessageLength);
-                        ClientConnectEncode(span, otherClient.id);
+                        span = clientData.tcpPacket.GetSpan(Encoder.ClientMessageLength);
+                        Encoder.ClientConnectEncode(span, otherClient.id);
                     }
                     HasClientEvent = true;
                     
@@ -211,7 +211,7 @@ namespace OwlTree
                                 {
                                     var rpcId = new RpcId(bytes);
 
-                                    if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                                    if (rpcId.Id == RpcId.PingRequestId && Encoder.TryPingRequestDecode(bytes, out var request))
                                         HandlePingRequest(request, Protocol.Udp);
                                 }
                                 catch (Exception e)
@@ -243,7 +243,7 @@ namespace OwlTree
                             ReadPacket.StartMessageRead();
                             if (ReadPacket.TryGetNextMessage(out var bytes))
                             {
-                                var rpcId = ServerMessageDecode(bytes, out var request);
+                                var rpcId = Encoder.ServerMessageDecode(bytes, out var request);
                                 
 
                                 if (rpcId != RpcId.ConnectionRequestId)
@@ -278,7 +278,7 @@ namespace OwlTree
                             ReadPacket.header.sender = 0;
                             ReadPacket.header.hash = 0;
                             var response = ReadPacket.GetSpan(4);
-                            BitConverter.TryWriteBytes(response, (int)responseCode);
+                            Encoder.InsertBytes(response, (int)responseCode);
                             var responsePacket = ReadPacket.GetPacket();
                             _udpRelay.SendTo(responsePacket.ToArray(), source);
 
@@ -411,13 +411,13 @@ namespace OwlTree
                                 {
                                     RelayTcpMessage(bytes, client.id);
                                 }
-                                else if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                                else if (rpcId.Id == RpcId.PingRequestId && Encoder.TryPingRequestDecode(bytes, out var request))
                                 {
                                     HandlePingRequest(request, Protocol.Tcp);
                                 }
                                 else if (rpcId.IsTickEvent())
                                 {
-                                    SimulationBuffer.DecodeClients(bytes.Slice(RpcId.MaxByteLength), out var caller, out var callee);
+                                    Encoder.DecodeClients(bytes.Slice(RpcId.MaxByteLength), out var caller, out var callee);
                                     if (rpcId == RpcId.CurTickId && caller == client.id && client.id == Authority)
                                         RelayMessageTo(bytes, _clientData.Find(callee).tcpPacket);
                                     else if (rpcId == RpcId.NextTickId)
@@ -425,7 +425,7 @@ namespace OwlTree
                                 }
                                 else if (rpcId >= RpcId.FirstRpcId)
                                 {
-                                    RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
+                                    Encoder.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
                                     if (caller != client.id) continue;
 
                                     if (callee == ClientId.None)
@@ -474,13 +474,13 @@ namespace OwlTree
                     try
                     {
                         var rpcId = new RpcId(bytes);
-                        if (rpcId.Id == RpcId.PingRequestId && TryPingRequestDecode(bytes, out var request))
+                        if (rpcId.Id == RpcId.PingRequestId && Encoder.TryPingRequestDecode(bytes, out var request))
                         {
                             HandlePingRequest(request, Protocol.Udp);
                         }
                         else if (rpcId >= RpcId.FirstRpcId)
                         {
-                            RpcEncoding.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
+                            Encoder.DecodeRpcHeader(bytes, out rpcId, out var caller, out var callee, out var target);
                             if (caller != client.id) continue;
 
                             if (callee == ClientId.None)
@@ -573,8 +573,8 @@ namespace OwlTree
                     return;
                 
                 var packet = request.Received ? source.tcpPacket : target.tcpPacket;
-                var span = packet.GetSpan(PingRequestLength);
-                PingRequestEncode(span, request);
+                var span = packet.GetSpan(Encoder.PingRequestLength);
+                Encoder.PingRequestEncode(span, request);
                 HasClientEvent = true;
             }
         }
@@ -589,8 +589,8 @@ namespace OwlTree
                         return;
                     continue;
                 }
-                
-                if (message.rpcId == RpcId.PingRequestId && TryPingRequestDecode(message.bytes, out var request))
+
+                if (message.rpcId == RpcId.PingRequestId && Encoder.TryPingRequestDecode(message.bytes, out var request))
                 {
                     var data = _clientData.Find(message.callee);
 
@@ -599,7 +599,7 @@ namespace OwlTree
 
                     var original = _pingRequests.Find(request);
                     original.PingSent();
-                    PingRequestEncode(message.bytes, original);
+                    Encoder.PingRequestEncode(message.bytes, original);
 
                     ReadPacket.Clear();
                     ReadPacket.header.timestamp = Timestamp.Now;
@@ -752,8 +752,8 @@ namespace OwlTree
 
             foreach (var otherClient in _clientData)
             {
-                var span = otherClient.tcpPacket.GetSpan(ClientMessageLength);
-                ClientDisconnectEncode(span, client.id);
+                var span = otherClient.tcpPacket.GetSpan(Encoder.ClientMessageLength);
+                Encoder.ClientDisconnectEncode(span, client.id);
             }
             HasClientEvent = true;
 
@@ -793,8 +793,8 @@ namespace OwlTree
             _hostAddr = data.Address;
             foreach (var client in _clientData)
             {
-                var span = client.tcpPacket.GetSpan(ClientMessageLength);
-                HostMigrationEncode(span, newHost);
+                var span = client.tcpPacket.GetSpan(Encoder.ClientMessageLength);
+                Encoder.HostMigrationEncode(span, newHost);
             }
             HasClientEvent = true;
 

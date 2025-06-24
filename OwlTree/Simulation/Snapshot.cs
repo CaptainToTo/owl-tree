@@ -79,7 +79,7 @@ namespace OwlTree
                 target = NetworkId.None,
                 protocol = Protocol.Tcp,
                 perms = RpcPerms.AnyToAll,
-                bytes = new byte[TickMessageLength]
+                bytes = new byte[Encoder.TickMessageLength]
             };
             var tickUdpMessage = new OutgoingMessage{
                 tick = _localTick,
@@ -89,11 +89,11 @@ namespace OwlTree
                 target = NetworkId.None,
                 protocol = Protocol.Udp,
                 perms = RpcPerms.AnyToAll,
-                bytes = new byte[TickMessageLength]
+                bytes = new byte[Encoder.TickMessageLength]
             };
             var timestamp = Timestamp.Now;
-            EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-            EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
+            Encoder.EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
+            Encoder.EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
             _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
             _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
 
@@ -157,7 +157,7 @@ namespace OwlTree
                     target = NetworkId.None,
                     protocol = Protocol.Tcp,
                     perms = RpcPerms.AnyToAll,
-                    bytes = new byte[TickMessageLength]
+                    bytes = new byte[Encoder.TickMessageLength]
                 };
                 var tickUdpMessage = new OutgoingMessage{
                     tick = _localTick,
@@ -167,11 +167,11 @@ namespace OwlTree
                     target = NetworkId.None,
                     protocol = Protocol.Udp,
                     perms = RpcPerms.AnyToAll,
-                    bytes = new byte[TickMessageLength]
+                    bytes = new byte[Encoder.TickMessageLength]
                 };
                 var timestamp = Timestamp.Now;
-                EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-                EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
+                Encoder.EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
+                Encoder.EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
                 _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
                 _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
                 
@@ -236,10 +236,10 @@ namespace OwlTree
                     tick = _localTick,
                     protocol = Protocol.Tcp,
                     perms = RpcPerms.AuthorityToClients,
-                    bytes = new byte[TickMessageLength]
+                    bytes = new byte[Encoder.TickMessageLength]
                 };
                 var timestamp = Timestamp.Now;
-                EncodeCurTick(outgoing.bytes, _localId, client, _localTick, timestamp);
+                Encoder.EncodeCurTick(outgoing.bytes, _localId, client, _localTick, timestamp);
                 _outgoing.Enqueue(outgoing, _localTick);
 
                 if (_logger.includes.simulationEvents)

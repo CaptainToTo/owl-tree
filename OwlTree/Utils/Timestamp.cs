@@ -13,7 +13,7 @@ namespace OwlTree
         public static long Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         /// <summary>
-        /// Returns a <c>year-month-day hour:minute:second.millisecond</c> formated string of the current time.
+        /// Returns a <c>year-month-day hour:minute:second.millisecond</c> formatted string of the current time.
         /// </summary>
         public static string NowString => DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.ffff");
 

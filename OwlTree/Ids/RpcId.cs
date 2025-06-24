@@ -129,7 +129,7 @@ namespace OwlTree
             if (bytes.Length < MaxByteLength)
                 throw new ArgumentException($"Span must have {MaxByteLength} bytes to decode a RpcId from.");
 
-            var result = BitConverter.ToUInt32(bytes);
+            var result = Encoder.DecodeUInt32(bytes);
 
             _id = result;
         }
@@ -143,7 +143,7 @@ namespace OwlTree
         {
             if (bytes.Length < 4)
                 return;
-            BitConverter.TryWriteBytes(bytes, _id);
+            Encoder.InsertBytes(bytes, _id);
         }
 
         // Operators

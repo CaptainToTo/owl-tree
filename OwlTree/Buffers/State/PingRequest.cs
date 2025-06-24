@@ -169,11 +169,11 @@ namespace OwlTree
             ind += Source.ByteLength();
             Target = new ClientId(bytes.Slice(ind));
             ind += Target.ByteLength();
-            SendTime = BitConverter.ToInt64(bytes.Slice(ind));
+            SendTime = Encoder.DecodeInt64(bytes.Slice(ind));
             ind += 8;
-            ReceiveTime = BitConverter.ToInt64(bytes.Slice(ind));
+            ReceiveTime = Encoder.DecodeInt64(bytes.Slice(ind));
             ind += 8;
-            ResponseTime = BitConverter.ToInt64(bytes.Slice(ind));
+            ResponseTime = Encoder.DecodeInt64(bytes.Slice(ind));
         }
 
         public void InsertBytes(Span<byte> bytes)
@@ -183,11 +183,11 @@ namespace OwlTree
             ind += Source.ByteLength();
             Target.InsertBytes(bytes.Slice(ind));
             ind += Target.ByteLength();
-            BitConverter.TryWriteBytes(bytes.Slice(ind), SendTime);
+            Encoder.InsertBytes(bytes.Slice(ind), SendTime);
             ind += 8;
-            BitConverter.TryWriteBytes(bytes.Slice(ind), ReceiveTime);
+            Encoder.InsertBytes(bytes.Slice(ind), ReceiveTime);
             ind += 8;
-            BitConverter.TryWriteBytes(bytes.Slice(ind), ResponseTime);
+            Encoder.InsertBytes(bytes.Slice(ind), ResponseTime);
         }
     }
 }

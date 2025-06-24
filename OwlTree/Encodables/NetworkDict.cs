@@ -10,7 +10,7 @@ namespace OwlTree
     /// A Dictionary wrapper that implements the IEncodable interface.
     /// NetworkDicts have a fixed capacity.
     /// </summary>
-    public class NetworkDict<C, K, V> : IEncodable, IVariableLength, IEnumerable<KeyValuePair<K, V>> where C : ICapacity, new() where K : new() where V : new()
+    public class NetworkDict<C, K, V> : IVariableLength, IEnumerable<KeyValuePair<K, V>> where C : ICapacity, new() where K : new() where V : new()
     {
         private Dictionary<K, V> _dict;
 
@@ -35,19 +35,19 @@ namespace OwlTree
                 throw new ArgumentException("NetworkDict capacity must be greater than 0.");
             Capacity = capacity;
 
-            if (!RpcEncoding.IsEncodable<K>())
+            if (!Encoder.IsEncodable<K>())
             {
                 throw new ArgumentException("NetworkDict keys must be an encodable type.");
             }
 
-            if (!RpcEncoding.IsEncodable<V>())
+            if (!Encoder.IsEncodable<V>())
             {
                 throw new ArgumentException("NetworkDict values must be an encodable type.");
             }
 
             _dict = new Dictionary<K, V>(capacity);
 
-            _maxLen = 4 + (Capacity * (RpcEncoding.GetMaxLength(typeof(K)) + RpcEncoding.GetMaxLength(typeof(V))));
+            _maxLen = 4 + (Capacity * (Encoder.GetMaxLength(typeof(K)) + Encoder.GetMaxLength(typeof(V))));
         }
 
         /// <summary>
@@ -139,14 +139,14 @@ namespace OwlTree
             int total = 4;
             foreach (var elem in this)
             {
-                total += RpcEncoding.GetExpectedLength(elem.Key) + RpcEncoding.GetExpectedLength(elem.Value);
+                total += Encoder.GetByteLength(elem.Key) + Encoder.GetByteLength(elem.Value);
             }
             return total;
         }
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            int count = BitConverter.ToInt32(bytes);
+            int count = Encoder.DecodeInt32(bytes);
             count = Math.Min(Capacity, count);
 
             Clear();
@@ -155,9 +155,9 @@ namespace OwlTree
             int len = 0;
             while (count > 0)
             {
-                var nextKey = (K)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(K), out len);
+                var nextKey = (K)Encoder.DecodeObject(bytes.Slice(ind), typeof(K), out len);
                 ind += len;
-                var nextValue = (V)RpcEncoding.DecodeObject(bytes.Slice(ind), typeof(V), out len);
+                var nextValue = (V)Encoder.DecodeObject(bytes.Slice(ind), typeof(V), out len);
                 ind += len;
 
                 Add(nextKey, nextValue);
@@ -167,18 +167,18 @@ namespace OwlTree
 
         public void InsertBytes(Span<byte> bytes)
         {
-            BitConverter.TryWriteBytes(bytes, Count);
+            Encoder.InsertBytes(bytes, Count);
 
             int ind = 4;
             foreach (var elem in this)
             {
-                int keyLen = RpcEncoding.GetExpectedLength(elem.Key);
-                int valLen = RpcEncoding.GetExpectedLength(elem.Value);
+                int keyLen = Encoder.GetByteLength(elem.Key);
+                int valLen = Encoder.GetByteLength(elem.Value);
 
-                RpcEncoding.InsertBytes(bytes.Slice(ind, keyLen), elem.Key);
+                Encoder.InsertBytes(bytes.Slice(ind, keyLen), elem.Key);
                 ind += keyLen;
 
-                RpcEncoding.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
+                Encoder.InsertBytes(bytes.Slice(ind, valLen), elem.Value);
                 ind += valLen;
             }
         }

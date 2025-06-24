@@ -10,7 +10,7 @@ namespace OwlTree
         // run on network thread
         private void DecodeIncoming(ClientId source, ReadOnlySpan<byte> bytes, Protocol protocol)
         {
-            if (SimulationBuffer.TryDecodeTickMessage(bytes, out var rpcId, out var caller, out var callee, out var tick, out var timestamp))
+            if (Encoder.TryDecodeTickMessage(bytes, out var rpcId, out var caller, out var callee, out var tick, out var timestamp))
             {
                 if (Logger.includes.rpcReceiveEncodings)
                     Logger.Write("RECEIVING:\n" + SimulationBuffer.TickEncodingSummary(rpcId, caller, callee, tick, timestamp, protocol));
@@ -183,7 +183,7 @@ namespace OwlTree
                     target = target,
                     protocol = protocol,
                     perms = perms,
-                    bytes = RpcEncoding.ChangeRpcCallee(bytes, callee)
+                    bytes = Encoder.ChangeRpcCallee(bytes, callee)
                 };
                 _simBuffer.AddOutgoing(message);
 

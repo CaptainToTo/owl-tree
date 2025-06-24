@@ -51,7 +51,7 @@ namespace OwlTree
             if (bytes.Length < MaxByteLength)
                 throw new ArgumentException($"Span must have {MaxByteLength} bytes to decode a ClientId from.");
 
-            _id = BitConverter.ToUInt32(bytes);
+            _id = Encoder.DecodeUInt32(bytes);
         }
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace OwlTree
         {
             if (bytes.Length < MaxByteLength)
                 return;
-            BitConverter.TryWriteBytes(bytes, _id);
+            Encoder.InsertBytes(bytes, _id);
         }
 
         public int ByteLength() => MaxByteLength;

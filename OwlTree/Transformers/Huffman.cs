@@ -171,8 +171,8 @@ public static class Huffman
             return;// throw new Exception($"tree size is {(size/8) + 1}, compression size is {compression.Length}");
 
         packet.header.compressionEnabled = true;
-        BitConverter.TryWriteBytes(bytes, bytes.Length);
-        BitConverter.TryWriteBytes(bytes.Slice(4), bitLen);
+        Encoder.InsertBytes(bytes, bytes.Length);
+        Encoder.InsertBytes(bytes.Slice(4), bitLen);
         bytes[8] = (byte) unique;
         int treeInd = 9;
         int treeBitInd = treeInd * 8;
@@ -281,8 +281,8 @@ public static class Huffman
 
         var bytes = packet.GetBuffer();
 
-        var originalLen = BitConverter.ToInt32(bytes);
-        var bitLen = BitConverter.ToInt32(bytes.Slice(4));
+        var originalLen = Encoder.DecodeInt32(bytes);
+        var bitLen = Encoder.DecodeInt32(bytes.Slice(4));
         var size = bytes[8];
 
         if (originalLen > bytes.Length)

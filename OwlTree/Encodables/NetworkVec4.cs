@@ -64,18 +64,18 @@ namespace OwlTree
 
         public void FromBytes(ReadOnlySpan<byte> bytes)
         {
-            x = BitConverter.ToSingle(bytes);
-            y = BitConverter.ToSingle(bytes.Slice(4));
-            z = BitConverter.ToSingle(bytes.Slice(8));
-            w = BitConverter.ToSingle(bytes.Slice(12));
+            x = Encoder.DecodeFloat(bytes);
+            y = Encoder.DecodeFloat(bytes.Slice(4));
+            z = Encoder.DecodeFloat(bytes.Slice(8));
+            w = Encoder.DecodeFloat(bytes.Slice(12));
         }
 
         public void InsertBytes(Span<byte> bytes)
         {
-            BitConverter.TryWriteBytes(bytes, x);
-            BitConverter.TryWriteBytes(bytes.Slice(4), y);
-            BitConverter.TryWriteBytes(bytes.Slice(8), z);
-            BitConverter.TryWriteBytes(bytes.Slice(12), w);
+            Encoder.InsertBytes(bytes, x);
+            Encoder.InsertBytes(bytes.Slice(4), y);
+            Encoder.InsertBytes(bytes.Slice(8), z);
+            Encoder.InsertBytes(bytes.Slice(12), w);
         }
 
         // operators
