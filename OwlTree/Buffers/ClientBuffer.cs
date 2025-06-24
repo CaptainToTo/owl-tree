@@ -257,7 +257,7 @@ namespace OwlTree
                             catch (Exception e)
                             {
                                 if (Logger.includes.exceptions)
-                                    Logger.WriteError($"Failed to decode TCP message '{BitConverter.ToString(bytes.ToArray())}'.", e);
+                                    Logger.WriteError($"Failed to decode TCP message '{Encoder.ToString(bytes)}'.", e);
                             }
                         }
                     } while (dataRemaining > 0);
@@ -296,7 +296,7 @@ namespace OwlTree
                                 catch (Exception e)
                                 {
                                     if (Logger.includes.exceptions)
-                                        Logger.WriteError($"Failed to handle UDP ping request '{BitConverter.ToString(bytes.ToArray())}'.", e);
+                                        Logger.WriteError($"Failed to handle UDP ping request '{Encoder.ToString(bytes)}'.", e);
                                 }
                             }
                         }
@@ -336,7 +336,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.WriteError($"Failed to decode UDP message '{BitConverter.ToString(bytes.ToArray())}'.", e);
+                            Logger.WriteError($"Failed to decode UDP message '{Encoder.ToString(bytes)}'.", e);
                     }
                 }
             }

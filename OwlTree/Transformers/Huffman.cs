@@ -296,7 +296,7 @@ public static class Huffman
 
         if (decompressed.Length != originalLen)
         {
-            throw new Exception($"Incorrect number of bytes decoded. Should be {originalLen}, but got {decompressed.Length}.\nDecompressed: {BitConverter.ToString(decompressed)}");
+            throw new Exception($"Incorrect number of bytes decoded. Should be {originalLen}, but got {decompressed.Length}.\nDecompressed: {Encoder.ToString(decompressed)}");
         }
 
         for (int i = 0; i < decompressed.Length; i++)

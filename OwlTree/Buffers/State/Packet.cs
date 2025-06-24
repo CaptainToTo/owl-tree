@@ -459,29 +459,13 @@ namespace OwlTree
         public void ToString(StringBuilder str)
         {
             var packet = GetPacket();
-            for (int i = 0; i < packet.Length; i++)
-            {
-                str.Append(packet[i].ToString("X2"));
-                if (i < packet.Length - 1)
-                    str.Append('-');
-                if (i % 32 == 0 && i != 0)
-                    str.Append('\n');
-            }
+            Encoder.ToString(packet, str, 32);
         }
 
         public override string ToString()
         {
-            var str = "";
             var packet = GetPacket();
-            for (int i = 0; i < packet.Length; i++)
-            {
-                str += packet[i].ToString("X2");
-                if (i < packet.Length - 1)
-                    str += '-';
-                if (i % 32 == 0 && i != 0)
-                    str += '\n';
-            }
-            return str;
+            return Encoder.ToString(packet, 32);
         }
     }
 }

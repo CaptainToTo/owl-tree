@@ -189,7 +189,7 @@ namespace OwlTree
         {
             string title = "Spawn Network Object of type <" + objType.ToString() + "> w/ Id " + id.ToString() + ":\n";
             var bytes = EncodeSpawn(callee, objType, id).bytes;
-            string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string bytesStr = "     Bytes: " + Encoder.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| NT |__NetId__|";
             return title + bytesStr + encoding;
         }
@@ -262,7 +262,7 @@ namespace OwlTree
         {
             string title = "Despawn Network Object " + id.ToString() + ":\n";
             byte[] bytes = EncodeDespawn(id).bytes;
-            string bytesStr = "     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string bytesStr = "     Bytes: " + Encoder.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| |__NetId__|";
             return title + bytesStr + encoding;
         }

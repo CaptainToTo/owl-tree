@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace OwlTree
 {
@@ -107,7 +108,7 @@ namespace OwlTree
         }
 
         // * Simulation
-        
+
         internal static int TickMessageLength => RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength + Tick.MaxByteLength + 8;
 
         internal static void EncodeNextTick(Span<byte> bytes, ClientId source, ClientId callee, Tick nextTick, long timestamp = 0)
@@ -117,7 +118,7 @@ namespace OwlTree
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
             callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
             nextTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength),
                 timestamp == 0 ? Timestamp.Now : timestamp);
         }
 
@@ -128,7 +129,7 @@ namespace OwlTree
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
             callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
             curTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength),
                 timestamp == 0 ? Timestamp.Now : timestamp);
         }
 
@@ -139,14 +140,14 @@ namespace OwlTree
             source.InsertBytes(bytes.Slice(RpcId.MaxByteLength));
             callee.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength));
             prevTick.InsertBytes(bytes.Slice(RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength));
-            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength), 
+            InsertBytes(bytes.Slice(Tick.MaxByteLength + RpcId.MaxByteLength + ClientId.MaxByteLength + ClientId.MaxByteLength),
                 timestamp == 0 ? Timestamp.Now : timestamp);
         }
 
         internal static bool TryDecodeTickMessage(ReadOnlySpan<byte> bytes, out RpcId rpc, out ClientId source, out ClientId callee, out Tick tick, out long timestamp)
         {
             rpc = new RpcId(bytes);
-            switch(rpc.Id)
+            switch (rpc.Id)
             {
                 case RpcId.NextTickId:
                 case RpcId.CurTickId:
@@ -170,6 +171,34 @@ namespace OwlTree
         {
             caller = new ClientId(bytes);
             callee = new ClientId(bytes.Slice(ClientId.MaxByteLength));
+        }
+
+        // * To Strings
+
+        internal static string ToString(ReadOnlySpan<byte> bytes, int rowCount = -1)
+        {
+            var str = "";
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                str += bytes[i].ToString("X2");
+                if (i < bytes.Length - 1)
+                    str += '-';
+                if (rowCount > 0 && i % rowCount == 0 && i != 0)
+                    str += '\n';
+            }
+            return str;
+        }
+
+        internal static void ToString(ReadOnlySpan<byte> bytes, StringBuilder str, int rowCount = -1)
+        {
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                str.Append(bytes[i].ToString("X2"));
+                if (i < bytes.Length - 1)
+                    str.Append('-');
+                if (rowCount > 0 && i % rowCount == 0 && i != 0)
+                    str.Append('\n');
+            }
         }
     }
 }

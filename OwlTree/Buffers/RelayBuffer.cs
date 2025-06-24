@@ -217,7 +217,7 @@ namespace OwlTree
                                 catch (Exception e)
                                 {
                                     if (Logger.includes.exceptions)
-                                        Logger.WriteError($"Failed to handle UDP ping request message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
+                                        Logger.WriteError($"Failed to handle UDP ping request message '{Encoder.ToString(bytes)}' from {client.id}.", e);
                                 }
                             }
                         }
@@ -437,7 +437,7 @@ namespace OwlTree
                             catch (Exception e)
                             {
                                 if (Logger.includes.exceptions)
-                                    Logger.WriteError($"Failed to relay TCP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
+                                    Logger.WriteError($"Failed to relay TCP message '{Encoder.ToString(bytes)}' from {client.id}.", e);
                             }
                         }
                     } while (dataRemaining > 0);
@@ -494,7 +494,7 @@ namespace OwlTree
                     catch (Exception e)
                     {
                         if (Logger.includes.exceptions)
-                            Logger.WriteError($"Failed to relay UDP message '{BitConverter.ToString(bytes.ToArray())}' from {client.id}.", e);
+                            Logger.WriteError($"Failed to relay UDP message '{Encoder.ToString(bytes)}' from {client.id}.", e);
                     }
                 }
             }

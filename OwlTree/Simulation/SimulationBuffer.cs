@@ -220,7 +220,7 @@ namespace OwlTree
                     Encoder.EncodeCurTick(bytes, source, callee, tick, timestamp);
                     break;
             }
-            string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string bytesStr = "\n     Bytes: " + Encoder.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__Tick___| |______Timestamp______|";
             return title + bytesStr + encoding;
         }
@@ -241,7 +241,7 @@ namespace OwlTree
                     Encoder.EncodeCurTick(bytes, source, callee, tick, timestamp);
                     break;
             }
-            string bytesStr = "\n     Bytes: " + BitConverter.ToString(bytes) + "\n";
+            string bytesStr = "\n     Bytes: " + Encoder.ToString(bytes) + "\n";
             string encoding = "  Encoding: |__RpcId__| |_Caller__| |_Callee__| |__Tick___| |______Timestamp______|";
             return title + bytesStr + encoding;
         }
