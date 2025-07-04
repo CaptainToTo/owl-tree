@@ -8,7 +8,7 @@ namespace OwlTree
     /// <summary>
     /// Manages sending and receiving messages for a client instance.
     /// </summary>
-    public class ClientBuffer : NetworkBuffer
+    internal class ClientBuffer : NetworkBuffer
     {
         /// <summary>
         /// Manages sending and receiving messages for a client instance.
@@ -62,7 +62,7 @@ namespace OwlTree
 
         private uint _hash = 0;
 
-        // messages to be sent ot the sever
+        // messages to be sent to the sever
         private Packet _tcpPacket;
         private Packet _udpPacket;
 
@@ -184,7 +184,7 @@ namespace OwlTree
             _readList.Add(_udpClient.Socket);
             Socket.Select(_readList, null, null, IsReady ? 0 : -1);
 
-            _pingRequests.ClearTimeouts(PingTimeout);
+            PingRequests.ClearTimeouts(PingTimeout);
 
             foreach (var socket in _readList)
             {
@@ -395,12 +395,12 @@ namespace OwlTree
             }
             else if (request.Source == LocalId)
             {
-                var original = _pingRequests.Find(request);
+                var original = PingRequests.Find(request);
                 if (original != null)
                 {
                     original.PingReceivedAt(request.ReceiveTime);
                     original.PingResponded();
-                    _pingRequests.Remove(original);
+                    PingRequests.Remove(original);
                     MessageQueue.AddIncoming(new IncomingMessage{
                         caller = ClientId.None, 
                         callee = LocalId, 
@@ -431,7 +431,7 @@ namespace OwlTree
                 
                 if (message.rpcId == RpcId.PingRequestId && Encoder.TryPingRequestDecode(message.bytes, out var request))
                 {
-                    var original = _pingRequests.Find(request);
+                    var original = PingRequests.Find(request);
                     original.PingSent();
                     Encoder.PingRequestEncode(message.bytes, original);
 

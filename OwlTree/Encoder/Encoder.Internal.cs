@@ -69,18 +69,14 @@ namespace OwlTree
             request.InsertBytes(bytes.Slice(rpcId.ByteLength()));
         }
 
-        internal static RpcId ServerMessageDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest connectRequest)
+        internal static bool TryConnectionRequestDecode(ReadOnlySpan<byte> bytes, out ConnectionRequest connectRequest)
         {
-            RpcId result = RpcId.None;
-            result.FromBytes(bytes);
+            RpcId result = new RpcId(bytes);
             connectRequest = new ConnectionRequest();
-            switch (result.Id)
-            {
-                case RpcId.ConnectionRequestId:
-                    connectRequest.FromBytes(bytes.Slice(result.ByteLength()));
-                    break;
-            }
-            return result;
+            if (result != RpcId.ConnectionRequestId)
+                return false;
+            connectRequest.FromBytes(bytes.Slice(result.ByteLength()));
+            return true;
         }
 
         internal static bool TryClientMessageDecode(ReadOnlySpan<byte> bytes, out RpcId rpcId)

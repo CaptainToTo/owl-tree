@@ -11,68 +11,19 @@ namespace OwlTree
     /// <summary>
     /// Manages sending and receiving messages for a server instance.
     /// </summary>
-    public class ServerBuffer : NetworkBuffer
+    internal class ServerBuffer : HostBuffer
     {
         /// <summary>
         /// Manages sending and receiving messages for a server instance.
         /// </summary>
         /// <param name="args">NetworkBuffer parameters.</param>
         /// <param name="maxClients">The max number of clients that can be connected at once.</param>
-        public ServerBuffer(Args args, int maxClients, long requestTimeout, IPAddress[] whitelist) : base (args)
+        public ServerBuffer(Args args, int maxClients, long requestTimeout, IPAddress[] whitelist) : base (args, maxClients, requestTimeout, whitelist)
         {
-            IPEndPoint tpcEndPoint = new IPEndPoint(IPAddress.Any, ServerTcpPort);
-            _tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _tcpServer.Bind(tpcEndPoint);
-            _tcpServer.Listen(maxClients);
-            ServerTcpPort = ((IPEndPoint)_tcpServer.LocalEndPoint).Port;
-            _readList.Add(_tcpServer);
-
-            IPEndPoint udpEndPoint = new IPEndPoint(IPAddress.Any, ServerUdpPort);
-            _udpServer = new RudpServerSocket(udpEndPoint);
-            ServerUdpPort = _udpServer.Port;
-            _readList.Add(_udpServer.Socket);
-
             Migratable = false;
 
-            _clientData = new ClientDataList(BufferSize, Timestamp.Millisecond);
-            _whitelist = whitelist;
-
-            MaxClients = maxClients == -1 ? int.MaxValue : maxClients;
-            _requests = new(MaxClients, requestTimeout);
-            LocalId = ClientId.None;
-            Authority = ClientId.None;
             IsReady = true;
             AddReadyMessage(LocalId);
-        }
-
-        ~ServerBuffer()
-        {
-            if (_tcpServer.Connected)
-                Disconnect();
-        }
-
-        public override int LocalTcpPort() => ServerTcpPort;
-
-        public override int LocalUdpPort() => ServerUdpPort;
-
-        public override int Latency() => _clientData.FindWorstLatency()?.latency ?? 0;
-
-        // server state
-        private Socket _tcpServer;
-        private RudpServerSocket _udpServer;
-        private List<Socket> _readList = new List<Socket>();
-        private ClientDataList _clientData;
-        private ConnectionRequestList _requests;
-        private IPAddress[] _whitelist = null;
-
-        private bool HasWhitelist => _whitelist != null && _whitelist.Length > 0;
-
-        private bool IsOnWhitelist(IPAddress addr)
-        {
-            if (!HasWhitelist) return false;
-            foreach (var a in _whitelist)
-                if (a.Equals(addr)) return true;
-            return false;
         }
 
         /// <summary>
@@ -80,214 +31,40 @@ namespace OwlTree
         /// </summary>
         public override void Recv()
         {
-            _readList.Clear();
-            _readList.Add(_tcpServer);
-            _readList.Add(_udpServer.Socket);
-            foreach (var data in _clientData)
-                _readList.Add(data.tcpSocket);
-            
-            Socket.Select(_readList, null, null, 0);
+            if (!IsActive)
+                return;
 
-            _requests.ClearTimeouts();
+            ResetReadList();
 
-            _pingRequests.ClearTimeouts(PingTimeout);
-
-            foreach (var socket in _readList)
+            foreach (var socket in ReadList)
             {
                 // new client connects
-                if (socket == _tcpServer)
+                if (socket == TcpSocket)
                 {
-                    var tcpClient = socket.Accept();
-
-                    // reject connections that aren't from verified app instances
-                    if (!_requests.TryGet((IPEndPoint)tcpClient.RemoteEndPoint, out var udpPort, out long timestamp))
-                    {
-                        tcpClient.Close();
-                        continue;
-                    }
-
-                    IPEndPoint udpEndPoint = new IPEndPoint(((IPEndPoint)tcpClient.RemoteEndPoint).Address, udpPort);
-
-                    var clientData = _clientData.Add(tcpClient, udpEndPoint);
-                    clientData.tcpPacket.header.owlTreeVer = OwlTreeVersion;
-                    clientData.tcpPacket.header.appVer = AppVersion;
-                    clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
-                    clientData.udpPacket.header.appVer = AppVersion;
-                    clientData.latency = (int)(Timestamp.Now - timestamp);
-                    _udpServer.AddEndpoint(udpEndPoint);
-
-                    if (Logger.includes.connectionAttempts)
-                    {
-                        Logger.Write($"TCP handshake made with {((IPEndPoint)tcpClient.RemoteEndPoint).Address} (tcp port: {((IPEndPoint)tcpClient.RemoteEndPoint).Port}) (udp port: {udpPort}). Assigned: {clientData.id}");
-                    }
-
-                    AddClientConnectedMessage(clientData.id);
-
-                    // send new client their id
-                    var span = clientData.tcpPacket.GetSpan(Encoder.LocalClientConnectLength);
-                    Encoder.LocalClientConnectEncode(span, new ClientIdAssignment(clientData.id, Authority, clientData.hash, MaxClients, Migratable, ShutdownWhenEmpty));
-
-                    foreach (var otherClient in _clientData)
-                    {
-                        if (otherClient.id == clientData.id) continue;
-
-                        // notify clients of a new client in the next send
-                        span = otherClient.tcpPacket.GetSpan(Encoder.ClientMessageLength);
-                        Encoder.ClientConnectEncode(span, clientData.id);
-
-                        // add existing clients to new client
-                        span = clientData.tcpPacket.GetSpan(Encoder.ClientMessageLength);
-                        Encoder.ClientConnectEncode(span, otherClient.id);
-                    }
-                    HasClientEvent = true;
-                    
-                    clientData.tcpPacket.header.timestamp = Timestamp.Now;
-                    ApplySendSteps(clientData.tcpPacket);
-                    var bytes = clientData.tcpPacket.GetPacket();
-                    tcpClient.Send(bytes);
-                    clientData.tcpPacket.Reset();
+                    var clientData = TryAddClient();
+                    if (clientData != null)
+                        SendNewClient(clientData);
                 }
-                else if (socket == _udpServer.Socket) // receive client udp messages
+                else if (socket == UdpSocket.Socket) // receive client udp messages
                 {
-                    while (_udpServer.Available > 0)
+                    while (UdpSocket.Available > 0)
                     {
-                        Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
+                        (var result, var source) = RecvUdpPacket();
 
-                        IPEndPoint source = new IPEndPoint(IPAddress.Any, 0);
-                        int dataLen = -1;
-                        RudpResult result = RudpResult.Failed;
-                        try
-                        {
-                            result = _udpServer.ReceiveFrom(ReadBuffer, ref source, out dataLen);
-                            ReadPacket.FromBytes(ReadBuffer, 0, dataLen);
-
-                            if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
-                            {
-                                throw new InvalidOperationException("Cannot accept packets from outdated OwlTree or app versions.");
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            if (Logger.includes.exceptions)
-                                Logger.WriteError("Failed to receive UDP packet.", e);
-                        }
-
-                        if (dataLen <= 0)
-                        {
+                        if (result == RudpResult.Failed)
                             break;
-                        }
 
-                        if (result == RudpResult.PingRequest)
-                        {
-                            var client = _clientData.Find(source);
-
-                            if (client == null)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.Write($"Ping request received from an unknown client. Ignoring packet.");
-                                continue;
-                            }
-                
-                            if (client.hash != ReadPacket.header.hash)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.Write($"Incorrect hash received in UDP ping request from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
-                                continue;
-                            }
-
-                            ReadPacket.StartMessageRead();
-                            if (ReadPacket.TryGetNextMessage(out var bytes))
-                            {
-                                try
-                                {
-                                    var rpcId = new RpcId(bytes);
-
-                                    if (rpcId.Id == RpcId.PingRequestId && Encoder.TryPingRequestDecode(bytes, out var request))
-                                        HandlePingRequest(request, Protocol.Udp);
-                                }
-                                catch (Exception e)
-                                {
-                                    if (Logger.includes.exceptions)
-                                        Logger.WriteError($"Failed to handle UDP ping request '{Encoder.ToString(bytes)}' from {client.id}.", e);
-                                }
-                            }
-                        }
+                        else if (result == RudpResult.PingRequest)
+                            ParsePingRequest(source);
+                        
                         // try to verify a new client connection
                         else if (result == RudpResult.UnregisteredEndpoint)
                         {
-                            if (HasWhitelist && !IsOnWhitelist(source.Address))
-                                continue;
+                            var responseCode = ProcessConnectionRequest(source);
+                            if (responseCode == ConnectionResponseCode.Accepted)
+                                ConnectRequests.Add(source);
 
-                            if (Logger.includes.connectionAttempts)
-                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") received:\n" + ReadPacket.ToString());
-
-                            ConnectionResponseCode responseCode = ConnectionResponseCode.Accepted;
-                            ReadPacket.StartMessageRead();
-                            if (ReadPacket.TryGetNextMessage(out var bytes))
-                            {
-                                var rpcId = Encoder.ServerMessageDecode(bytes, out var request);
-
-
-                                if (rpcId != RpcId.ConnectionRequestId)
-                                    responseCode = ConnectionResponseCode.Rejected;
-                                else if (request.appId != ApplicationId)
-                                    responseCode = ConnectionResponseCode.IncorrectAppId;
-                                else if (request.sessionId != SessionId)
-                                    responseCode = ConnectionResponseCode.IncorrectSessionId;
-                                else if (_clientData.Count >= MaxClients || _requests.Count >= MaxClients)
-                                    responseCode = ConnectionResponseCode.SessionFull;
-                                else if (request.simulationSystem != SimulationSystem || request.tickRate != TickRate)
-                                    responseCode = ConnectionResponseCode.IncorrectSimulationControl;
-                                else if (request.isHost)
-                                    responseCode = ConnectionResponseCode.Rejected;
-
-                                // connection request verified, send client confirmation
-                                if (responseCode == ConnectionResponseCode.Accepted)
-                                {
-                                    _requests.Add(source);
-                                }
-                                
-                            }
-                            else
-                            {
-                                responseCode = ConnectionResponseCode.Rejected;
-                            }
-
-                            ReadPacket.Clear();
-                            ReadPacket.header.owlTreeVer = OwlTreeVersion;
-                            ReadPacket.header.appVer = AppVersion;
-                            ReadPacket.header.timestamp = Timestamp.Now;
-                            ReadPacket.header.sender = 0;
-                            ReadPacket.header.hash = 0;
-                            var response = ReadPacket.GetSpan(4);
-                            Encoder.InsertBytes(response, (int)responseCode);
-                            var responsePacket = ReadPacket.GetPacket();
-                            _udpServer.SendTo(responsePacket.ToArray(), source);
-
-                            if (Logger.includes.connectionAttempts)
-                            {
-                                string resultStr = "accepted, awaiting TCP handshake...";
-                                switch (responseCode)
-                                {
-                                    case ConnectionResponseCode.Accepted:
-                                        break;
-                                    case ConnectionResponseCode.SessionFull: resultStr = "rejected, the session is full.";
-                                        break;
-                                    case ConnectionResponseCode.IncorrectAppId: resultStr = "rejected, the client gave the incorrect app id.";
-                                        break;
-                                    case ConnectionResponseCode.IncorrectSessionId: resultStr = "rejected, the client gave the incorrect session id.";
-                                        break;
-                                    case ConnectionResponseCode.IncorrectSimulationControl: resultStr = "rejected, the client is using the incorrect simulation system.";
-                                        break;
-                                    case ConnectionResponseCode.HostAlreadyAssigned: resultStr = "rejected, the client tried to claim the host role, but the host is already assigned.";
-                                        break;
-                                    case ConnectionResponseCode.Rejected: resultStr = "rejected.";
-                                        break;
-                                }
-                                Logger.Write("Connection attempt from " + source.Address.ToString() + " (udp port: " + source.Port + ") " + resultStr);
-                            }
-
-                            continue;
+                            SendConnectionResponse(source, responseCode);
                         }
                     }
                 }
@@ -296,87 +73,27 @@ namespace OwlTree
                     Array.Clear(ReadBuffer, 0, ReadBuffer.Length);
                     int dataRemaining = -1;
                     int dataLen = -1;
-                    ClientData client = null;
+                    ClientData client = FindClientData(socket);
 
-                    if (!socket.Connected)
-                    {
-                        client = _clientData.Find(socket);
-                        Disconnect(client);
+                    if (client == null)
                         continue;
-                    }
 
-                    do {
-                        ReadPacket.Clear();
+                    do
+                    {
+                        (dataRemaining, dataLen) = RecvTcpPacket(socket, client, dataRemaining, dataLen);
 
-                        int iters = 0;
-                        do {
-                            try
-                            {
-                                if (dataRemaining <= 0)
-                                {
-                                    dataLen = socket.Receive(ReadBuffer);
-                                    dataRemaining = dataLen;
-                                }
-                                dataRemaining -= ReadPacket.FromBytes(ReadBuffer, dataLen - dataRemaining, dataLen);
-                                iters++;
-                            }
-                            catch (Exception e)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.WriteError($"Failed to receive TCP packet from {((IPEndPoint)socket.RemoteEndPoint).Address} ({((IPEndPoint)socket.RemoteEndPoint).Port})", e);
-
-                                dataLen = -1;
-                                break;
-                            }
-                        } while (ReadPacket.Incomplete && iters < 10);
-
-                        if (ReadPacket.header.appVer < MinAppVersion || ReadPacket.header.owlTreeVer < MinOwlTreeVersion)
-                        {
-                            dataLen = -1;
-                        }
-
-                        // disconnect if receive fails
                         if (dataLen <= 0)
-                        {
-                            Disconnect(_clientData.Find(socket));
                             break;
-                        }
 
-                        if (client == null)
-                        {
-                            client = _clientData.Find(socket);
-
-                            if (client.hash != ReadPacket.header.hash)
-                            {
-                                if (Logger.includes.exceptions)
-                                    Logger.Write($"Incorrect hash received in TCP packet from client {client.id}. Got {ReadPacket.header.hash}, but expected {client.hash}. Ignoring packet.");
-                                continue;
-                            }
-
-                            client.latency = (int)(Timestamp.Now - ReadPacket.header.timestamp);
-                        }
-
-                        if (Logger.includes.tcpPostTransform)
-                            Logger.WriteRecv($"mutated Post-Transform TCP packet from {client.id}:", ReadPacket);
-
-                        ApplyRecvSteps(ReadPacket);
-
-                        if (Logger.includes.tcpPreTransform)
-                            Logger.WriteRecv($"original Pre-Transform TCP packet from {client.id}:", ReadPacket);
-                        
                         ReadPacket.StartMessageRead();
                         while (ReadPacket.TryGetNextMessage(out var bytes))
                         {
                             try
                             {
                                 if (Encoder.TryPingRequestDecode(bytes, out var request))
-                                {
                                     HandlePingRequest(request, Protocol.Tcp);
-                                }
                                 else
-                                {
                                     Decode(client.id, bytes, Protocol.Tcp);
-                                }
                             }
                             catch (Exception e)
                             {
@@ -387,16 +104,16 @@ namespace OwlTree
                     } while (dataRemaining > 0);
                 }
             }
-            
-            _udpServer.RequestMissingPackets();
 
-            while (_udpServer.TryGetNextPacket(out var packet, out var source))
+            UdpSocket.RequestMissingPackets();
+
+            while (UdpSocket.TryGetNextPacket(out var packet, out var source))
             {
                 ReadPacket.Clear();
                 ReadPacket.FromBytes(packet, 0, packet.Length);
 
-                var client = _clientData.Find(source);
-                
+                var client = ClientData.Find(source);
+
                 if (client.hash != ReadPacket.header.hash)
                 {
                     if (Logger.includes.exceptions)
@@ -418,13 +135,9 @@ namespace OwlTree
                     try
                     {
                         if (Encoder.TryPingRequestDecode(bytes, out var request))
-                        {
                             HandlePingRequest(request, Protocol.Udp);
-                        }
                         else
-                        {
                             Decode(client.id, bytes, Protocol.Udp);
-                        }
                     }
                     catch (Exception e)
                     {
@@ -432,55 +145,6 @@ namespace OwlTree
                             Logger.WriteError($"Failed to decode UDP message '{Encoder.ToString(bytes)}' from {client.id}.", e);
                     }
                 }
-            }
-        }
-
-        private void HandlePingRequest(PingRequest request, Protocol protocol = Protocol.Udp)
-        {
-            if (request.Target == LocalId)
-            {
-                var data = _clientData.Find(request.Source);
-                ReadPacket.Clear();
-                ReadPacket.header.timestamp = Timestamp.Now;
-                ReadPacket.header.sender = 0;
-                ReadPacket.header.hash = data.hash;
-                ReadPacket.header.pingRequest = true;
-                PingResponse(request, ReadPacket);
-                if (protocol == Protocol.Udp)
-                    _udpServer.Socket.SendTo(ReadPacket.GetPacket().ToArray(), data.udpEndPoint);
-                else
-                    data.tcpSocket.Send(ReadPacket.GetPacket());
-            }
-            else if (request.Source == LocalId)
-            {
-                var original = _pingRequests.Find(request);
-                if (original != null)
-                {
-                    original.PingReceivedAt(request.ReceiveTime);
-                    original.PingResponded();
-                    _pingRequests.Remove(original);
-                    MessageQueue.AddIncoming(new IncomingMessage{
-                        caller = request.Source, 
-                        callee = request.Target, 
-                        rpcId = new RpcId(RpcId.PingRequestId), 
-                        target = NetworkId.None, 
-                        protocol = protocol, 
-                        perms = RpcPerms.AnyToAll,
-                        args = new object[]{original}
-                    });
-                }
-            }
-            else
-            {
-                var target = _clientData.Find(request.Target);
-                var source = _clientData.Find(request.Source);
-                if (target == null || source == null)
-                    return;
-                
-                var packet = request.Received ? source.tcpPacket : target.tcpPacket;
-                var span = packet.GetSpan(Encoder.PingRequestLength);
-                Encoder.PingRequestEncode(span, request);
-                HasClientEvent = true;
             }
         }
 
@@ -498,116 +162,19 @@ namespace OwlTree
                         return;
                     continue;
                 }
-                
-                if (message.rpcId == RpcId.PingRequestId && Encoder.TryPingRequestDecode(message.bytes, out var request))
-                {
-                    var data = _clientData.Find(message.callee);
-
-                    if (data == null)
-                        continue;
-
-                    var original = _pingRequests.Find(request);
-                    original.PingSent();
-                    Encoder.PingRequestEncode(message.bytes, original);
-
-                    ReadPacket.Clear();
-                    ReadPacket.header.timestamp = Timestamp.Now;
-                    ReadPacket.header.sender = 0;
-                    ReadPacket.header.hash = data.hash;
-                    ReadPacket.header.pingRequest = true;
-                    AddToPacket(message, ReadPacket);
-
-
-                    if (message.protocol == Protocol.Udp)
-                        _udpServer.Socket.SendTo(ReadPacket.GetPacket().ToArray(), data.udpEndPoint);
-                    else
-                        data.tcpSocket.Send(ReadPacket.GetPacket());
-                    continue;
-                }
-
-                if (message.callee != ClientId.None)
-                {
-                    var client = _clientData.Find(message.callee);
-                    if (client != null)
-                    {
-                        Packet p = message.protocol == Protocol.Tcp ? client.tcpPacket : client.udpPacket;
-                        AddToPacket(message, p);
-                    }
-                }
+                else if (message.rpcId == RpcId.PingRequestId && Encoder.TryPingRequestDecode(message.bytes, out var request))
+                    SendPingRequest(message, request);
                 else
-                {
-                    if (message.protocol == Protocol.Tcp)
-                    {
-                        foreach (var client in _clientData)
-                        {
-                            if (message.caller == client.id) continue;
-                            AddToPacket(message, client.tcpPacket);
-                        }
-                    }
-                    else
-                    {
-                        foreach (var client in _clientData)
-                        {
-                            if (message.caller == client.id) continue;
-                            AddToPacket(message, client.udpPacket);
-                        }
-                    }
-                }
+                    AddMessageToPackets(message);
             }
-            foreach (var client in _clientData)
+            foreach (var client in ClientData)
             {
-                while (!client.tcpPacket.IsEmpty)
-                {
-                    client.tcpPacket.header.timestamp = Timestamp.Now;
-
-                    if (Logger.includes.tcpPreTransform)
-                        Logger.WriteSend($"Pre-Transform TCP packet to {client.id}:", client.tcpPacket);
-
-                    ApplySendSteps(client.tcpPacket);
-                    var bytes = client.tcpPacket.GetPacket();
-
-                    if (Logger.includes.tcpPostTransform)
-                        Logger.WriteSend($"Post-Transform TCP packet to {client.id}:", client.tcpPacket);
-
-                    try
-                    {
-                        client.tcpSocket.Send(bytes);
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.WriteError($"Failed to send TCP packet to {client.id}.", e);
-                    }
-                    client.tcpPacket.Reset();
-                }
-
-                while (!client.udpPacket.IsEmpty)
-                {
-                    client.udpPacket.header.timestamp = Timestamp.Now;
-
-                    if (Logger.includes.tcpPreTransform)
-                        Logger.WriteSend($"Pre-Transform UDP packet to {client.id}:", client.udpPacket);
-
-                    ApplySendSteps(client.udpPacket);
-                    var bytes = client.udpPacket.GetPacket();
-
-                    if (Logger.includes.tcpPostTransform)
-                        Logger.WriteSend($"Post-Transform UDP packet to {client.id}:", client.udpPacket);
-
-                    try
-                    {
-                        _udpServer.SendTo(bytes.ToArray(), client.udpEndPoint);
-                    }
-                    catch (Exception e)
-                    {
-                        if (Logger.includes.exceptions)
-                            Logger.WriteError($"Failed to send UDP packet to {client.id}.", e);
-                    }
-                    client.udpPacket.Reset();
-                }
+                SendTcpPackets(client);
+                SendUdpPackets(client);
             }
 
             HasClientEvent = false;
+            HasRelayMessages = false;
         }
 
         /// <summary>
@@ -615,15 +182,13 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect()
         {
-            if (!_tcpServer.Connected)
+            if (!TcpSocket.Connected)
                 return;
-            var ids = _clientData.GetIds();
+            var ids = ClientData.GetIds();
             foreach (var id in ids)
-            {
                 Disconnect(id);
-            }
-            _tcpServer.Close();
-            _udpServer.Close();
+            TcpSocket.Close();
+            UdpSocket.Close();
             IsReady = false;
             IsActive = false;
             AddClientDisconnectedMessage(LocalId);
@@ -636,19 +201,19 @@ namespace OwlTree
         /// </summary>
         public override void Disconnect(ClientId id)
         {
-            var client = _clientData.Find(id);
+            var client = ClientData.Find(id);
             if (client != null)
                 Disconnect(client);
         }
 
-        private void Disconnect(ClientData client)
+        protected override void Disconnect(ClientData client)
         {
-            _clientData.Remove(client);
-            _udpServer.RemoveEndpoint(client.udpEndPoint);
+            ClientData.Remove(client);
+            UdpSocket.RemoveEndpoint(client.udpEndPoint);
             client.tcpSocket.Close();
             AddClientDisconnectedMessage(client.id);
 
-            foreach (var otherClient in _clientData)
+            foreach (var otherClient in ClientData)
             {
                 var span = otherClient.tcpPacket.GetSpan(Encoder.ClientMessageLength);
                 Encoder.ClientDisconnectEncode(span, client.id);

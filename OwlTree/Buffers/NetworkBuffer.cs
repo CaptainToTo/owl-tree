@@ -7,7 +7,7 @@ namespace OwlTree
     /// <summary>
     /// Super class that declares the interface for client and server buffers.
     /// </summary>
-    public abstract class NetworkBuffer
+    internal abstract class NetworkBuffer
     {
         /// <summary>
         /// Function signature used to provide the buffer with outgoing messages.
@@ -111,7 +111,7 @@ namespace OwlTree
             SimulationSystem = args.simulationSystem;
             TickRate = args.tickRate;
 
-            _pingRequests = new PingRequestList(3000);
+            PingRequests = new PingRequestList(3000);
 
             Logger = args.logger;
             IsActive = true;
@@ -234,14 +234,14 @@ namespace OwlTree
         /// </summary>
         public abstract void Send();
 
-        protected PingRequestList _pingRequests;
+        protected PingRequestList PingRequests;
 
         /// <summary>
         /// Send a ping to the targeted client.
         /// </summary>
         public PingRequest Ping(ClientId target, Protocol protocol = Protocol.Udp)
         {
-            var request = _pingRequests.Add(LocalId, target);
+            var request = PingRequests.Add(LocalId, target);
             var message = new OutgoingMessage{
                 caller = LocalId, 
                 callee = target, 
