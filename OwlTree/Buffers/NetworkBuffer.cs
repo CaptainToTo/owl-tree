@@ -83,7 +83,7 @@ namespace OwlTree
         {
             if (args.owlTreeVer < args.minOwlTreeVer)
             {
-                throw new ArgumentException("The local connection instance is using an older version of Owl Tree than the minimum requirement.");
+                throw new ArgumentException("The local connection instance is using an older version of OwlTree than the minimum requirement.");
             }
 
             if (args.appVer < args.minAppVer)

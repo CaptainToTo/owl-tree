@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableSourceGenerators>true</EnableSourceGenerators>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../OwlTree/OwlTree.csproj" />
+    <ProjectReference Include="../../OwlTree.Generator/OwlTree.Generator.csproj" OutputItemType="analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../FileInitializer/FileInitializer.csproj" />
+  </ItemGroup>
+
+</Project>
