@@ -56,7 +56,7 @@ namespace OwlTree
         protected Packet ReadPacket;
 
         // ip and port number this client is bound to
-        public int ServerTcpPort { get; protected set; } 
+        public int ServerTcpPort { get; protected set; }
         public int ServerUdpPort { get; protected set; }
         public IPAddress Address { get; private set; }
 
@@ -121,7 +121,8 @@ namespace OwlTree
 
         protected void AddClientConnectedMessage(ClientId id)
         {
-            MessageQueue.AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage
+            {
                 rpcId = new RpcId(RpcId.ClientConnectedId),
                 caller = id
             });
@@ -129,7 +130,8 @@ namespace OwlTree
 
         protected void AddClientDisconnectedMessage(ClientId id)
         {
-            MessageQueue.AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage
+            {
                 rpcId = new RpcId(RpcId.ClientDisconnectedId),
                 caller = id
             });
@@ -137,7 +139,8 @@ namespace OwlTree
 
         protected void AddReadyMessage(ClientId id)
         {
-            MessageQueue.AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage
+            {
                 rpcId = new RpcId(RpcId.LocalReadyId),
                 caller = id
             });
@@ -145,7 +148,8 @@ namespace OwlTree
 
         protected void AddHostMigrationMessage(ClientId id)
         {
-            MessageQueue.AddIncoming(new IncomingMessage{
+            MessageQueue.AddIncoming(new IncomingMessage
+            {
                 rpcId = new RpcId(RpcId.HostMigrationId),
                 caller = id
             });
@@ -168,7 +172,7 @@ namespace OwlTree
         /// have the same control system.
         /// </summary>
         protected SimulationSystem SimulationSystem;
-        
+
         /// <summary>
         /// The millisecond frequency simulation ticks happen at. This is uniform across the session.
         /// </summary>
@@ -242,12 +246,13 @@ namespace OwlTree
         public PingRequest Ping(ClientId target, Protocol protocol = Protocol.Udp)
         {
             var request = PingRequests.Add(LocalId, target);
-            var message = new OutgoingMessage{
-                caller = LocalId, 
-                callee = target, 
-                rpcId = new RpcId(RpcId.PingRequestId), 
-                target = NetworkId.None, 
-                protocol = protocol, 
+            var message = new OutgoingMessage
+            {
+                caller = LocalId,
+                callee = target,
+                rpcId = new RpcId(RpcId.PingRequestId),
+                target = NetworkId.None,
+                protocol = protocol,
                 perms = RpcPerms.AnyToAll,
                 bytes = new byte[Encoder.PingRequestLength]
             };
@@ -278,34 +283,18 @@ namespace OwlTree
         protected void PingTimeout(PingRequest request)
         {
             request.PingFailed();
-            MessageQueue.AddIncoming(new IncomingMessage{
-                caller = LocalId, 
-                callee = LocalId, 
-                rpcId = new RpcId(RpcId.PingRequestId), 
-                target = NetworkId.None, 
-                protocol = Protocol.Tcp, 
-                perms = RpcPerms.AnyToAll, 
-                args = new object[]{request}
+            MessageQueue.AddIncoming(new IncomingMessage
+            {
+                caller = LocalId,
+                callee = LocalId,
+                rpcId = new RpcId(RpcId.PingRequestId),
+                target = NetworkId.None,
+                protocol = Protocol.Tcp,
+                perms = RpcPerms.AnyToAll,
+                args = new object[] { request }
             });
             if (Logger.includes.pings)
                 Logger.WriteError("Failing ping request due to timeout: " + request.ToString());
-        }
-        
-        /// <summary>
-        /// Function signature for transformer steps. Should return the same span of bytes
-        /// provided as an argument.
-        /// </summary>
-        public delegate void BufferAction(Packet packet);
-
-        /// <summary>
-        /// Use to add transformer steps to sending and reading.
-        /// Specify the priority to sort the order of transformers.
-        /// Sorted in ascending order.
-        /// </summary>
-        public struct Transformer
-        {
-            public int priority;
-            public BufferAction step;
         }
 
         // buffer transformer steps
@@ -365,7 +354,7 @@ namespace OwlTree
             }
             _recvProcess.Add(step);
         }
-        
+
         /// <summary>
         /// Apply all of the currently added read transformer steps. Returns the 
         /// same span, with transformations applied to the underlying bytes.
@@ -391,17 +380,34 @@ namespace OwlTree
         /// Invokes <c>OnClientDisconnected</c> with the local ClientId.
         /// </summary>
         public abstract void Disconnect();
-        
+
         /// <summary>
         /// Disconnect a client from the server.
         /// Invokes <c>OnClientDisconnected</c>.
         /// </summary>
         public abstract void Disconnect(ClientId id);
-        
+
         /// <summary>
         /// Change the authority of the session to the given new host.
         /// The previous host will be down-graded to a client if they are still connected.
         /// </summary>
         public abstract void MigrateHost(ClientId newHost);
+    }
+
+    /// <summary>
+    /// Function signature for transformer steps. Should return the same span of bytes
+    /// provided as an argument.
+    /// </summary>
+    public delegate void BufferAction(Packet packet);
+    
+    /// <summary>
+    /// Use to add transformer steps to sending and reading.
+    /// Specify the priority to sort the order of transformers.
+    /// Sorted in ascending order.
+    /// </summary>
+    public struct Transformer
+    {
+        public int priority;
+        public BufferAction step;
     }
 }

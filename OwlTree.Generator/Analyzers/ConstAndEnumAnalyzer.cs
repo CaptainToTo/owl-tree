@@ -18,6 +18,8 @@ namespace OwlTree.Generator
         {
             var (compilation, list) = tuple;
 
+            CacheFinder.GetCache(compilation);
+
             GeneratorState.ClearConsts();
             GeneratorState.ClearEnums();
 

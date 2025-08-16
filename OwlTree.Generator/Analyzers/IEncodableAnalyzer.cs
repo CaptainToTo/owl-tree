@@ -73,6 +73,8 @@ namespace OwlTree.Generator
         {
             var (compilation, list) = tuple;
 
+            CacheFinder.GetCache(compilation);
+
             GeneratorState.ClearEncodables();
             AddPrimitives();
             AddBuiltIns();

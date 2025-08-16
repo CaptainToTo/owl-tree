@@ -165,13 +165,13 @@ namespace OwlTree
                 };
             }
 
-            _buffer.AddRecvStep(new NetworkBuffer.Transformer{
+            _buffer.AddRecvStep(new Transformer{
                 priority = 100,
                 step = Huffman.Decode
             });
             if (args.useCompression)
             {
-                _buffer.AddSendStep(new NetworkBuffer.Transformer{
+                _buffer.AddSendStep(new Transformer{
                     priority = 100,
                     step = Huffman.Encode
                 });
@@ -186,12 +186,12 @@ namespace OwlTree
                     Logger.Write(str);
                 } : args.bandwidthReporter);
 
-                _buffer.AddRecvStep(new NetworkBuffer.Transformer{
+                _buffer.AddRecvStep(new Transformer{
                     priority = 0,
                     step = Bandwidth.RecordIncoming
                 });
 
-                _buffer.AddSendStep(new NetworkBuffer.Transformer{
+                _buffer.AddSendStep(new Transformer{
                     priority = 200,
                     step = Bandwidth.RecordOutgoing
                 });

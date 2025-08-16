@@ -155,7 +155,7 @@ namespace OwlTree.Generator
                 var rpcData = new GeneratorState.RpcData()
                 {
                     id = curId,
-                    name = m.Identifier.ValueText,
+                    name = Helpers.GetFullName(m.Identifier.ValueText, m),
                     perms = caller,
                     invokeOnCaller = invokeOnCaller,
                     useTcp = useTcp,

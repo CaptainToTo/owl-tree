@@ -22,6 +22,8 @@ namespace OwlTree.Generator
         public const bool RpcInvokeOnCallerDefault = false;
         public const bool RpcUseTcpDefault = true;
 
+        public const string CacheFile = ".owltree.cache";
+
         // * tokens
 
         // classes and namespaces

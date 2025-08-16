@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../OwlTree/OwlTree.csproj" />
-    <ProjectReference Include="../../OwlTree.Generator/OwlTree.Generator.csproj" OutputItemType="analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../FileInitializer/FileInitializer.csproj" />
+    <ProjectReference Include="../../../OwlTree/OwlTree.csproj" />
+    <ProjectReference Include="../../../OwlTree.Generator/OwlTree.Generator.csproj" OutputItemType="analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../FileInitializer/FileInitializer.csproj" />
     <ProjectReference Include="../Library/Library.csproj" />
   </ItemGroup>
 

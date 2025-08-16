@@ -136,13 +136,13 @@ namespace OwlTree
             /// Add custom transformers that will be apply to data received from sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.Transformer[] recvSteps = new NetworkBuffer.Transformer[0];
+            public Transformer[] recvSteps = new Transformer[0];
 
             /// <summary>
             /// Add custom transformers that will be apply to data sent to sockets. Steps will be sorted by priority, least to greatest,
             /// and executed in that order. <b>Default = None</b>
             /// </summary>
-            public NetworkBuffer.Transformer[] sendSteps = new NetworkBuffer.Transformer[0];
+            public Transformer[] sendSteps = new Transformer[0];
 
             /// <summary>
             /// Adds Huffman encoding and decoding to the connection's read and send steps, with a priority of 100. <b>Default = true</b>
