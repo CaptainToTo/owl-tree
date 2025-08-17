@@ -20,21 +20,13 @@ namespace OwlTree.Generator
                 return;
 
             GeneratorState.CachePath = foundPath + "/" + Helpers.CacheFile;
+            GeneratorState.LoadCache();
 
-            if (File.Exists(GeneratorState.CachePath))
-                LoadCache(proj, GeneratorState.CachePath);
+            // if cache already has this project's path, then this must be a new compilation
+            if (GeneratorState.HasProject(proj))
+                GeneratorState.ResetCache();
             else
-                StartCache(proj, GeneratorState.CachePath);
-        }
-
-        private static void StartCache(string proj, string cachePath)
-        {
-            throw new NotImplementedException();
-        }
-
-        private static void LoadCache(string proj, string cachePath)
-        {
-            throw new NotImplementedException();
+                GeneratorState.AddProject(proj);
         }
 
         private static string GetProjectPath(Compilation compilation)

@@ -147,6 +147,12 @@ namespace OwlTree.Generator
             .WithMembers(
                 SingletonList<MemberDeclarationSyntax>(
                     ClassDeclaration(Helpers.Tk_ProjectProtocols)
+                    .WithAttributeLists(
+                        SingletonList<AttributeListSyntax>(
+                            AttributeList(
+                                SingletonSeparatedList<AttributeSyntax>(
+                                    Attribute(
+                                        IdentifierName(Helpers.AttrTk_CompilerGenerated))))))
                     .WithModifiers(
                         TokenList(
                             Token(SyntaxKind.PublicKeyword)))

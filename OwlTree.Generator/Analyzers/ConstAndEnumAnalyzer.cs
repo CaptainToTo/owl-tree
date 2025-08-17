@@ -20,9 +20,6 @@ namespace OwlTree.Generator
 
             CacheFinder.GetCache(compilation);
 
-            GeneratorState.ClearConsts();
-            GeneratorState.ClearEnums();
-
             if (list.Length == 0)
                 return;
             
@@ -47,12 +44,15 @@ namespace OwlTree.Generator
         private static void SolveConstValues(SourceProductionContext context, IEnumerable<FieldDeclarationSyntax> fields)
         {
             // add built in first id consts
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcId, (int)Helpers.FirstRpcId);
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithClass, (int)Helpers.FirstRpcId);
-            GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithNamespace, (int)Helpers.FirstRpcId);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeId, (int)Helpers.FirstTypeId);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithClass, (int)Helpers.FirstTypeId);
-            GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithNamespace, (int)Helpers.FirstTypeId);
+            if (!GeneratorState.HasConst(Helpers.Tk_FirstRpcId))
+            {
+                GeneratorState.AddConst(Helpers.Tk_FirstRpcId, (int)Helpers.FirstRpcId);
+                GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithClass, (int)Helpers.FirstRpcId);
+                GeneratorState.AddConst(Helpers.Tk_FirstRpcIdWithNamespace, (int)Helpers.FirstRpcId);
+                GeneratorState.AddConst(Helpers.Tk_FirstTypeId, (int)Helpers.FirstTypeId);
+                GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithClass, (int)Helpers.FirstTypeId);
+                GeneratorState.AddConst(Helpers.Tk_FirstTypeIdWithNamespace, (int)Helpers.FirstTypeId);
+            }
 
             var names = new List<string>();
             foreach (var field in fields)

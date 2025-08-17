@@ -75,9 +75,10 @@ namespace OwlTree.Generator
 
             CacheFinder.GetCache(compilation);
 
-            GeneratorState.ClearEncodables();
-            AddPrimitives();
-            AddBuiltIns();
+            if (!GeneratorState.HasEncodable(Helpers.Tk_Byte))
+                AddPrimitives();
+            if (!GeneratorState.HasEncodable(Helpers.Tk_RpcId))
+                AddBuiltIns();
 
             if (list.Length == 0)
                 return;

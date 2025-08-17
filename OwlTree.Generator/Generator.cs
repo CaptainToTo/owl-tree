@@ -61,10 +61,6 @@ namespace OwlTree.Generator
 
             CacheFinder.GetCache(compilation);
 
-            GeneratorState.ClearTypeIds();
-            GeneratorState.ClearRpcData();
-            GeneratorState.ClearUsings();
-
             if (list.Length == 0) return;
 
             NetworkObjectAnalyzer.AssignTypeIds(context, list);
@@ -91,6 +87,8 @@ namespace OwlTree.Generator
 
             var protocols = RpcProtocolsGenerator.GetRpcProtocols();
             context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
+
+            GeneratorState.WriteCache();
 
             var diagnostic = Diagnostic.Create(
                 new DiagnosticDescriptor(

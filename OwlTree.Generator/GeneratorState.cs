@@ -32,6 +32,8 @@ namespace OwlTree.Generator
 
         public static void LoadCache()
         {
+            if (!File.Exists(CachePath))
+                return;
             var str = File.ReadAllText(CachePath);
             FromProjectsString(str);
             FromEncodablesString(str);
@@ -39,6 +41,17 @@ namespace OwlTree.Generator
             FromEnumsString(str);
             FromTypeIdsString(str);
             FromRpcIdsString(str);
+        }
+
+        public static void ResetCache()
+        {
+            ClearProjects();
+            ClearEncodables();
+            ClearConsts();
+            ClearEnums();
+            ClearTypeIds();
+            ClearRpcData();
+            ClearUsings();
         }
 
         public static string CachePath = null;
