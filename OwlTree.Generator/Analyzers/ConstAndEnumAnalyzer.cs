@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -16,29 +17,36 @@ namespace OwlTree.Generator
         /// </summary>
         public static void SolveConstAndEnumValues(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
         {
-            var (compilation, list) = tuple;
-
-            CacheFinder.GetCache(compilation);
-
-            if (list.Length == 0)
-                return;
-            
-            var registry = list[0];
-
-            for (int i = 1; i < list.Length; i++)
-                Diagnostics.MultipleIdRegistries(context, list[i]);
-
-            if (!Helpers.IsStatic(registry))
+            try
             {
-                Diagnostics.NonStaticRegistry(context, registry);
-                return;
+                var (compilation, list) = tuple;
+
+                CacheFinder.GetCache(compilation);
+
+                if (list.Length == 0)
+                    return;
+
+                var registry = list[0];
+
+                for (int i = 1; i < list.Length; i++)
+                    Diagnostics.MultipleIdRegistries(context, list[i]);
+
+                if (!Helpers.IsStatic(registry))
+                {
+                    Diagnostics.NonStaticRegistry(context, registry);
+                    return;
+                }
+
+                var fields = registry.Members.OfType<FieldDeclarationSyntax>();
+                SolveConstValues(context, fields);
+
+                var enums = registry.Members.OfType<EnumDeclarationSyntax>();
+                SolveEnumValues(context, enums);
             }
-
-            var fields = registry.Members.OfType<FieldDeclarationSyntax>();
-            SolveConstValues(context, fields);
-
-            var enums = registry.Members.OfType<EnumDeclarationSyntax>();
-            SolveEnumValues(context, enums);
+            catch (Exception e)
+            {
+                Diagnostics.GeneratorException(e);
+            }
         }
 
         private static void SolveConstValues(SourceProductionContext context, IEnumerable<FieldDeclarationSyntax> fields)

@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -71,34 +72,47 @@ namespace OwlTree.Generator
         /// </summary>
         public static void CacheEncodables(SourceProductionContext context, (Compilation Left, ImmutableArray<TypeDeclarationSyntax> Right) tuple)
         {
-            var (compilation, list) = tuple;
-
-            CacheFinder.GetCache(compilation);
-
-            if (!GeneratorState.HasEncodable(Helpers.Tk_Byte))
-                AddPrimitives();
-            if (!GeneratorState.HasEncodable(Helpers.Tk_RpcId))
-                AddBuiltIns();
-
-            if (list.Length == 0)
-                return;
-            
-            var names = new List<string>();
-
-            foreach (var encodable in list)
+            try
             {
-                names.Clear();
-                Helpers.GetAllNames(encodable.Identifier.ValueText, encodable, names);
-                bool isVariable = Helpers.InheritsFrom(encodable, Helpers.Tk_IVariable);
+                var (compilation, list) = tuple;
 
-                if (!GeneratorState.HasEncodable(names.Last()))
+                CacheFinder.GetCache(compilation);
+
+                if (!GeneratorState.HasEncodable(Helpers.Tk_Byte))
+                    AddPrimitives();
+                if (!GeneratorState.HasEncodable(Helpers.Tk_RpcId))
+                    AddBuiltIns();
+
+                if (list.Length == 0)
+                    return;
+
+                var names = new List<string>();
+
+                foreach (var encodable in list)
                 {
-                    foreach (var name in names)
-                        GeneratorState.AddEncodable(name, isVariable);
-                    var ns = Helpers.GetNamespace(encodable);
-                    if (ns != null)
-                        GeneratorState.AddUsing(UsingDirective(IdentifierName(ns.Name.ToString())));
+                    names.Clear();
+                    Helpers.GetAllNames(encodable.Identifier.ValueText, encodable, names);
+                    bool isVariable = Helpers.InheritsFrom(encodable, Helpers.Tk_IVariable);
+
+                    if (!GeneratorState.HasEncodable(names.Last()))
+                    {
+                        foreach (var name in names)
+                            GeneratorState.AddEncodable(name, isVariable);
+                        var ns = Helpers.GetNamespace(encodable);
+                        if (ns != null)
+                            GeneratorState.AddUsing(ns.Name.ToString());
+                        else
+                        {
+                            var fns = Helpers.GetFileNamespace(encodable);
+                            if (fns != null)
+                                GeneratorState.AddUsing(fns.Name.ToString());
+                        }
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                Diagnostics.GeneratorException(e);
             }
         }
     }

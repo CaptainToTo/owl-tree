@@ -23,6 +23,8 @@ namespace OwlTree.Generator
         public const bool RpcUseTcpDefault = true;
 
         public const string CacheFile = ".owltree.cache";
+        public const string ErrorFile = ".generator.log";
+        public const string Tk_LibProject = "OwlTreeLibraryProject";
 
         // * tokens
 

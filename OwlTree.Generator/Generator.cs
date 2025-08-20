@@ -17,11 +17,6 @@ namespace OwlTree.Generator
     [Generator]
     public class OwlTreeGenerator : IIncrementalGenerator
     {
-        // TODO: create cache to allow generator to be applied across multiple projects
-        // will allow for easier add-on creation, since pre-built IEncodables, and NetworkObjects from different projects
-        // can be analyzed "together".
-        // static string outputPath = "";
-
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
             // cache IEncodable types
@@ -57,49 +52,75 @@ namespace OwlTree.Generator
 
         private void GenerateProxies(SourceProductionContext context, (Compilation Left, ImmutableArray<ClassDeclarationSyntax> Right) tuple)
         {
-            var (compilation, list) = tuple;
-
-            CacheFinder.GetCache(compilation);
-
-            if (list.Length == 0) return;
-
-            NetworkObjectAnalyzer.AssignTypeIds(context, list);
-            NetworkObjectAnalyzer.AssignRpcIds(context, list);
-
-            ProxyFactoryGenerator.Reset();
-            
-            foreach (var c in list)
+            try
             {
-                var proxy = ProxyGenerator.CreateProxy(c);
-                ProxyFactoryGenerator.AddClass(c);
-                context.AddSource(ProxyGenerator.GetProxyName(c) + Helpers.Tk_CsFile, proxy.ToString());
+                var (compilation, list) = tuple;
+
+                CacheFinder.GetCache(compilation);
+
+                if (list.Length == 0) return;
+
+                NetworkObjectAnalyzer.AssignTypeIds(context, list);
+                NetworkObjectAnalyzer.AssignRpcIds(context, list);
+
+                if (GeneratorState.IsLibraryProject)
+                {
+                    GeneratorState.WriteCache();
+                    var diagnostic = Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "OwlTree",
+                        "Source Generation Complete",
+                        "Generator complete.",
+                        "Completion",
+                        DiagnosticSeverity.Info,
+                        isEnabledByDefault: true), null);
+
+                    context.ReportDiagnostic(diagnostic);
+
+                    return;
+                }
+
+                ProxyFactoryGenerator.Reset();
+
+                foreach (var c in list)
+                {
+                    var proxy = ProxyGenerator.CreateProxy(c);
+                    ProxyFactoryGenerator.AddClass(c);
+                    context.AddSource(ProxyGenerator.GetProxyName(c) + Helpers.Tk_CsFile, proxy.ToString());
+                }
+
+                var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
+                context.AddSource(Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
+
+                RpcProtocolsGenerator.Reset();
+
+                foreach (var pair in GeneratorState.GetRpcs())
+                {
+                    RpcProtocolsGenerator.AddRpc(pair.Value);
+                }
+
+                var protocols = RpcProtocolsGenerator.GetRpcProtocols();
+                context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
+
+                GeneratorState.WriteCache();
+
+                {
+                    var diagnostic = Diagnostic.Create(
+                        new DiagnosticDescriptor(
+                            "OwlTree",
+                            "Source Generation Complete",
+                            "Generator complete.",
+                            "Completion",
+                            DiagnosticSeverity.Info,
+                            isEnabledByDefault: true), null);
+
+                    context.ReportDiagnostic(diagnostic);
+                }
             }
-
-            var factory = ProxyFactoryGenerator.GetFactory().NormalizeWhitespace();
-            context.AddSource(Helpers.Tk_ProjectProxies + Helpers.Tk_CsFile, factory.ToString());
-
-            RpcProtocolsGenerator.Reset();
-
-            foreach (var pair in GeneratorState.GetRpcs())
+            catch (Exception e)
             {
-                RpcProtocolsGenerator.AddRpc(pair.Value);
+                Diagnostics.GeneratorException(e);
             }
-
-            var protocols = RpcProtocolsGenerator.GetRpcProtocols();
-            context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
-
-            GeneratorState.WriteCache();
-
-            var diagnostic = Diagnostic.Create(
-                new DiagnosticDescriptor(
-                    "OwlTree",
-                    "Source Generation Complete",
-                    "Generator complete.",
-                    "Completion",
-                    DiagnosticSeverity.Info,
-                    isEnabledByDefault: true), null);
-
-            context.ReportDiagnostic(diagnostic);
         }
 
         

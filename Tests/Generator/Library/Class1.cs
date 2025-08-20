@@ -19,11 +19,11 @@ public struct TestEncode : IEncodable
     }
 }
 
-public class MyNetObj : NetworkObject
+public class MyNetObj : NetworkObject 
 {
     [Rpc(RpcPerms.AnyToAll, InvokeOnCaller = true)]
-    public virtual void MyRpc(TestEncode e)
+    public virtual void MyRpc(TestEncode e, [CallerId] ClientId caller = default)
     {
-        Connection.Log($"value sent from {Id}: {e.value}");
+        Connection.Log($"value sent from {Id}: {e.value}, from player {caller}");
     }
 }

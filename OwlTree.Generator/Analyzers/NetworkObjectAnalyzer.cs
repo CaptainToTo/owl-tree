@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OwlTree.Generator
 {
@@ -19,9 +20,6 @@ namespace OwlTree.Generator
             var ordered = list.OrderBy(c => (
                 Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId) ? "0" : "1"
                 ) + c.Identifier.ValueText);
-            
-            byte curId = Helpers.FirstNetworkTypeId;
-            byte _curId = Helpers.FirstNetworkTypeId;
 
             foreach (ClassDeclarationSyntax c in ordered)
             {
@@ -29,7 +27,7 @@ namespace OwlTree.Generator
                 if (GeneratorState.HasType(fullName))
                     continue;
 
-                curId = _curId;
+                var curId = GeneratorState.NextTypeId();
                 var attr = Helpers.GetAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId);
                 if (attr != null)
                 {
@@ -57,8 +55,18 @@ namespace OwlTree.Generator
 
                 GeneratorState.AddUsings(Helpers.GetAllUsings(c));
 
-                if (_curId <= curId)
-                    _curId = (byte)(curId + 1);
+                var ns = Helpers.GetNamespace(c);
+                if (ns != null)
+                    GeneratorState.AddUsing(ns.Name.ToString());
+                else
+                {
+                    var fns = Helpers.GetFileNamespace(c);
+                    if (fns != null)
+                        GeneratorState.AddUsing(fns.Name.ToString());
+                }
+
+                if (curId <= GeneratorState.NextTypeId())
+                    GeneratorState.SetTypeId((byte)(curId + 1));
             }
         }
 
@@ -76,17 +84,14 @@ namespace OwlTree.Generator
                     Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId) ? "0" : "1"
                     ) + m.Identifier.ValueText);
 
-            uint curId = Helpers.FirstRpcId;
-            uint nextId = Helpers.FirstRpcId;
-
             foreach (MethodDeclarationSyntax m in methods)
             {
                 var fullName = Helpers.GetFullName(m.Identifier.ValueText, m);
                 if (GeneratorState.HasRpc(fullName))
                 {
                     var id = GeneratorState.GetRpcData(fullName).id;
-                    if (nextId <= id)
-                        nextId = id + 1;
+                    if (GeneratorState.NextRpcId() <= id)
+                        GeneratorState.SetRpcId(id + 1);
                     continue;
                 }
 
@@ -119,7 +124,7 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                curId = nextId;
+                var curId = GeneratorState.NextRpcId();
                 var attr = Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId);
                 if (attr != null)
                 {
@@ -155,7 +160,8 @@ namespace OwlTree.Generator
                 var rpcData = new GeneratorState.RpcData()
                 {
                     id = curId,
-                    name = Helpers.GetFullName(m.Identifier.ValueText, m),
+                    name = m.Identifier.ValueText,
+                    fullName = Helpers.GetFullName(m.Identifier.ValueText, m),
                     perms = caller,
                     invokeOnCaller = invokeOnCaller,
                     useTcp = useTcp,
@@ -165,8 +171,8 @@ namespace OwlTree.Generator
 
                 GeneratorState.AddRpcData(fullName, rpcData);
 
-                if (nextId <= curId)
-                    nextId = curId + 1;
+                if (GeneratorState.NextRpcId() <= curId)
+                    GeneratorState.SetRpcId(curId + 1);
             }
         }
 

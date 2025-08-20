@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,28 +20,37 @@ namespace OwlTree.Generator
 
         public static void WriteCache()
         {
+            File.WriteAllText(CacheFile, GetCacheString());
+        }
+
+        public static string GetCacheString()
+        {
             var str = new StringBuilder();
             str.Append(GetProjectsString());
             str.Append(GetEncodablesString());
             str.Append(GetConstsString());
             str.Append(GetEnumsString());
             str.Append(GetTypeIdsString());
-            str.Append(GetRpcIdsString());
-
-            File.WriteAllText(CachePath, str.ToString());
+            str.Append(GetTypeIdString());
+            str.Append(GetRpcDataString());
+            str.Append(GetRpcIdString());
+            str.Append(GetUsingsString());
+            return str.ToString();
         }
 
         public static void LoadCache()
         {
-            if (!File.Exists(CachePath))
+            if (!File.Exists(CacheFile))
                 return;
-            var str = File.ReadAllText(CachePath);
+            var str = File.ReadAllText(CacheFile);
             FromProjectsString(str);
             FromEncodablesString(str);
             FromConstsString(str);
             FromEnumsString(str);
             FromTypeIdsString(str);
-            FromRpcIdsString(str);
+            FromTypeIdString(str);
+            FromRpcDataString(str);
+            FromRpcIdString(str);
         }
 
         public static void ResetCache()
@@ -52,22 +62,27 @@ namespace OwlTree.Generator
             ClearTypeIds();
             ClearRpcData();
             ClearUsings();
+            ResetRpcId();
+            ResetTypeId();
         }
 
         public static string CachePath = null;
+        public static string CacheFile => CachePath + "/" + Helpers.CacheFile;
+
+        public static bool IsLibraryProject = false;
 
         static HashSet<string> _projects = new();
 
-        public static void AddProject(string project) => _projects.Add(project);
+        public static void AddProject(string project) => _projects.Add(project.ToLower());
 
-        public static bool HasProject(string project) => _projects.Contains(project);
+        public static bool HasProject(string project) => _projects.Contains(project.ToLower());
 
         public static void ClearProjects() => _projects.Clear();
 
         const string ProjectsTag = "<OwlTreeProjects>";
         const string ProjectsClose = "</OwlTreeProjects>";
 
-        public static string GetProjectsString()
+        private static string GetProjectsString()
         {
             var str = new StringBuilder(ProjectsTag + "\n");
 
@@ -78,7 +93,7 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        public static void FromProjectsString(string str)
+        private static void FromProjectsString(string str)
         {
             var start = str.IndexOf(ProjectsTag) + ProjectsTag.Length;
             var end = str.IndexOf(ProjectsClose);
@@ -111,7 +126,7 @@ namespace OwlTree.Generator
         const string EncodablesTag = "<OwlTreeEncodables true==IVariableLength>";
         const string EncodablesClose = "</OwlTreeEncodables>";
 
-        public static string GetEncodablesString()
+        private static string GetEncodablesString()
         {
             var str = new StringBuilder(EncodablesTag + "\n");
 
@@ -122,7 +137,7 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        public static void FromEncodablesString(string str)
+        private static void FromEncodablesString(string str)
         {
             var start = str.IndexOf(EncodablesTag) + EncodablesTag.Length;
             var end = str.IndexOf(EncodablesClose);
@@ -164,7 +179,7 @@ namespace OwlTree.Generator
         const string ConstsTag = "<OwlTreeConsts>";
         const string ConstsClose = "</OwlTreeConsts>";
 
-        public static string GetConstsString()
+        private static string GetConstsString()
         {
             var str = new StringBuilder(ConstsTag + "\n");
 
@@ -175,7 +190,7 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        public static void FromConstsString(string str)
+        private static void FromConstsString(string str)
         {
             var start = str.IndexOf(ConstsTag) + ConstsTag.Length;
             var end = str.IndexOf(ConstsClose);
@@ -217,7 +232,7 @@ namespace OwlTree.Generator
         const string EnumsTag = "<OwlTreeEnums>";
         const string EnumsClose = "</OwlTreeEnums>";
 
-        public static string GetEnumsString()
+        private static string GetEnumsString()
         {
             var str = new StringBuilder(EnumsTag + "\n");
 
@@ -228,7 +243,7 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        public static void FromEnumsString(string str)
+        private static void FromEnumsString(string str)
         {
             var start = str.IndexOf(EnumsTag) + EnumsTag.Length;
             var end = str.IndexOf(EnumsClose);
@@ -258,6 +273,14 @@ namespace OwlTree.Generator
 
         // Network Object Type Cache =============
 
+        public struct TypeData
+        {
+            public byte typeId;
+            public string name;
+            public string[] usings;
+            public string[] rpcs;
+        }
+
         static Dictionary<string, byte> _typeIds = new();
 
         public static void ClearTypeIds() => _typeIds.Clear();
@@ -277,7 +300,7 @@ namespace OwlTree.Generator
         const string TypesTag = "<OwlTreeNetworkObjectTypes>";
         const string TypesClose = "</OwlTreeNetworkObjectTypes>";
 
-        public static string GetTypeIdsString()
+        private static string GetTypeIdsString()
         {
             var str = new StringBuilder(TypesTag + "\n");
 
@@ -288,7 +311,7 @@ namespace OwlTree.Generator
             return str.ToString();
         }
 
-        public static void FromTypeIdsString(string str)
+        private static void FromTypeIdsString(string str)
         {
             var start = str.IndexOf(TypesTag) + TypesTag.Length;
             var end = str.IndexOf(TypesClose);
@@ -303,6 +326,37 @@ namespace OwlTree.Generator
                 var tokens = c.Split(':');
                 _typeIds.Add(tokens[0], byte.Parse(tokens[1]));
             }
+        }
+
+        // =======================================
+
+        // Type Id ===============================
+
+        private static byte _nextTypeId = (byte)Helpers.FirstTypeId;
+
+        public static byte NextTypeId() => _nextTypeId;
+
+        public static void IncrementTypeId() => _nextTypeId += 1;
+
+        public static void SetTypeId(byte v) => _nextTypeId = v;
+
+        public static void ResetTypeId() => _nextTypeId = (byte)Helpers.FirstTypeId;
+
+        const string TypeIdTag = "<OwlTreeTypeId>";
+        const string TypeIdClose = "</OwlTreeTypeId>";
+
+        private static string GetTypeIdString()
+        {
+            return TypeIdTag + _nextTypeId.ToString() + TypeIdClose + "\n";
+        }
+
+        private static void FromTypeIdString(string str)
+        {
+            var start = str.IndexOf(TypeIdTag) + TypeIdTag.Length;
+            var end = str.IndexOf(TypeIdClose);
+
+            var subStr = str.Substring(start, end - start);
+            _nextTypeId = byte.Parse(subStr);
         }
 
         // =======================================
@@ -327,8 +381,16 @@ namespace OwlTree.Generator
                 var data = new ParamData();
                 data.type = tokens[0];
                 data.name = tokens[1];
-                data.isRpcCallee = tokens[2] == "[RpcCallee]";
-                data.isRpcCaller = tokens[2] == "[RpcCaller]";
+                if (tokens.Length == 3)
+                {
+                    data.isRpcCallee = tokens[2] == "[RpcCallee]";
+                    data.isRpcCaller = tokens[2] == "[RpcCaller]";
+                }
+                else
+                {
+                    data.isRpcCallee = false;
+                    data.isRpcCaller = false;
+                }
                 return data;
             }
         }
@@ -346,6 +408,7 @@ namespace OwlTree.Generator
         {
             public uint id;
             public string name;
+            public string fullName;
             public string parentClass;
             public RpcPerms perms;
             public bool invokeOnCaller;
@@ -356,13 +419,14 @@ namespace OwlTree.Generator
             {
                 var str = new StringBuilder($"id:{id}\n");
                 str.Append($"name:{name}\n");
+                str.Append($"fullName:{fullName}\n");
                 str.Append($"class:{parentClass}\n");
                 str.Append($"perms:{(int)perms}\n");
                 str.Append($"invokeOnCaller:{invokeOnCaller}\n");
                 str.Append($"protocol:{(useTcp ? "TCP" : "UDP")}\n");
                 str.Append("params:");
-                foreach (var p in paramData)
-                    str.Append(p.ToString() + ",");
+                for (int i = 0; i < paramData.Length; i++)
+                    str.Append(paramData[i].ToString() + (i == paramData.Length - 1 ? "" : ","));
                 return str.ToString();
             }
 
@@ -372,21 +436,31 @@ namespace OwlTree.Generator
                 var data = new RpcData();
 
                 foreach (var field in fields)
-                {
+                {                    
                     var tokens = field.Split(':');
 
                     switch (tokens[0])
                     {
+                        case "id": data.id = uint.Parse(tokens[1]); break;
                         case "name": data.name = tokens[1]; break;
+                        case "fullName": data.fullName = tokens[1]; break;
                         case "class": data.parentClass = tokens[1]; break;
                         case "perms": data.perms = (RpcPerms)int.Parse(tokens[1]); break;
                         case "invokeOnCaller": data.invokeOnCaller = bool.Parse(tokens[1]); break;
                         case "protocol": data.useTcp = tokens[1] == "TCP"; break;
                         case "params":
+                            if (string.IsNullOrEmpty(tokens[1]))
+                            {
+                                data.paramData = new ParamData[0];
+                                break;
+                            }
                             var ps = tokens[1].Split(',');
                             data.paramData = new ParamData[ps.Length];
                             for (int i = 0; i < ps.Length; i++)
-                                data.paramData[i] = ParamData.Parse(ps[i]);
+                            {
+                                if (!string.IsNullOrEmpty(ps[i]))
+                                    data.paramData[i] = ParamData.Parse(ps[i]);
+                            }
                             break;
                     }
                 }
@@ -394,7 +468,7 @@ namespace OwlTree.Generator
                 return data;
             }
         }
-        
+
         static Dictionary<string, RpcData> _rpcIds = new();
 
         public static void ClearRpcData() => _rpcIds.Clear();
@@ -415,30 +489,32 @@ namespace OwlTree.Generator
 
         public static Dictionary<string, RpcData> GetRpcs() => _rpcIds;
 
-        const string RpcIdsTag = "<OwlTreeRpcIds>";
-        const string RpcIdsClose = "</OwlTreeRpcIds>";
+        const string RpcDataTag = "<OwlTreeRpcData>";
+        const string RpcDataClose = "</OwlTreeRpcData>";
 
-        public static string GetRpcIdsString()
+        private static string GetRpcDataString()
         {
-            var str = new StringBuilder(RpcIdsTag + "\n");
+            var str = new StringBuilder(RpcDataTag + "\n");
 
             foreach (var pair in _rpcIds)
                 str.Append($"{pair.Key}=>{pair.Value}<=\n");
-            str.Append(RpcIdsClose + "\n");
+            str.Append(RpcDataClose + "\n");
 
             return str.ToString();
         }
 
-        public static void FromRpcIdsString(string str)
+        private static void FromRpcDataString(string str)
         {
-            var start = str.IndexOf(RpcIdsTag) + RpcIdsTag.Length;
-            var end = str.IndexOf(RpcIdsClose);
+            var start = str.IndexOf(RpcDataTag) + RpcDataTag.Length + 1; // +1 to chop off newline after opening tag
+            var end = str.IndexOf(RpcDataClose);
 
             var subStr = str.Substring(start, end - start);
             var rpcs = subStr.Split(new[] { "<=\n" }, System.StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var rpc in rpcs)
             {
+                if (string.IsNullOrEmpty(rpc) || string.IsNullOrWhiteSpace(rpc))
+                    continue;
                 var tokens = rpc.Split(new[] { "=>" }, System.StringSplitOptions.RemoveEmptyEntries);
                 _rpcIds.Add(tokens[0], RpcData.Parse(tokens[1]));
             }
@@ -446,41 +522,90 @@ namespace OwlTree.Generator
 
         // =======================================
 
+        // Rpc Id ================================
+
+        private static uint _nextRpcId = Helpers.FirstRpcId;
+
+        public static uint NextRpcId() => _nextRpcId;
+
+        public static void IncrementRpcId() => _nextRpcId += 1;
+
+        public static void SetRpcId(uint v) => _nextRpcId = v;
+
+        public static void ResetRpcId() => _nextRpcId = Helpers.FirstRpcId;
+
+        const string RpcIdTag = "<OwlTreeRpcId>";
+        const string RpcIdClose = "</OwlTreeRpcId>";
+
+        private static string GetRpcIdString()
+        {
+            return RpcIdTag + _nextRpcId.ToString() + RpcIdClose + "\n";
+        }
+
+        private static void FromRpcIdString(string str)
+        {
+            var start = str.IndexOf(RpcIdTag) + RpcIdTag.Length;
+            var end = str.IndexOf(RpcIdClose);
+
+            var subStr = str.Substring(start, end - start);
+            _nextRpcId = uint.Parse(subStr);
+        }
+
+        // =======================================
+
         // Usings Cache ==========================
         // used to make sure generated RPC protocols are using the namespaces for all the rpc args
 
-        static Dictionary<string, bool> _usings = new();
+        static HashSet<string> _usings = new();
 
-        public static void ClearUsings() 
+        public static void ClearUsings()
         {
             _usings.Clear();
-            _usings.Add(Helpers.Tk_OwlTree, true);
-            _usings.Add(Helpers.Tk_System, true);
+            _usings.Add(Helpers.Tk_OwlTree);
+            _usings.Add(Helpers.Tk_System);
+            _usings.Add(Helpers.Tk_CompilerServices);
         }
 
-        public static void AddUsing(UsingDirectiveSyntax u)
+        public static void AddUsing(string u)
         {
-            var name = u.Name.ToString();
-            if (!_usings.ContainsKey(name))
-                _usings.Add(name, true);
+            if (!_usings.Contains(u))
+                _usings.Add(u);
         }
 
         public static void AddUsings(SyntaxList<UsingDirectiveSyntax> usings)
         {
             foreach (var u in usings)
-                AddUsing(u);
+                AddUsing(u.Name.ToString());
         }
 
         public static UsingDirectiveSyntax[] GetUsings()
         {
+            AddUsing(Helpers.Tk_System);
+            AddUsing(Helpers.Tk_CompilerServices);
+            AddUsing(Helpers.Tk_OwlTree);
+
             var usings = new UsingDirectiveSyntax[_usings.Count];
             int i = 0;
-            foreach (var u in _usings.Keys)
+            foreach (var u in _usings)
             {
                 usings[i] = UsingDirective(IdentifierName(u));
                 i++;
             }
             return usings;
+        }
+
+        const string UsingsTag = "<Usings>";
+        const string UsingsClose = "</Usings>";
+
+        private static string GetUsingsString()
+        {
+            var str = new StringBuilder(UsingsTag + "\n");
+
+            foreach (var u in _usings)
+                str.Append(u + "\n");
+
+            str.Append(UsingsClose + "\n");
+            return str.ToString();
         }
 
         // =======================================

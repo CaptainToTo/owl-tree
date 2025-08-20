@@ -1,6 +1,7 @@
 
 
 using System;
+using System.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -50,6 +51,14 @@ namespace OwlTree.Generator
         public static string GetId(Ids id)
         {
             return Symbol + ((int)id).ToString("D3");
+        }
+
+        public static void GeneratorException(Exception e)
+        {
+            if (!File.Exists(GeneratorState.CachePath + "/" + Helpers.ErrorFile))
+                File.Create(GeneratorState.CachePath + "/" + Helpers.ErrorFile);
+            File.WriteAllText(GeneratorState.CachePath + "/" + Helpers.ErrorFile, "Error Thrown:\n" + e.ToString() + "\n\nCache At Error:\n" + GeneratorState.GetCacheString());
+            throw new Exception($"OwlTree generator failed to run, check '{Helpers.ErrorFile}' for thrown error. If error persists, delete '{Helpers.CacheFile}' to reset generator state and re-build.");
         }
 
         public static void NonVirtualRpc(SourceProductionContext context, MethodDeclarationSyntax m)

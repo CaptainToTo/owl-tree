@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace OwlTree.Generator
@@ -14,19 +15,20 @@ namespace OwlTree.Generator
                 return;
 
             var proj = GetProjectPath(compilation);
+            var isLib = IsLibraryProject(proj);
             var foundPath = FindGeneratorPath(proj, "OwlTree.Generator");
 
             if (foundPath == null)
                 return;
 
-            GeneratorState.CachePath = foundPath + "/" + Helpers.CacheFile;
+            GeneratorState.CachePath = foundPath;
+            GeneratorState.IsLibraryProject = isLib;
             GeneratorState.LoadCache();
 
             // if cache already has this project's path, then this must be a new compilation
             if (GeneratorState.HasProject(proj))
                 GeneratorState.ResetCache();
-            else
-                GeneratorState.AddProject(proj);
+            GeneratorState.AddProject(proj);
         }
 
         private static string GetProjectPath(Compilation compilation)
@@ -46,6 +48,22 @@ namespace OwlTree.Generator
             }
 
             return null;
+        }
+
+        private static bool IsLibraryProject(string csprojPath)
+        {
+            if (string.IsNullOrWhiteSpace(csprojPath))
+                throw new ArgumentException("Path cannot be null or empty.", nameof(csprojPath));
+
+            if (!File.Exists(csprojPath))
+                throw new FileNotFoundException("Project file not found.", csprojPath);
+
+            Regex OwlTreeTagRegex = new Regex(
+                @$"<\s*{Helpers.Tk_LibProject}\s*/\s*>",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+            string text = File.ReadAllText(csprojPath);
+            return OwlTreeTagRegex.IsMatch(text);
         }
 
         private static string FindGeneratorPath(string startPath, string generatorName)

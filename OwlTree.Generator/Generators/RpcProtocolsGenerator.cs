@@ -528,7 +528,7 @@ namespace OwlTree.Generator
                         ReturnStatement(
                             LiteralExpression(
                                 SyntaxKind.StringLiteralExpression,
-                                Literal(data.name))))));
+                                Literal(data.fullName))))));
 
             _getSendProtocol.Add(SwitchSection()
                 .WithLabels(
@@ -655,7 +655,7 @@ namespace OwlTree.Generator
 
         private static IEnumerable<ExpressionSyntax> GetParamTypesList(GeneratorState.ParamData[] paramData)
         {
-            return paramData.Select(p => TypeOfExpression(IdentifierName(p.type)));
+            return paramData?.Select(p => TypeOfExpression(IdentifierName(p.type))) ?? Enumerable.Empty<ExpressionSyntax>();
         }
 
         private static int GetRpcCallerParam(GeneratorState.ParamData[] paramData)
