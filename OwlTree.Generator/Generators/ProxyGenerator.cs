@@ -18,13 +18,13 @@ namespace OwlTree.Generator
         /// <summary>
         /// Creates the proxy class name for the given class.
         /// </summary>
-        public static string GetProxyName(ClassDeclarationSyntax c)
+        public static string GetProxyName(GeneratorState.TypeData c)
         {
-            return c.Identifier.ValueText + Helpers.Tk_ProxySuffix;
+            return c.name.Replace(".", "") + Helpers.Tk_ProxySuffix;
         }
 
         
-        public static CompilationUnitSyntax CreateProxy(ClassDeclarationSyntax c)
+        public static CompilationUnitSyntax CreateProxy(GeneratorState.TypeData c)
         {
 
             return CompilationUnit()
@@ -36,7 +36,7 @@ namespace OwlTree.Generator
                         BaseList(
                             SingletonSeparatedList<BaseTypeSyntax>(
                                 SimpleBaseType(
-                                    IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))
+                                    IdentifierName(c.name)
                                 ))))
                     .WithMembers(
                         CreateRpcProxies(c))))
@@ -49,12 +49,9 @@ namespace OwlTree.Generator
             .NormalizeWhitespace();
         }
 
-        private static SyntaxList<UsingDirectiveSyntax> GetUsings(ClassDeclarationSyntax c)
+        private static SyntaxList<UsingDirectiveSyntax> GetUsings(GeneratorState.TypeData c)
         {
-            var name = Helpers.GetNamespaceName(c);
-            var usings = Helpers.GetAllUsings(c);
-            if (name != null && !Helpers.IsUsing(usings, name))
-                usings = usings.Add(UsingDirective(IdentifierName(name)));
+            var usings = List<UsingDirectiveSyntax>(c.usings.Select(u => UsingDirective(IdentifierName(u))));
             
             if (!Helpers.IsUsing(usings, Helpers.Tk_System))
                 usings = usings.Add(UsingDirective(IdentifierName(Helpers.Tk_System)));
@@ -70,17 +67,13 @@ namespace OwlTree.Generator
 
         static List<MethodDeclarationSyntax> proxyBuilderStage = new();
 
-        private static SyntaxList<MemberDeclarationSyntax> CreateRpcProxies(ClassDeclarationSyntax c)
+        private static SyntaxList<MemberDeclarationSyntax> CreateRpcProxies(GeneratorState.TypeData c)
         {
-
-            var methods = c.Members.OfType<MethodDeclarationSyntax>()
-                .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc));
-
             proxyBuilderStage.Clear();
 
-            foreach (var m in methods)
+            foreach (var m in c.rpcs)
             {
-                if (!GeneratorState.TryGetRpcData(Helpers.GetFullName(m.Identifier.ValueText, m), out var data))
+                if (!GeneratorState.TryGetRpcData(c.GetFullRpcName(m), out var data))
                 {
                     continue;
                 }
@@ -88,15 +81,15 @@ namespace OwlTree.Generator
                 var proxy = MethodDeclaration(
                     PredefinedType(
                         Token(SyntaxKind.VoidKeyword)),
-                    Identifier(m.Identifier.ValueText))
+                    Identifier(m))
                     .WithModifiers(
                         TokenList(
                             new[]{
-                                Token(Helpers.GetMethodScope(m)),
+                                Token(SyntaxKind.PublicKeyword),
                                 Token(SyntaxKind.OverrideKeyword)
                             }))
-                    .WithParameterList(m.ParameterList)
-                    .WithBody(CreateProxyBody(m, data.id));
+                    .WithParameterList(CreateParamList(data))
+                    .WithBody(CreateProxyBody(data, data.id));
                 
                 proxyBuilderStage.Add(proxy);
             }
@@ -109,7 +102,7 @@ namespace OwlTree.Generator
             return proxyList;
         }
 
-        private static MethodDeclarationSyntax CreateGetProxyType(ClassDeclarationSyntax c)
+        private static MethodDeclarationSyntax CreateGetProxyType(GeneratorState.TypeData c)
         {
             return MethodDeclaration(
                 IdentifierName("Type"),
@@ -127,7 +120,7 @@ namespace OwlTree.Generator
                                 IdentifierName(GetProxyName(c)))))));
         }
 
-        private static MethodDeclarationSyntax CreateGetType(ClassDeclarationSyntax c)
+        private static MethodDeclarationSyntax CreateGetType(GeneratorState.TypeData c)
         {
             return MethodDeclaration(
                 IdentifierName("Type"),
@@ -142,10 +135,43 @@ namespace OwlTree.Generator
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
                             TypeOfExpression(
-                                IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c)))))));
+                                IdentifierName(c.name))))));
         }
 
-        private static BlockSyntax CreateProxyBody(MethodDeclarationSyntax m, uint id)
+        private static ParameterListSyntax CreateParamList(GeneratorState.RpcData m)
+        {
+            var arr = new SyntaxNodeOrToken[m.paramData.Length == 0 ? 0 : (m.paramData.Length * 2) - 1];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    var p = Parameter(Identifier(m.paramData[i / 2].name))
+                        .WithType(IdentifierName(m.paramData[i / 2].type));
+                    if (m.paramData[1 / 2].isRpcCallee)
+                        p = p.WithAttributeLists(
+                            SingletonList<AttributeListSyntax>(
+                                AttributeList(
+                                    SingletonSeparatedList<AttributeSyntax>(
+                                        Attribute(
+                                            IdentifierName(Helpers.AttrTk_RpcCalleeId))))));
+                    if (m.paramData[1 / 2].isRpcCaller)
+                        p = p.WithAttributeLists(
+                            SingletonList<AttributeListSyntax>(
+                                AttributeList(
+                                    SingletonSeparatedList<AttributeSyntax>(
+                                        Attribute(
+                                            IdentifierName(Helpers.AttrTk_RpcCallerId))))));
+                    arr[i] = p;
+                }
+                else
+                    arr[i] = Token(SyntaxKind.CommaToken);
+            }
+
+            return ParameterList(SeparatedList<ParameterSyntax>(arr));
+        }
+
+        private static BlockSyntax CreateProxyBody(GeneratorState.RpcData m, uint id)
         {
             return Block(
                 //if (!IsActive)
@@ -392,13 +418,13 @@ namespace OwlTree.Generator
                                         MemberAccessExpression(
                                             SyntaxKind.SimpleMemberAccessExpression,
                                             BaseExpression(),
-                                            IdentifierName(m.Identifier.ValueText)))
+                                            IdentifierName(m.name)))
                                     .WithArgumentList(
                                         ArgumentList(
                                             SeparatedList<ArgumentSyntax>(CreateParamArray(m, false))))))))
                 // else
-                    // throw new InvalidOperationException("This connection does not have permission to call RPC " + 
-                    // Connection.Protocols.GetRpcName(RpcId) + " on NetworkObject " + Id.ToString());
+                // throw new InvalidOperationException("This connection does not have permission to call RPC " + 
+                // Connection.Protocols.GetRpcName(RpcId) + " on NetworkObject " + Id.ToString());
                 .WithElse(
                 ElseClause(
                     Block(
@@ -460,15 +486,15 @@ namespace OwlTree.Generator
         }
 
         // builds args array variable
-        private static SyntaxNodeOrToken[] CreateArgArray(MethodDeclarationSyntax m, bool replaceCaller = true)
+        private static SyntaxNodeOrToken[] CreateArgArray(GeneratorState.RpcData m, bool replaceCaller = true)
         {
-            var arr = new SyntaxNodeOrToken[m.ParameterList.Parameters.Count == 0 ? 0 : (m.ParameterList.Parameters.Count * 2) - 1];
+            var arr = new SyntaxNodeOrToken[m.paramData.Length == 0 ? 0 : (m.paramData.Length * 2) - 1];
             
             for (int i = 0; i < arr.Length; i++)
             {
                 if (i % 2 == 0)
                 {
-                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCallerId))
+                    if (replaceCaller && m.paramData[i / 2].isRpcCaller)
                     {
                         arr[i] = MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
@@ -477,7 +503,7 @@ namespace OwlTree.Generator
                     }
                     else
                     {
-                        arr[i] = IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText);
+                        arr[i] = IdentifierName(m.paramData[i / 2].name);
                     }
                 }
                 else
@@ -488,14 +514,14 @@ namespace OwlTree.Generator
         }
 
         // syntax array for passing arguments to the next method
-        private static SyntaxNodeOrToken[] CreateParamArray(MethodDeclarationSyntax m, bool replaceCaller = true)
+        private static SyntaxNodeOrToken[] CreateParamArray(GeneratorState.RpcData m, bool replaceCaller = true)
         {
-            var arr = new SyntaxNodeOrToken[m.ParameterList.Parameters.Count == 0 ? 0 : (m.ParameterList.Parameters.Count * 2) - 1];
+            var arr = new SyntaxNodeOrToken[m.paramData.Length == 0 ? 0 : (m.paramData.Length * 2) - 1];
             
             for (int i = 0; i < arr.Length; i++)
             {
                 if (i % 2 == 0)
-                    if (replaceCaller && Helpers.HasAttribute(m.ParameterList.Parameters[i / 2].AttributeLists, Helpers.AttrTk_RpcCallerId))
+                    if (replaceCaller && m.paramData[i / 2].isRpcCaller)
                     {
                         arr[i] = Argument(MemberAccessExpression(
                                     SyntaxKind.SimpleMemberAccessExpression,
@@ -504,7 +530,7 @@ namespace OwlTree.Generator
                     }
                     else
                     {
-                        arr[i] = Argument(IdentifierName(m.ParameterList.Parameters[i / 2].Identifier.ValueText));
+                        arr[i] = Argument(IdentifierName(m.paramData[i / 2].name));
                     }
                 else
                     arr[i] = Token(SyntaxKind.CommaToken);

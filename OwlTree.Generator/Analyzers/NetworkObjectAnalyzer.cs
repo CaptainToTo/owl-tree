@@ -44,26 +44,44 @@ namespace OwlTree.Generator
 
                     if (GeneratorState.HasTypeId(curId))
                     {
-                        var collision = GeneratorState.GetType(curId);
-                        Diagnostics.DuplicateTypeIds(context, c, curId, collision);
+                        var collision = GeneratorState.GetTypeData(curId);
+                        Diagnostics.DuplicateTypeIds(context, c, curId, collision.name);
                         continue;
                     }
 
                 }
 
-                GeneratorState.AddTypeId(fullName, curId);
-
-                GeneratorState.AddUsings(Helpers.GetAllUsings(c));
+                var usings = Helpers.GetAllUsings(c);
 
                 var ns = Helpers.GetNamespace(c);
+                string nsName = "";
                 if (ns != null)
-                    GeneratorState.AddUsing(ns.Name.ToString());
+                {
+                    usings = usings.Add(UsingDirective(ns.Name));
+                    nsName = ns.Name.ToString();
+                }
                 else
                 {
                     var fns = Helpers.GetFileNamespace(c);
                     if (fns != null)
-                        GeneratorState.AddUsing(fns.Name.ToString());
+                    {
+                        usings = usings.Add(UsingDirective(fns.Name));
+                        nsName = fns.Name.ToString();
+                    }
                 }
+
+                GeneratorState.AddUsings(usings);
+
+                GeneratorState.AddTypeData(fullName, new GeneratorState.TypeData
+                {
+                    typeId = curId,
+                    name = fullName,
+                    ns = nsName,
+                    usings = usings.Select(u => u.Name.ToString()).ToArray(),
+                    rpcs = c.Members.OfType<MethodDeclarationSyntax>()
+                        .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc))
+                        .Select(m => m.Identifier.ValueText).ToArray()
+                });
 
                 if (curId <= GeneratorState.NextTypeId())
                     GeneratorState.SetTypeId((byte)(curId + 1));

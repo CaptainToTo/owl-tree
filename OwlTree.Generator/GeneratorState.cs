@@ -59,7 +59,7 @@ namespace OwlTree.Generator
             ClearEncodables();
             ClearConsts();
             ClearEnums();
-            ClearTypeIds();
+            ClearTypes();
             ClearRpcData();
             ClearUsings();
             ResetRpcId();
@@ -277,25 +277,73 @@ namespace OwlTree.Generator
         {
             public byte typeId;
             public string name;
+            public string ns;
             public string[] usings;
             public string[] rpcs;
+
+            public IEnumerable<string> GetFullRpcNames()
+            {
+                foreach (var rpc in rpcs)
+                    yield return name + "." + rpc;
+            }
+
+            public string GetFullRpcName(string rpc) => name + "." + rpc;
+
+            public override string ToString()
+            {
+                var str = new StringBuilder($"id:{typeId}\n");
+                str.Append($"name:{name}\n");
+                str.Append($"ns:{ns}\n");
+                str.Append("usings:");
+                for (int i = 0; i < usings.Length; i++)
+                    str.Append(usings[i] + (i < usings.Length - 1 ? "," : "\n"));
+                str.Append("rpcs:");
+                for (int i = 0; i < rpcs.Length; i++)
+                    str.Append(rpcs[i] + (i < rpcs.Length - 1 ? "," : ""));
+                return str.ToString();
+            }
+
+            public static TypeData Parse(string str)
+            {
+                var fields = str.Split('\n');
+                var data = new TypeData();
+
+                foreach (var field in fields)
+                {
+                    var tokens = field.Split(':');
+                    switch (tokens[0])
+                    {
+                        case "id": data.typeId = byte.Parse(tokens[1]); break;
+                        case "name": data.name = tokens[1]; break;
+                        case "ns": data.ns = tokens[1]; break;
+                        case "usings": data.usings = tokens[1].Split(','); break;
+                        case "rpcs": data.rpcs = tokens[1].Split(','); break;
+                    }
+                }
+
+                return data;
+            }
         }
 
-        static Dictionary<string, byte> _typeIds = new();
+        static Dictionary<string, TypeData> _types = new();
 
-        public static void ClearTypeIds() => _typeIds.Clear();
+        public static void ClearTypes() => _types.Clear();
 
-        public static void AddTypeId(string k, byte v) => _typeIds.Add(k, v);
+        public static void AddTypeData(string k, TypeData v) => _types.Add(k, v);
 
-        public static bool HasType(string k) => _typeIds.ContainsKey(k);
+        public static bool HasType(string k) => _types.ContainsKey(k);
 
-        public static bool HasTypeId(byte v) => _typeIds.ContainsValue(v);
+        public static bool HasTypeId(byte v) => _types.Any(p => p.Value.typeId == v);
 
-        public static byte GetTypeId(string k) => _typeIds[k];
+        public static TypeData GetTypeData(string k) => _types[k];
 
-        public static string GetType(byte v) => _typeIds.Where(p => p.Value == v).FirstOrDefault().Key;
+        public static TypeData GetTypeData(byte v) => _types.Where(p => p.Value.typeId == v).FirstOrDefault().Value;
 
-        public static Dictionary<string, byte> GetTypeIds() => _typeIds;
+        public static int GetTypesCount() => _types.Count;
+
+        public static IEnumerable<byte> GetTypeIds() => _types.Select(p => p.Value.typeId);
+
+        public static IEnumerable<TypeData> GetTypeData() => _types.Values;
 
         const string TypesTag = "<OwlTreeNetworkObjectTypes>";
         const string TypesClose = "</OwlTreeNetworkObjectTypes>";
@@ -304,8 +352,8 @@ namespace OwlTree.Generator
         {
             var str = new StringBuilder(TypesTag + "\n");
 
-            foreach (var pair in _typeIds)
-                str.Append($"{pair.Key}:{pair.Value}\n");
+            foreach (var pair in _types)
+                str.Append($"{pair.Key}=>{pair.Value}<=\n");
             str.Append(TypesClose + "\n");
 
             return str.ToString();
@@ -313,18 +361,18 @@ namespace OwlTree.Generator
 
         private static void FromTypeIdsString(string str)
         {
-            var start = str.IndexOf(TypesTag) + TypesTag.Length;
+            var start = str.IndexOf(TypesTag) + TypesTag.Length + 1;
             var end = str.IndexOf(TypesClose);
 
             var subStr = str.Substring(start, end - start);
-            var types = subStr.Split('\n');
+            var types = subStr.Split(new[] { "<=\n" }, StringSplitOptions.RemoveEmptyEntries);
 
-            foreach (var c in types)
+            foreach (var t in types)
             {
-                if (string.IsNullOrEmpty(c))
+                if (string.IsNullOrEmpty(t) || string.IsNullOrWhiteSpace(t))
                     continue;
-                var tokens = c.Split(':');
-                _typeIds.Add(tokens[0], byte.Parse(tokens[1]));
+                var tokens = t.Split(new[] { "=>" }, StringSplitOptions.RemoveEmptyEntries);
+                _types.Add(tokens[0], TypeData.Parse(tokens[1]));
             }
         }
 

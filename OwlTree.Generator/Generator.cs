@@ -63,6 +63,8 @@ namespace OwlTree.Generator
                 NetworkObjectAnalyzer.AssignTypeIds(context, list);
                 NetworkObjectAnalyzer.AssignRpcIds(context, list);
 
+                // throw new Exception("test");
+
                 if (GeneratorState.IsLibraryProject)
                 {
                     GeneratorState.WriteCache();
@@ -82,7 +84,7 @@ namespace OwlTree.Generator
 
                 ProxyFactoryGenerator.Reset();
 
-                foreach (var c in list)
+                foreach (var c in GeneratorState.GetTypeData())
                 {
                     var proxy = ProxyGenerator.CreateProxy(c);
                     ProxyFactoryGenerator.AddClass(c);

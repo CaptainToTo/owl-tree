@@ -220,26 +220,26 @@ namespace OwlTree.Generator
 
         private static ExpressionSyntax[] CreateIdArray()
         {
-            var ids = new ExpressionSyntax[GeneratorState.GetTypeIds().Count];
+            var ids = new ExpressionSyntax[GeneratorState.GetTypesCount()];
 
             int i  = 0;
-            foreach (var pair in GeneratorState.GetTypeIds())
+            foreach (var id in GeneratorState.GetTypeIds())
             {
                 ids[i] = LiteralExpression(
                     SyntaxKind.NumericLiteralExpression,
-                    Literal(pair.Value));
+                    Literal(id));
                 i++;
             }
 
             return ids;
         }
 
-        public static void AddClass(ClassDeclarationSyntax c)
+        public static void AddClass(GeneratorState.TypeData c)
         {
-            byte id = GeneratorState.GetTypeId(Helpers.GetFullName(c.Identifier.ValueText, c));
+            byte id = c.typeId;
 
-            var space = Helpers.GetNamespaceName(c);
-            if (space != null && !_namespaces.Any(u => u.Name.ToString() == space))
+            var space = c.ns;
+            if (!string.IsNullOrEmpty(space) && !_namespaces.Any(u => u.Name.ToString() == space))
             {
                 _namespaces.Add(UsingDirective(IdentifierName(space)));
             }
@@ -259,7 +259,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
+                                        IdentifierName(c.name)))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
@@ -283,7 +283,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
+                                        IdentifierName(c.name)))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
@@ -301,7 +301,8 @@ namespace OwlTree.Generator
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
                             TypeOfExpression(
-                                IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c)))))));
+                                IdentifierName(c.name))))));
+            
             _typeId.Add(SwitchSection()
                 .WithLabels(
                     SingletonList<SwitchLabelSyntax>(
@@ -317,7 +318,7 @@ namespace OwlTree.Generator
                                     SyntaxKind.EqualsExpression,
                                     IdentifierName("t"),
                                     TypeOfExpression(
-                                        IdentifierName(Helpers.GetFullName(c.Identifier.ValueText, c))))))))
+                                        IdentifierName(c.name)))))))
                 .WithStatements(
                     SingletonList<StatementSyntax>(
                         ReturnStatement(
