@@ -80,7 +80,8 @@ namespace OwlTree.Generator
                     usings = usings.Select(u => u.Name.ToString()).ToArray(),
                     rpcs = c.Members.OfType<MethodDeclarationSyntax>()
                         .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc))
-                        .Select(m => m.Identifier.ValueText).ToArray()
+                        .Select(m => m.Identifier.ValueText).ToArray(),
+                    projectId = GeneratorState.CurProjectId
                 });
 
                 if (curId <= GeneratorState.NextTypeId())
@@ -178,6 +179,7 @@ namespace OwlTree.Generator
                 var rpcData = new GeneratorState.RpcData()
                 {
                     id = curId,
+                    projectId = GeneratorState.CurProjectId,
                     name = m.Identifier.ValueText,
                     fullName = Helpers.GetFullName(m.Identifier.ValueText, m),
                     perms = caller,

@@ -63,8 +63,6 @@ namespace OwlTree.Generator
                 NetworkObjectAnalyzer.AssignTypeIds(context, list);
                 NetworkObjectAnalyzer.AssignRpcIds(context, list);
 
-                // throw new Exception("test");
-
                 if (GeneratorState.IsLibraryProject)
                 {
                     GeneratorState.WriteCache();
@@ -84,7 +82,9 @@ namespace OwlTree.Generator
 
                 ProxyFactoryGenerator.Reset();
 
-                foreach (var c in GeneratorState.GetTypeData())
+                var includes = CacheFinder.GetIncludedProjects(GeneratorState.CurProjectPath());
+
+                foreach (var c in GeneratorState.GetTypeData(includes))
                 {
                     var proxy = ProxyGenerator.CreateProxy(c);
                     ProxyFactoryGenerator.AddClass(c);
@@ -96,15 +96,17 @@ namespace OwlTree.Generator
 
                 RpcProtocolsGenerator.Reset();
 
-                foreach (var pair in GeneratorState.GetRpcs())
+                foreach (var data in GeneratorState.GetRpcs(includes))
                 {
-                    RpcProtocolsGenerator.AddRpc(pair.Value);
+                    RpcProtocolsGenerator.AddRpc(data);
                 }
 
                 var protocols = RpcProtocolsGenerator.GetRpcProtocols();
                 context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
 
                 GeneratorState.WriteCache();
+
+                
 
                 {
                     var diagnostic = Diagnostic.Create(

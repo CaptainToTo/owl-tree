@@ -26,6 +26,7 @@ namespace OwlTree.Generator
         public static string GetCacheString()
         {
             var str = new StringBuilder();
+            str.Append(GetCacheVersionString());
             str.Append(GetProjectsString());
             str.Append(GetEncodablesString());
             str.Append(GetConstsString());
@@ -43,6 +44,10 @@ namespace OwlTree.Generator
             if (!File.Exists(CacheFile))
                 return;
             var str = File.ReadAllText(CacheFile);
+
+            if (!IsCurrentCacheVersion(str))
+                return;
+
             FromProjectsString(str);
             FromEncodablesString(str);
             FromConstsString(str);
@@ -66,16 +71,54 @@ namespace OwlTree.Generator
             ResetTypeId();
         }
 
+        // Cache Version ========================
+
+        public const int CacheVersion = 2;
+        const string CacheVersionTag = "<OwlTreeCacheVersion>";
+        const string CacheVersionClose = "</OwlTreeCacheVersion>";
+
+        private static string GetCacheVersionString()
+        {
+            return CacheVersionTag + CacheVersion.ToString() + CacheVersionClose + "\n";
+        }
+
+        private static bool IsCurrentCacheVersion(string str)
+        {
+            var start = str.IndexOf(CacheVersionTag) + CacheVersionTag.Length;
+            var end = str.IndexOf(CacheVersionClose);
+
+            if (end == -1)
+                return false;
+
+            var subStr = str.Substring(start, end - start);
+            return int.Parse(subStr) == CacheVersion;
+        }
+
+        // ======================================
+
+        // Project Paths ========================
+
         public static string CachePath = null;
         public static string CacheFile => CachePath + "/" + Helpers.CacheFile;
 
+        public static string CurProjectPath() => GetProject(CurProjectId);
+        public static int CurProjectId = 0;
+
         public static bool IsLibraryProject = false;
 
-        static HashSet<string> _projects = new();
+        static Dictionary<int, string> _projects = new();
 
-        public static void AddProject(string project) => _projects.Add(project.ToLower());
+        public static void AddProject(string project) => _projects.Add(_projects.Count + 1, project.ToLower());
 
-        public static bool HasProject(string project) => _projects.Contains(project.ToLower());
+        public static void AddProject(int id, string project) => _projects.Add(id, project);
+
+        public static bool HasProject(string project) => _projects.ContainsValue(project.ToLower());
+
+        public static int GetProjectId(string project) => _projects.Where(p => p.Value == project.ToLower()).FirstOrDefault().Key;
+
+        public static string GetProject(int id) => _projects[id];
+
+        public static IEnumerable<(int id, string project)> GetProjects() => _projects.Select(p => (p.Key, p.Value));
 
         public static void ClearProjects() => _projects.Clear();
 
@@ -86,8 +129,8 @@ namespace OwlTree.Generator
         {
             var str = new StringBuilder(ProjectsTag + "\n");
 
-            foreach (var project in _projects)
-                str.Append(project).Append('\n');
+            foreach (var pair in _projects)
+                str.Append(pair.Key + "," + pair.Value + "\n");
 
             str.Append(ProjectsClose + "\n");
             return str.ToString();
@@ -105,23 +148,26 @@ namespace OwlTree.Generator
             {
                 if (string.IsNullOrEmpty(project))
                     continue;
-                _projects.Add(project);
+                var tokens = project.Split(',');
+                _projects.Add(int.Parse(tokens[0]), tokens[1]);
             }
         }
 
+        // ======================================
+
         // IEncodable Cache =====================
 
-        static Dictionary<string, bool> _encodables = new();
+        static Dictionary<string, (bool isVariable, int projectId)> _encodables = new();
 
         public static void ClearEncodables() => _encodables.Clear();
 
-        public static void AddEncodable(string k, bool isVariable) => _encodables.Add(k, isVariable);
+        public static void AddEncodable(string k, bool isVariable, int projectId) => _encodables.Add(k, (isVariable, projectId));
 
         public static bool HasEncodable(string k) => _encodables.ContainsKey(k);
 
-        public static bool EncodableIsVariable(string k) => _encodables[k];
+        public static bool EncodableIsVariable(string k) => _encodables[k].isVariable;
 
-        public static Dictionary<string, bool>.Enumerator GetEncodables() => _encodables.GetEnumerator();
+        public static Dictionary<string, (bool isVariable, int projectId)>.Enumerator GetEncodables() => _encodables.GetEnumerator();
 
         const string EncodablesTag = "<OwlTreeEncodables true==IVariableLength>";
         const string EncodablesClose = "</OwlTreeEncodables>";
@@ -130,8 +176,8 @@ namespace OwlTree.Generator
         {
             var str = new StringBuilder(EncodablesTag + "\n");
 
-            foreach (var pair in _encodables)
-                str.Append($"{pair.Key}:{pair.Value}\n");
+            foreach (var pair in _encodables.Where(p => p.Value.projectId != 0))
+                str.Append($"{pair.Key}:{pair.Value.isVariable},{pair.Value.projectId}\n");
             str.Append(EncodablesClose + "\n");
 
             return str.ToString();
@@ -150,7 +196,8 @@ namespace OwlTree.Generator
                 if (string.IsNullOrEmpty(encodable))
                     continue;
                 var tokens = encodable.Split(':');
-                _encodables.Add(tokens[0], bool.Parse(tokens[1]));
+                var values = tokens[1].Split(',');
+                _encodables.Add(tokens[0], (bool.Parse(values[0]),int.Parse(values[1])));
             }
         }
 
@@ -280,6 +327,7 @@ namespace OwlTree.Generator
             public string ns;
             public string[] usings;
             public string[] rpcs;
+            public int projectId;
 
             public IEnumerable<string> GetFullRpcNames()
             {
@@ -299,7 +347,8 @@ namespace OwlTree.Generator
                     str.Append(usings[i] + (i < usings.Length - 1 ? "," : "\n"));
                 str.Append("rpcs:");
                 for (int i = 0; i < rpcs.Length; i++)
-                    str.Append(rpcs[i] + (i < rpcs.Length - 1 ? "," : ""));
+                    str.Append(rpcs[i] + (i < rpcs.Length - 1 ? "," : "\n"));
+                str.Append($"project:{projectId}");
                 return str.ToString();
             }
 
@@ -318,6 +367,7 @@ namespace OwlTree.Generator
                         case "ns": data.ns = tokens[1]; break;
                         case "usings": data.usings = tokens[1].Split(','); break;
                         case "rpcs": data.rpcs = tokens[1].Split(','); break;
+                        case "project":data.projectId = int.Parse(tokens[1]); break;
                     }
                 }
 
@@ -343,7 +393,7 @@ namespace OwlTree.Generator
 
         public static IEnumerable<byte> GetTypeIds() => _types.Select(p => p.Value.typeId);
 
-        public static IEnumerable<TypeData> GetTypeData() => _types.Values;
+        public static IEnumerable<TypeData> GetTypeData(IEnumerable<int> projects) => _types.Values.Where(t => projects.Contains(t.projectId));
 
         const string TypesTag = "<OwlTreeNetworkObjectTypes>";
         const string TypesClose = "</OwlTreeNetworkObjectTypes>";
@@ -462,10 +512,12 @@ namespace OwlTree.Generator
             public bool invokeOnCaller;
             public bool useTcp;
             public ParamData[] paramData;
+            public int projectId;
 
             public override string ToString()
             {
                 var str = new StringBuilder($"id:{id}\n");
+                str.Append($"project:{projectId}\n");
                 str.Append($"name:{name}\n");
                 str.Append($"fullName:{fullName}\n");
                 str.Append($"class:{parentClass}\n");
@@ -490,6 +542,7 @@ namespace OwlTree.Generator
                     switch (tokens[0])
                     {
                         case "id": data.id = uint.Parse(tokens[1]); break;
+                        case "project": data.projectId = int.Parse(tokens[1]); break;
                         case "name": data.name = tokens[1]; break;
                         case "fullName": data.fullName = tokens[1]; break;
                         case "class": data.parentClass = tokens[1]; break;
@@ -535,7 +588,7 @@ namespace OwlTree.Generator
 
         public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
-        public static Dictionary<string, RpcData> GetRpcs() => _rpcIds;
+        public static IEnumerable<RpcData> GetRpcs(IEnumerable<int> projects) => _rpcIds.Values.Where(d => projects.Contains(d.projectId));
 
         const string RpcDataTag = "<OwlTreeRpcData>";
         const string RpcDataClose = "</OwlTreeRpcData>";

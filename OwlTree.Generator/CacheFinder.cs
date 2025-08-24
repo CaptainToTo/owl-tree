@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace OwlTree.Generator
@@ -29,6 +30,7 @@ namespace OwlTree.Generator
             if (GeneratorState.HasProject(proj))
                 GeneratorState.ResetCache();
             GeneratorState.AddProject(proj);
+            GeneratorState.CurProjectId = GeneratorState.GetProjectId(proj);
         }
 
         private static string GetProjectPath(Compilation compilation)
@@ -112,6 +114,55 @@ namespace OwlTree.Generator
             }
 
             return null; // Not found
+        }
+
+        public static int[] GetIncludedProjects(string mainProjectPath)
+        {
+            var knownProjects = GeneratorState.GetProjects().Select(p => p.project);
+
+            if (string.IsNullOrWhiteSpace(mainProjectPath))
+                throw new ArgumentException("Project path cannot be null or empty.", nameof(mainProjectPath));
+
+            if (!File.Exists(mainProjectPath))
+                throw new FileNotFoundException("Project file not found.", mainProjectPath);
+
+            var knownSet = new HashSet<string>(
+                knownProjects.Select(Path.GetFullPath),
+                StringComparer.OrdinalIgnoreCase);
+
+            var baseDir = Path.GetDirectoryName(mainProjectPath)
+                ?? throw new InvalidOperationException("Cannot determine project directory.");
+
+            var doc = XDocument.Load(mainProjectPath);
+
+            var results = new List<string>();
+
+            // Collect <ProjectReference Include="...">
+            var projRefs = doc.Descendants("ProjectReference")
+                .Select(e => e.Attribute("Include")?.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v));
+
+            // Collect <Reference Include="..."> with path
+            var dllRefsFromInclude = doc.Descendants("Reference")
+                .Select(e => e.Attribute("Include")?.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+            // Collect <Reference><HintPath>...</HintPath>
+            var dllRefsFromHintPath = doc.Descendants("Reference")
+                .Select(e => e.Element("HintPath")?.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v));
+
+            var dllRefs = dllRefsFromInclude.Concat(dllRefsFromHintPath);
+
+            foreach (var include in projRefs.Concat(dllRefs))
+            {
+                string absPath = Path.GetFullPath(Path.Combine(baseDir, include!)).ToLower();
+
+                if (knownSet.Contains(absPath) && !results.Contains(absPath))
+                    results.Add(absPath);
+            }
+
+            return results.Select(p => GeneratorState.GetProjectId(p)).ToArray();
         }
     }
 }
