@@ -94,7 +94,7 @@ namespace OwlTree.Generator
                     Helpers.GetAllNames(encodable.Identifier.ValueText, encodable, names);
                     bool isVariable = Helpers.InheritsFrom(encodable, Helpers.Tk_IVariable);
 
-                    if (!GeneratorState.HasEncodable(names.Last()))
+                    if (!GeneratorState.HasEncodable(names.Last(), isVariable, GeneratorState.CurProjectId))
                     {
                         foreach (var name in names)
                             GeneratorState.AddEncodable(name, isVariable, GeneratorState.CurProjectId);

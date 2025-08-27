@@ -12,24 +12,28 @@ namespace OwlTree.Generator
     {
         public static void GetCache(Compilation compilation)
         {
-            if (!string.IsNullOrEmpty(GeneratorState.CachePath))
-                return;
-
             var proj = GetProjectPath(compilation);
             var isLib = IsLibraryProject(proj);
+
+            if (proj != GeneratorState.CurProjectPath)
+            {
+                GeneratorState.IsLibraryProject = isLib;
+                GeneratorState.CurProjectPath = proj.ToLower();
+            }
+
             var foundPath = FindGeneratorPath(proj, "OwlTree.Generator");
 
             if (foundPath == null)
                 return;
 
-            GeneratorState.CachePath = foundPath;
-            GeneratorState.IsLibraryProject = isLib;
-            GeneratorState.LoadCache();
+            if (string.IsNullOrEmpty(GeneratorState.CachePath))
+            {
+                GeneratorState.CachePath = foundPath;
+                GeneratorState.LoadCache();
+            }
 
-            // if cache already has this project's path, then this must be a new compilation
-            if (GeneratorState.HasProject(proj))
-                GeneratorState.ResetCache();
-            GeneratorState.AddProject(proj);
+            if (!GeneratorState.HasProject(proj))
+                GeneratorState.AddProject(proj);
             GeneratorState.CurProjectId = GeneratorState.GetProjectId(proj);
         }
 
@@ -161,6 +165,7 @@ namespace OwlTree.Generator
                 if (knownSet.Contains(absPath) && !results.Contains(absPath))
                     results.Add(absPath);
             }
+            results.Add(mainProjectPath);
 
             return results.Select(p => GeneratorState.GetProjectId(p)).ToArray();
         }

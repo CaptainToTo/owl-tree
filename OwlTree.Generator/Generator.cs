@@ -66,6 +66,7 @@ namespace OwlTree.Generator
                 if (GeneratorState.IsLibraryProject)
                 {
                     GeneratorState.WriteCache();
+
                     var diagnostic = Diagnostic.Create(
                     new DiagnosticDescriptor(
                         "OwlTree",
@@ -82,7 +83,7 @@ namespace OwlTree.Generator
 
                 ProxyFactoryGenerator.Reset();
 
-                var includes = CacheFinder.GetIncludedProjects(GeneratorState.CurProjectPath());
+                var includes = CacheFinder.GetIncludedProjects(GeneratorState.CurProjectPath);
 
                 foreach (var c in GeneratorState.GetTypeData(includes))
                 {
@@ -105,8 +106,6 @@ namespace OwlTree.Generator
                 context.AddSource(Helpers.Tk_ProjectProtocols + Helpers.Tk_CsFile, protocols.ToString());
 
                 GeneratorState.WriteCache();
-
-                
 
                 {
                     var diagnostic = Diagnostic.Create(

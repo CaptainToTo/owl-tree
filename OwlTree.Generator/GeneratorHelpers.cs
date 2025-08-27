@@ -23,7 +23,8 @@ namespace OwlTree.Generator
         public const bool RpcUseTcpDefault = true;
 
         public const string CacheFile = ".owltree.cache";
-        public const string ErrorFile = ".generator.log";
+        public const string ErrorFilePrefix = ".generator";
+        public const string ErrorFileType = ".log";
         public const string Tk_LibProject = "OwlTreeLibraryProject";
 
         // * tokens
@@ -153,7 +154,7 @@ namespace OwlTree.Generator
         public const string Tk_String = "string";
 
         // * helpers
-        
+
         /// <summary>
         /// Checks if the given method is virtual.
         /// </summary>
@@ -201,10 +202,10 @@ namespace OwlTree.Generator
         public static bool IsInt(FieldDeclarationSyntax field)
         {
             var typeName = field.Declaration.Type.ToString();
-            return typeName == Tk_Byte || 
-                typeName == Tk_UShort  || typeName == Tk_Short || typeName == Tk_UInt16 || typeName == Tk_Int16 ||
-                typeName == Tk_UInt    || typeName == Tk_Int   || typeName == Tk_UInt32 || typeName == Tk_Int32 ||
-                typeName == Tk_ULong   || typeName == Tk_Long  || typeName == Tk_UInt64 || typeName == Tk_Int64;
+            return typeName == Tk_Byte ||
+                typeName == Tk_UShort || typeName == Tk_Short || typeName == Tk_UInt16 || typeName == Tk_Int16 ||
+                typeName == Tk_UInt || typeName == Tk_Int || typeName == Tk_UInt32 || typeName == Tk_Int32 ||
+                typeName == Tk_ULong || typeName == Tk_Long || typeName == Tk_UInt64 || typeName == Tk_Int64;
         }
 
         /// <summary>
@@ -245,7 +246,7 @@ namespace OwlTree.Generator
         {
             var name = new StringBuilder(token);
             names.Add(name.ToString());
-            
+
             var parents = node.Ancestors().OfType<ClassDeclarationSyntax>();
 
             foreach (var parent in parents)
@@ -399,19 +400,19 @@ namespace OwlTree.Generator
                 case LiteralExpressionSyntax literal:
                     if (literal != null && literal.IsKind(SyntaxKind.NumericLiteralExpression))
                         return (int)literal.Token.Value;
-                break;
+                    break;
 
                 // AssignRpcId(MyConst)
                 case IdentifierNameSyntax identifier:
                     if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out var v))
                         return v;
-                break;
+                    break;
 
                 // AssignRpcId(MyClass.MyConst)
                 case MemberAccessExpressionSyntax access:
                     if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
                         return v;
-                break;
+                    break;
 
                 // AssignRpcId((int)MyClass.MyEnum.Val1)
                 case CastExpressionSyntax cast:
@@ -420,14 +421,14 @@ namespace OwlTree.Generator
                         case IdentifierNameSyntax identifier:
                             if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out v))
                                 return v;
-                        break;
+                            break;
 
                         case MemberAccessExpressionSyntax access:
                             if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
                                 return v;
-                        break;
+                            break;
                     }
-                break;
+                    break;
             }
 
             return -1;
@@ -570,8 +571,8 @@ namespace OwlTree.Generator
                 case Tk_ClientCaller: return GeneratorState.RpcPerms.ClientsToAuthority;
                 case Tk_ClientToClient: return GeneratorState.RpcPerms.ClientsToClients;
                 case Tk_ClientToAll: return GeneratorState.RpcPerms.ClientsToAll;
-                case Tk_AnyCaller: 
-                default: 
+                case Tk_AnyCaller:
+                default:
                     return GeneratorState.RpcPerms.AnyToAll;
             }
         }
@@ -587,6 +588,19 @@ namespace OwlTree.Generator
         public static bool IsUsing(SyntaxList<UsingDirectiveSyntax> usings, string directive)
         {
             return usings.Any(u => u.Name.ToString() == directive);
+        }
+
+        public static bool ArraysEqual(string[] arr1, string[] arr2)
+        {
+            if (arr1.Length != arr2.Length) return false;
+
+            for (int i = 0; i < arr1.Length; i++)
+            {
+                if (arr1[i] != arr2[i])
+                    return false;
+            }
+
+            return true;
         }
     }
 }

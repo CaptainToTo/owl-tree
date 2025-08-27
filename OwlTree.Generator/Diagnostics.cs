@@ -55,10 +55,10 @@ namespace OwlTree.Generator
 
         public static void GeneratorException(Exception e)
         {
-            if (!File.Exists(GeneratorState.CachePath + "/" + Helpers.ErrorFile))
-                File.Create(GeneratorState.CachePath + "/" + Helpers.ErrorFile);
-            File.WriteAllText(GeneratorState.CachePath + "/" + Helpers.ErrorFile, "Error Thrown:\n" + e.ToString() + "\n\nCache At Error:\n" + GeneratorState.GetCacheString());
-            throw new Exception($"OwlTree generator failed to run, check '{Helpers.ErrorFile}' for thrown error. If error persists, delete '{Helpers.CacheFile}' to reset generator state and re-build.");
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10000;
+            var errorFileName = (GeneratorState.CachePath ?? GeneratorState.CurProjectPath) + "\\" + Helpers.ErrorFilePrefix + timestamp + Helpers.ErrorFileType;
+            File.WriteAllText(errorFileName, "Error Thrown:\n" + e.ToString() + "\n\nCache At Error:\n" + GeneratorState.GetCacheString());
+            throw new Exception($"OwlTree generator failed to run, check '{errorFileName}' for thrown error. If error persists, delete '{Helpers.CacheFile}' to reset generator state and re-build.");
         }
 
         public static void NonVirtualRpc(SourceProductionContext context, MethodDeclarationSyntax m)

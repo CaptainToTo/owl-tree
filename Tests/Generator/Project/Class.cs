@@ -8,4 +8,10 @@ public class MyClass : NetworkObject
     {
         Connection.Log(e.value.ToString());
     }
+
+    [Rpc]
+    public virtual void MyRpc2(int i)
+    {
+
+    } 
 }

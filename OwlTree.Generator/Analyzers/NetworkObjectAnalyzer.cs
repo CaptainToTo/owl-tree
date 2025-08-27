@@ -24,10 +24,11 @@ namespace OwlTree.Generator
             foreach (ClassDeclarationSyntax c in ordered)
             {
                 var fullName = Helpers.GetFullName(c.Identifier.ValueText, c);
-                if (GeneratorState.HasType(fullName))
-                    continue;
 
-                var curId = GeneratorState.NextTypeId();
+                var curId = GeneratorState.HasType(fullName)
+                    ? GeneratorState.GetTypeData(fullName).typeId 
+                    : GeneratorState.NextTypeId();
+                
                 var attr = Helpers.GetAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId);
                 if (attr != null)
                 {
@@ -70,9 +71,7 @@ namespace OwlTree.Generator
                     }
                 }
 
-                GeneratorState.AddUsings(usings);
-
-                GeneratorState.AddTypeData(fullName, new GeneratorState.TypeData
+                var data = new GeneratorState.TypeData
                 {
                     typeId = curId,
                     name = fullName,
@@ -82,9 +81,13 @@ namespace OwlTree.Generator
                         .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc))
                         .Select(m => m.Identifier.ValueText).ToArray(),
                     projectId = GeneratorState.CurProjectId
-                });
+                };
 
-                if (curId <= GeneratorState.NextTypeId())
+                GeneratorState.AddUsings(usings);
+                if (!GeneratorState.HasTypeData(data))
+                    GeneratorState.AddTypeData(fullName, data);
+                
+                if (GeneratorState.NextTypeId() <= curId)
                     GeneratorState.SetTypeId((byte)(curId + 1));
             }
         }
@@ -106,13 +109,10 @@ namespace OwlTree.Generator
             foreach (MethodDeclarationSyntax m in methods)
             {
                 var fullName = Helpers.GetFullName(m.Identifier.ValueText, m);
-                if (GeneratorState.HasRpc(fullName))
-                {
-                    var id = GeneratorState.GetRpcData(fullName).id;
-                    if (GeneratorState.NextRpcId() <= id)
-                        GeneratorState.SetRpcId(id + 1);
-                    continue;
-                }
+
+                var curId = GeneratorState.HasRpc(fullName)
+                    ? GeneratorState.GetRpcData(fullName).id
+                    : GeneratorState.NextRpcId();
 
                 if (!Helpers.IsVirtual(m))
                 {
@@ -143,7 +143,6 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                var curId = GeneratorState.NextRpcId();
                 var attr = Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId);
                 if (attr != null)
                 {
@@ -159,7 +158,7 @@ namespace OwlTree.Generator
                     }
                 }
 
-                if (GeneratorState.HasRpcId(curId))
+                if (GeneratorState.HasRpcId(fullName, curId))
                 {
                     var collision = GeneratorState.GetRpc(curId);
                     Diagnostics.DuplicateRpcIds(context, m, curId, collision);
@@ -189,7 +188,8 @@ namespace OwlTree.Generator
                     paramData = CreateParamData(m)
                 };
 
-                GeneratorState.AddRpcData(fullName, rpcData);
+                if (!GeneratorState.HasRpcData(rpcData))
+                    GeneratorState.AddRpcData(fullName, rpcData);
 
                 if (GeneratorState.NextRpcId() <= curId)
                     GeneratorState.SetRpcId(curId + 1);

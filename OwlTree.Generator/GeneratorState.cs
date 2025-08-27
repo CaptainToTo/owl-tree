@@ -101,16 +101,16 @@ namespace OwlTree.Generator
         public static string CachePath = null;
         public static string CacheFile => CachePath + "/" + Helpers.CacheFile;
 
-        public static string CurProjectPath() => GetProject(CurProjectId);
+        public static string CurProjectPath = null;
         public static int CurProjectId = 0;
 
         public static bool IsLibraryProject = false;
 
         static Dictionary<int, string> _projects = new();
 
-        public static void AddProject(string project) => _projects.Add(_projects.Count + 1, project.ToLower());
+        public static void AddProject(string project) => _projects[_projects.Count + 1] = project.ToLower();
 
-        public static void AddProject(int id, string project) => _projects.Add(id, project);
+        public static void AddProject(int id, string project) => _projects[id] = project;
 
         public static bool HasProject(string project) => _projects.ContainsValue(project.ToLower());
 
@@ -161,7 +161,9 @@ namespace OwlTree.Generator
 
         public static void ClearEncodables() => _encodables.Clear();
 
-        public static void AddEncodable(string k, bool isVariable, int projectId) => _encodables.Add(k, (isVariable, projectId));
+        public static void AddEncodable(string k, bool isVariable, int projectId) => _encodables[k] = (isVariable, projectId);
+
+        public static bool HasEncodable(string k, bool isVariable, int projectId) => _encodables.ContainsKey(k) && _encodables[k] == (isVariable, projectId);
 
         public static bool HasEncodable(string k) => _encodables.ContainsKey(k);
 
@@ -379,7 +381,7 @@ namespace OwlTree.Generator
 
         public static void ClearTypes() => _types.Clear();
 
-        public static void AddTypeData(string k, TypeData v) => _types.Add(k, v);
+        public static void AddTypeData(string k, TypeData v) => _types[k] = v;
 
         public static bool HasType(string k) => _types.ContainsKey(k);
 
@@ -394,6 +396,16 @@ namespace OwlTree.Generator
         public static IEnumerable<byte> GetTypeIds() => _types.Select(p => p.Value.typeId);
 
         public static IEnumerable<TypeData> GetTypeData(IEnumerable<int> projects) => _types.Values.Where(t => projects.Contains(t.projectId));
+
+        public static bool HasTypeData(TypeData data)
+        {
+            if (!_types.TryGetValue(data.name, out var original))
+                return false;
+
+            return data.typeId == original.typeId && data.projectId == original.projectId &&
+                data.name == original.name && data.ns == original.ns &&
+                Helpers.ArraysEqual(data.usings, original.usings) && Helpers.ArraysEqual(data.rpcs, original.rpcs);
+        }
 
         const string TypesTag = "<OwlTreeNetworkObjectTypes>";
         const string TypesClose = "</OwlTreeNetworkObjectTypes>";
@@ -514,6 +526,25 @@ namespace OwlTree.Generator
             public ParamData[] paramData;
             public int projectId;
 
+            public bool HasSameParams(RpcData data)
+            {
+                if (paramData.Length != data.paramData.Length)
+                    return false;
+
+                for (int i = 0; i < paramData.Length; i++)
+                {
+                    if (paramData[i].name != data.paramData[i].name ||
+                        paramData[i].type != data.paramData[i].type ||
+                        paramData[i].isRpcCallee != data.paramData[i].isRpcCallee ||
+                        paramData[i].isRpcCaller != data.paramData[i].isRpcCaller)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
             public override string ToString()
             {
                 var str = new StringBuilder($"id:{id}\n");
@@ -574,11 +605,11 @@ namespace OwlTree.Generator
 
         public static void ClearRpcData() => _rpcIds.Clear();
 
-        public static void AddRpcData(string k, RpcData v) => _rpcIds.Add(k, v);
+        public static void AddRpcData(string k, RpcData v) => _rpcIds[k] = v;
 
         public static bool HasRpc(string k) => _rpcIds.ContainsKey(k);
 
-        public static bool HasRpcId(uint id) => _rpcIds.Any(p => p.Value.id == id);
+        public static bool HasRpcId(string k, uint id) => _rpcIds.Any(p => p.Value.id == id && p.Key != k);
 
         public static RpcData GetRpcData(string k) => _rpcIds[k];
 
@@ -589,6 +620,18 @@ namespace OwlTree.Generator
         public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
         public static IEnumerable<RpcData> GetRpcs(IEnumerable<int> projects) => _rpcIds.Values.Where(d => projects.Contains(d.projectId));
+
+        public static bool HasRpcData(RpcData data)
+        {
+            if (!_rpcIds.TryGetValue(data.fullName, out var original))
+                return false;
+
+            return data.fullName == original.fullName && data.id == original.id &&
+                data.projectId == original.projectId && data.parentClass == original.parentClass &&
+                data.perms == original.perms && data.invokeOnCaller == original.invokeOnCaller &&
+                data.useTcp == original.useTcp && data.HasSameParams(original);
+
+        }
 
         const string RpcDataTag = "<OwlTreeRpcData>";
         const string RpcDataClose = "</OwlTreeRpcData>";
@@ -657,20 +700,23 @@ namespace OwlTree.Generator
         // Usings Cache ==========================
         // used to make sure generated RPC protocols are using the namespaces for all the rpc args
 
-        static HashSet<string> _usings = new();
+        static Dictionary<int, HashSet<string>> _usings = new();
 
         public static void ClearUsings()
         {
             _usings.Clear();
-            _usings.Add(Helpers.Tk_OwlTree);
-            _usings.Add(Helpers.Tk_System);
-            _usings.Add(Helpers.Tk_CompilerServices);
+            _usings.Add(CurProjectId, new HashSet<string>());
+            _usings[CurProjectId].Add(Helpers.Tk_OwlTree);
+            _usings[CurProjectId].Add(Helpers.Tk_System);
+            _usings[CurProjectId].Add(Helpers.Tk_CompilerServices);
         }
 
         public static void AddUsing(string u)
         {
-            if (!_usings.Contains(u))
-                _usings.Add(u);
+            if (!_usings.ContainsKey(CurProjectId))
+                _usings.Add(CurProjectId, new HashSet<string>());
+            if (!_usings[CurProjectId].Contains(u))
+                _usings[CurProjectId].Add(u);
         }
 
         public static void AddUsings(SyntaxList<UsingDirectiveSyntax> usings)
@@ -685,9 +731,9 @@ namespace OwlTree.Generator
             AddUsing(Helpers.Tk_CompilerServices);
             AddUsing(Helpers.Tk_OwlTree);
 
-            var usings = new UsingDirectiveSyntax[_usings.Count];
+            var usings = new UsingDirectiveSyntax[_usings[CurProjectId].Count];
             int i = 0;
-            foreach (var u in _usings)
+            foreach (var u in _usings[CurProjectId])
             {
                 usings[i] = UsingDirective(IdentifierName(u));
                 i++;
@@ -702,8 +748,12 @@ namespace OwlTree.Generator
         {
             var str = new StringBuilder(UsingsTag + "\n");
 
-            foreach (var u in _usings)
-                str.Append(u + "\n");
+            foreach (var p in _usings)
+            {
+                str.Append(p.Key.ToString() + ":\n");
+                foreach (var u in p.Value)
+                    str.Append("  " + u + "\n");
+            }
 
             str.Append(UsingsClose + "\n");
             return str.ToString();

@@ -1,6 +1,4 @@
-﻿
-
-using library;
+﻿using library;
 using OwlTree;
 
 var connection = new Connection(new Connection.Args
