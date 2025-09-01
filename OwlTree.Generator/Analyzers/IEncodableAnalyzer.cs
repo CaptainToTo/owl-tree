@@ -83,6 +83,8 @@ namespace OwlTree.Generator
                 if (!GeneratorState.HasEncodable(Helpers.Tk_RpcId))
                     AddBuiltIns();
 
+                GeneratorState.RemoveEncodables(GeneratorState.CurProjectId);
+
                 if (list.Length == 0)
                     return;
 

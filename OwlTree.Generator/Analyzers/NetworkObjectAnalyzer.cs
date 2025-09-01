@@ -1,4 +1,5 @@
 
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -15,20 +16,38 @@ namespace OwlTree.Generator
         /// </summary>
         public static void AssignTypeIds(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
         {
+            GeneratorState.SweepTypeIds();
+            var recycledIds = GeneratorState.RemoveTypes(GeneratorState.CurProjectId);
+            int curRecycled = 0;
+
             if (list.Length == 0) return;
 
             var ordered = list.OrderBy(c => (
                 Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId) ? "0" : "1"
                 ) + c.Identifier.ValueText);
 
+
             foreach (ClassDeclarationSyntax c in ordered)
             {
                 var fullName = Helpers.GetFullName(c.Identifier.ValueText, c);
 
-                var curId = GeneratorState.HasType(fullName)
-                    ? GeneratorState.GetTypeData(fullName).typeId 
-                    : GeneratorState.NextTypeId();
-                
+                byte curId = 0;
+                bool recycled = false;
+                if (curRecycled < recycledIds.Length)
+                {
+                    curId = recycledIds[curRecycled];
+                    curRecycled++;
+                    recycled = true;
+                }
+                else if (GeneratorState.HasType(fullName))
+                {
+                    curId = GeneratorState.GetTypeData(fullName).typeId;
+                }
+                else
+                {
+                    curId = GeneratorState.NextTypeId();
+                }
+
                 var attr = Helpers.GetAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId);
                 if (attr != null)
                 {
@@ -86,10 +105,12 @@ namespace OwlTree.Generator
                 GeneratorState.AddUsings(usings);
                 if (!GeneratorState.HasTypeData(data))
                     GeneratorState.AddTypeData(fullName, data);
-                
-                if (GeneratorState.NextTypeId() <= curId)
-                    GeneratorState.SetTypeId((byte)(curId + 1));
+
+                if (!recycled)
+                    GeneratorState.IncrementTypeId();
             }
+
+            
         }
 
         /// <summary>
@@ -97,7 +118,12 @@ namespace OwlTree.Generator
         /// </summary>
         public static void AssignRpcIds(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
         {
+            GeneratorState.SweepRpcIds();
+            var recycledIds = GeneratorState.RemoveRpcs(GeneratorState.CurProjectId);
+            int curRecycled = 0;
+
             if (list.Length == 0) return;
+
 
             // select all methods, filter for rpcs, and sort rpcs with assigned ids first
             var methods = list.SelectMany(c => c.Members.OfType<MethodDeclarationSyntax>())
@@ -110,9 +136,22 @@ namespace OwlTree.Generator
             {
                 var fullName = Helpers.GetFullName(m.Identifier.ValueText, m);
 
-                var curId = GeneratorState.HasRpc(fullName)
-                    ? GeneratorState.GetRpcData(fullName).id
-                    : GeneratorState.NextRpcId();
+                uint curId = 0;
+                bool recycled = false;
+                if (curRecycled < recycledIds.Length)
+                {
+                    curId = recycledIds[curRecycled];
+                    curRecycled++;
+                    recycled = true;
+                }
+                else if (GeneratorState.HasRpc(fullName))
+                {
+                    curId = GeneratorState.GetRpcData(fullName).id;
+                }
+                else
+                {
+                    curId = GeneratorState.NextRpcId();
+                }
 
                 if (!Helpers.IsVirtual(m))
                 {
@@ -180,7 +219,7 @@ namespace OwlTree.Generator
                     id = curId,
                     projectId = GeneratorState.CurProjectId,
                     name = m.Identifier.ValueText,
-                    fullName = Helpers.GetFullName(m.Identifier.ValueText, m),
+                    fullName = fullName,
                     perms = caller,
                     invokeOnCaller = invokeOnCaller,
                     useTcp = useTcp,
@@ -191,8 +230,8 @@ namespace OwlTree.Generator
                 if (!GeneratorState.HasRpcData(rpcData))
                     GeneratorState.AddRpcData(fullName, rpcData);
 
-                if (GeneratorState.NextRpcId() <= curId)
-                    GeneratorState.SetRpcId(curId + 1);
+                if (!recycled)
+                    GeneratorState.IncrementRpcId();
             }
         }
 

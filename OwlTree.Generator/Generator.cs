@@ -58,10 +58,26 @@ namespace OwlTree.Generator
 
                 CacheFinder.GetCache(compilation);
 
-                if (list.Length == 0) return;
-
                 NetworkObjectAnalyzer.AssignTypeIds(context, list);
                 NetworkObjectAnalyzer.AssignRpcIds(context, list);
+
+                if (list.Length == 0)
+                {
+                    GeneratorState.WriteCache();
+
+                    var diagnostic = Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "OwlTree",
+                        "Source Generation Complete",
+                        "Generator complete.",
+                        "Completion",
+                        DiagnosticSeverity.Info,
+                        isEnabledByDefault: true), null);
+
+                    context.ReportDiagnostic(diagnostic);
+
+                    return;
+                }
 
                 if (GeneratorState.IsLibraryProject)
                 {

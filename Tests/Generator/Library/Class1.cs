@@ -19,6 +19,24 @@ public struct TestEncode : IEncodable
     }
 }
 
+public struct Enc2 : IEncodable
+{
+    public int ByteLength()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void FromBytes(ReadOnlySpan<byte> bytes)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void InsertBytes(Span<byte> bytes)
+    {
+        throw new NotImplementedException();
+    }
+}
+
 public class MyNetObj : NetworkObject
 {
     [Rpc(RpcPerms.AnyToAll, InvokeOnCaller = true)]
@@ -26,10 +44,13 @@ public class MyNetObj : NetworkObject
     {
         Connection.Log($"value sent from {Id}: {e.value}, from player {caller}");
     }
-    
+
     [Rpc]
     public virtual void MyRpc2(int i)
     {
 
     }
+
+    [Rpc]
+    public virtual void MyTestRpc(int i) { }
 }

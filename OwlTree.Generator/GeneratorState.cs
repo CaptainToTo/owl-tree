@@ -163,6 +163,14 @@ namespace OwlTree.Generator
 
         public static void AddEncodable(string k, bool isVariable, int projectId) => _encodables[k] = (isVariable, projectId);
 
+        public static void RemoveEncodable(string k) => _encodables.Remove(k);
+
+        public static void RemoveEncodables(int projectId)
+        {
+            foreach (var e in GetEncodables(projectId).ToArray())
+                RemoveEncodable(e.name);
+        }
+
         public static bool HasEncodable(string k, bool isVariable, int projectId) => _encodables.ContainsKey(k) && _encodables[k] == (isVariable, projectId);
 
         public static bool HasEncodable(string k) => _encodables.ContainsKey(k);
@@ -170,6 +178,9 @@ namespace OwlTree.Generator
         public static bool EncodableIsVariable(string k) => _encodables[k].isVariable;
 
         public static Dictionary<string, (bool isVariable, int projectId)>.Enumerator GetEncodables() => _encodables.GetEnumerator();
+
+        public static IEnumerable<(string name, bool isVariable, int projectId)> GetEncodables(int projectId) =>
+            _encodables.Where(p => p.Value.projectId == projectId).Select(p => (p.Key, p.Value.isVariable, p.Value.projectId));
 
         const string EncodablesTag = "<OwlTreeEncodables true==IVariableLength>";
         const string EncodablesClose = "</OwlTreeEncodables>";
@@ -383,6 +394,20 @@ namespace OwlTree.Generator
 
         public static void AddTypeData(string k, TypeData v) => _types[k] = v;
 
+        public static void RemoveTypeData(string k) => _types.Remove(k);
+
+        public static byte[] RemoveTypes(int project)
+        {
+            var types = GetTypeData(project).OrderBy(d => d.name).ToArray();
+            var ids = new byte[types.Length];
+            for (int i = 0; i < types.Length; i++)
+            {
+                RemoveTypeData(types[i].name);
+                ids[i] = types[i].typeId;
+            }
+            return ids;
+        }
+
         public static bool HasType(string k) => _types.ContainsKey(k);
 
         public static bool HasTypeId(byte v) => _types.Any(p => p.Value.typeId == v);
@@ -396,6 +421,8 @@ namespace OwlTree.Generator
         public static IEnumerable<byte> GetTypeIds() => _types.Select(p => p.Value.typeId);
 
         public static IEnumerable<TypeData> GetTypeData(IEnumerable<int> projects) => _types.Values.Where(t => projects.Contains(t.projectId));
+
+        public static IEnumerable<TypeData> GetTypeData(int project) => _types.Values.Where(t => t.projectId == project);
 
         public static bool HasTypeData(TypeData data)
         {
@@ -442,13 +469,61 @@ namespace OwlTree.Generator
 
         // Type Id ===============================
 
+        private static Queue<(byte start, byte end)> _missingTypeIds = new();
+        private static (byte start, byte end) _curTypeRange = (0, 0);
+        private static byte _lastTypeId = (byte)Helpers.FirstTypeId;
+
         private static byte _nextTypeId = (byte)Helpers.FirstTypeId;
 
         public static byte NextTypeId() => _nextTypeId;
 
-        public static void IncrementTypeId() => _nextTypeId += 1;
+        public static void IncrementTypeId()
+        {
+            _nextTypeId += 1;
 
-        public static void SetTypeId(byte v) => _nextTypeId = v;
+            if (_nextTypeId > _lastTypeId)
+                return;
+            else if (_nextTypeId >= _curTypeRange.end && _missingTypeIds.Count > 0)
+            {
+                _curTypeRange = _missingTypeIds.Dequeue();
+                _nextTypeId = _curTypeRange.start;
+            }
+            else if (_nextTypeId >= _curTypeRange.end && _missingTypeIds.Count == 0)
+            {
+                _nextTypeId = _lastTypeId;
+            }
+        }
+
+        public static void SweepTypeIds()
+        {
+            if (_types.Count == 0)
+                return;
+
+            _missingTypeIds.Clear();
+            _curTypeRange = (0, 0);
+
+            var ids = _types.Select(p => p.Value.typeId).OrderBy(id => id);
+
+            byte prevId = (byte)(Helpers.FirstTypeId - 1);
+            foreach (var id in ids)
+            {
+                if (id - prevId > 1)
+                    _missingTypeIds.Enqueue(((byte)(prevId + 1), id));
+                prevId = id;
+            }
+
+            _lastTypeId = (byte)(prevId + 1);
+
+            if (_missingTypeIds.Count > 0 && _curTypeRange == (0, 0))
+            {
+                _curTypeRange = _missingTypeIds.Dequeue();
+                _nextTypeId = _curTypeRange.start;
+            }
+            else
+            {
+                _nextTypeId = _lastTypeId;
+            }
+        }
 
         public static void ResetTypeId() => _nextTypeId = (byte)Helpers.FirstTypeId;
 
@@ -457,7 +532,7 @@ namespace OwlTree.Generator
 
         private static string GetTypeIdString()
         {
-            return TypeIdTag + _nextTypeId.ToString() + TypeIdClose + "\n";
+            return TypeIdTag + Math.Max(_lastTypeId, _nextTypeId).ToString().ToString() + TypeIdClose + "\n";
         }
 
         private static void FromTypeIdString(string str)
@@ -466,7 +541,7 @@ namespace OwlTree.Generator
             var end = str.IndexOf(TypeIdClose);
 
             var subStr = str.Substring(start, end - start);
-            _nextTypeId = byte.Parse(subStr);
+            _lastTypeId = byte.Parse(subStr);
         }
 
         // =======================================
@@ -607,6 +682,20 @@ namespace OwlTree.Generator
 
         public static void AddRpcData(string k, RpcData v) => _rpcIds[k] = v;
 
+        public static void RemoveRpcData(string k) => _rpcIds.Remove(k);
+
+        public static uint[] RemoveRpcs(int projectId)
+        {
+            var rpcs = GetRpcs(projectId).OrderBy(d => d.fullName).ToArray();
+            var ids = new uint[rpcs.Length];
+            for (int i = 0; i < rpcs.Length; i++)
+            {
+                RemoveRpcData(rpcs[i].fullName);
+                ids[i] = rpcs[i].id;
+            }
+            return ids;
+        }
+
         public static bool HasRpc(string k) => _rpcIds.ContainsKey(k);
 
         public static bool HasRpcId(string k, uint id) => _rpcIds.Any(p => p.Value.id == id && p.Key != k);
@@ -620,6 +709,8 @@ namespace OwlTree.Generator
         public static bool TryGetRpcData(string k, out RpcData v) => _rpcIds.TryGetValue(k, out v);
 
         public static IEnumerable<RpcData> GetRpcs(IEnumerable<int> projects) => _rpcIds.Values.Where(d => projects.Contains(d.projectId));
+
+        public static IEnumerable<RpcData> GetRpcs(int project) => _rpcIds.Values.Where(d => d.projectId == project);
 
         public static bool HasRpcData(RpcData data)
         {
@@ -668,13 +759,61 @@ namespace OwlTree.Generator
 
         // Rpc Id ================================
 
+        private static Queue<(uint start, uint end)> _missingRpcIds = new();
+        private static (uint start, uint end) _curRpcRange = (0, 0);
+        private static uint _lastRpcId = Helpers.FirstRpcId;
+
         private static uint _nextRpcId = Helpers.FirstRpcId;
 
         public static uint NextRpcId() => _nextRpcId;
 
-        public static void IncrementRpcId() => _nextRpcId += 1;
+        public static void IncrementRpcId()
+        {
+            _nextRpcId += 1;
 
-        public static void SetRpcId(uint v) => _nextRpcId = v;
+            if (_nextRpcId > _lastRpcId)
+                return;
+            else if (_nextRpcId >= _curRpcRange.end && _missingRpcIds.Count > 0)
+            {
+                _curRpcRange = _missingRpcIds.Dequeue();
+                _nextRpcId = _curRpcRange.start;
+            }
+            else if (_nextRpcId >= _curRpcRange.end && _missingRpcIds.Count == 0)
+            {
+                _nextRpcId = _lastRpcId;
+            }
+        }
+
+        public static void SweepRpcIds()
+        {
+            if (_rpcIds.Count == 0)
+                return;
+
+            _missingRpcIds.Clear();
+            _curRpcRange = (0, 0);
+
+            var ids = _rpcIds.Select(p => p.Value.id).OrderBy(id => id);
+
+            uint prevId = Helpers.FirstRpcId - 1;
+            foreach (var id in ids)
+            {
+                if (id - prevId > 1)
+                    _missingRpcIds.Enqueue((prevId + 1, id));
+                prevId = id;
+            }
+
+            _lastRpcId = prevId + 1;
+
+            if (_missingRpcIds.Count > 0 && _curRpcRange == (0, 0))
+            {
+                _curRpcRange = _missingRpcIds.Dequeue();
+                _nextRpcId = _curRpcRange.start;
+            }
+            else
+            {
+                _nextRpcId = _lastRpcId;
+            }
+        }
 
         public static void ResetRpcId() => _nextRpcId = Helpers.FirstRpcId;
 
@@ -683,7 +822,7 @@ namespace OwlTree.Generator
 
         private static string GetRpcIdString()
         {
-            return RpcIdTag + _nextRpcId.ToString() + RpcIdClose + "\n";
+            return RpcIdTag + Math.Max(_lastRpcId, _nextRpcId).ToString() + RpcIdClose + "\n";
         }
 
         private static void FromRpcIdString(string str)
@@ -692,7 +831,7 @@ namespace OwlTree.Generator
             var end = str.IndexOf(RpcIdClose);
 
             var subStr = str.Substring(start, end - start);
-            _nextRpcId = uint.Parse(subStr);
+            _lastRpcId = uint.Parse(subStr);
         }
 
         // =======================================
