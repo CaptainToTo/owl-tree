@@ -34,6 +34,7 @@ namespace OwlTree.Generator
         public const string Tk_System = "System";
         public const string Tk_OwlTree = "OwlTree";
         public const string Tk_NetworkObject = "NetworkObject";
+        public const string Tk_FullNetworkObject = "OwlTree.NetworkObject";
         public const string Tk_ProxySuffix = "Proxy";
         public const string Tk_CsFile = ".g.cs";
         public const string Tk_DebugFile = ".g.cs.debug";
@@ -235,6 +236,23 @@ namespace OwlTree.Generator
             }
 
             return name.ToString();
+        }
+
+        public static IEnumerable<string> GetInheritedTypes(ClassDeclarationSyntax c)
+        {
+            return c.BaseList?.Types.Where(t => t.Type is IdentifierNameSyntax idx)
+                .Select(t => ((IdentifierNameSyntax)t.Type).Identifier.ValueText);
+        }
+
+        public static IEnumerable<string> GetPossibleFullTypeNames(ClassDeclarationSyntax c)
+        {
+            var baseTypes = GetInheritedTypes(c);
+            var usings = GetAllUsings(c);
+            var ns = GetNamespaceName(c) ?? "";
+            if (!string.IsNullOrEmpty(ns))
+                ns += ".";
+            return baseTypes.SelectMany(t =>
+                usings.Select(u => u.Name.ToString() + "." + t).Append(ns + t).Append(t));
         }
 
         /// <summary>

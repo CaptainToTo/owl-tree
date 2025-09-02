@@ -94,6 +94,27 @@ namespace OwlTree.Generator
                 proxyBuilderStage.Add(proxy);
             }
 
+            foreach (var m in c.inheritedRpcs)
+            {
+                if (!GeneratorState.TryGetRpcData(m, out var data))
+                    continue;
+                
+                var proxy = MethodDeclaration(
+                    PredefinedType(
+                        Token(SyntaxKind.VoidKeyword)),
+                    Identifier(data.name))
+                    .WithModifiers(
+                        TokenList(
+                            new[]{
+                                Token(SyntaxKind.PublicKeyword),
+                                Token(SyntaxKind.OverrideKeyword)
+                            }))
+                    .WithParameterList(CreateParamList(data))
+                    .WithBody(CreateProxyBody(data, data.id));
+                
+                proxyBuilderStage.Add(proxy);
+            }
+
             proxyBuilderStage.Add(CreateGetType(c));
             proxyBuilderStage.Add(CreateGetProxyType(c));
 

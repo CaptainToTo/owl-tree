@@ -54,3 +54,17 @@ public class MyNetObj : NetworkObject
     [Rpc]
     public virtual void MyTestRpc(int i) { }
 }
+
+public class MySubClass : MyNetObj
+{
+    [Rpc]
+    public virtual void SubRpc1() {}
+}
+
+public class Class1 : MySubClass
+{
+}
+
+public class Class2 : NetworkObject { }
+
+public class Class3 : MyNetObj { }

@@ -9,28 +9,102 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace OwlTree.Generator
 {
+
+    public class InherenceTreeNode
+    {
+        public readonly string name;
+        public readonly string baseClass;
+        public readonly ClassDeclarationSyntax syntax;
+        private List<string> _children = null;
+
+        public InherenceTreeNode(string name, string baseClass, ClassDeclarationSyntax syntax)
+        {
+            this.name = name;
+            this.baseClass = baseClass;
+            this.syntax = syntax;
+        }
+
+        public void AddChild(string child)
+        {
+            if (_children == null)
+                _children = new List<string>();
+            _children.Add(child);
+        }
+
+        public IEnumerable<string> Children() => _children ?? Enumerable.Empty<string>();
+    }
+
     public static class NetworkObjectAnalyzer
     {
+        public static IEnumerable<InherenceTreeNode> TraverseTree(Dictionary<string, InherenceTreeNode> tree)
+        {
+            var root = tree[Helpers.Tk_FullNetworkObject];
+
+            var q = new Queue<InherenceTreeNode>();
+            foreach (var c in root.Children().OrderBy(c => c))
+                q.Enqueue(tree[c]);
+
+            while (q.Count > 0)
+            {
+                var cur = q.Dequeue();
+                yield return cur;
+
+                foreach (var c in cur.Children().OrderBy(c => c))
+                    q.Enqueue(tree[c]);
+            }
+        }
+
+        public static Dictionary<string, InherenceTreeNode> BuildInheritanceTree(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
+        {
+            var dict = new Dictionary<string, InherenceTreeNode>();
+
+            var q = new Queue<(string name, string super, ClassDeclarationSyntax syntax)>();
+            q.Enqueue((Helpers.Tk_FullNetworkObject, null, null));
+
+            var workingList = new List<ClassDeclarationSyntax>(list);
+
+            while (q.Count > 0)
+            {
+                while (q.Count > 0)
+                {
+                    var pair = q.Dequeue();
+                    dict.Add(pair.name, new InherenceTreeNode(pair.name, pair.super, pair.syntax));
+                    if (!string.IsNullOrEmpty(pair.super))
+                        dict[pair.super].AddChild(pair.name);
+                }
+
+                for (int i = 0; i < workingList.Count; i++)
+                {
+                    var c = workingList[i];
+                    var name = Helpers.GetFullName(c.Identifier.ValueText, c);
+                    var supers = Helpers.GetPossibleFullTypeNames(c).Where(s => dict.ContainsKey(s));
+
+                    if (supers != null && supers.Count() > 0)
+                    {
+                        var super = supers.First();
+                        q.Enqueue((name, super, c));
+                        workingList.RemoveAt(i);
+                        i--;
+                    }
+                }
+            }
+
+            return dict;
+        }
+
         /// <summary>
         /// Use pre-solved id values to assign NetworkObject type ids.
         /// </summary>
-        public static void AssignTypeIds(SourceProductionContext context, ImmutableArray<ClassDeclarationSyntax> list)
+        public static void AssignTypeIds(SourceProductionContext context, Dictionary<string, InherenceTreeNode> tree)
         {
             GeneratorState.SweepTypeIds();
             var recycledIds = GeneratorState.RemoveTypes(GeneratorState.CurProjectId);
             int curRecycled = 0;
 
-            if (list.Length == 0) return;
+            if (tree.Count == 1) return; // if no types, will only contain OwlTree.NetworkObject
 
-            var ordered = list.OrderBy(c => (
-                Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId) ? "0" : "1"
-                ) + c.Identifier.ValueText);
-
-
-            foreach (ClassDeclarationSyntax c in ordered)
+            foreach (InherenceTreeNode c in TraverseTree(tree))
             {
-                var fullName = Helpers.GetFullName(c.Identifier.ValueText, c);
-
                 byte curId = 0;
                 bool recycled = false;
                 if (curRecycled < recycledIds.Length)
@@ -39,16 +113,16 @@ namespace OwlTree.Generator
                     curRecycled++;
                     recycled = true;
                 }
-                else if (GeneratorState.HasType(fullName))
+                else if (GeneratorState.HasType(c.name))
                 {
-                    curId = GeneratorState.GetTypeData(fullName).typeId;
+                    curId = GeneratorState.GetTypeData(c.name).typeId;
                 }
                 else
                 {
                     curId = GeneratorState.NextTypeId();
                 }
 
-                var attr = Helpers.GetAttribute(c.AttributeLists, Helpers.AttrTk_AssignTypeId);
+                var attr = Helpers.GetAttribute(c.syntax.AttributeLists, Helpers.AttrTk_AssignTypeId);
                 if (attr != null)
                 {
                     var assignedId = Helpers.GetAssignedId(attr);
@@ -58,22 +132,22 @@ namespace OwlTree.Generator
                     }
                     else
                     {
-                        Diagnostics.BadTypeIdAssignment(context, c, attr);
+                        Diagnostics.BadTypeIdAssignment(context, c.syntax, attr);
                         continue;
                     }
 
                     if (GeneratorState.HasTypeId(curId))
                     {
                         var collision = GeneratorState.GetTypeData(curId);
-                        Diagnostics.DuplicateTypeIds(context, c, curId, collision.name);
+                        Diagnostics.DuplicateTypeIds(context, c.syntax, curId, collision.name);
                         continue;
                     }
 
                 }
 
-                var usings = Helpers.GetAllUsings(c);
+                var usings = Helpers.GetAllUsings(c.syntax);
 
-                var ns = Helpers.GetNamespace(c);
+                var ns = Helpers.GetNamespace(c.syntax);
                 string nsName = "";
                 if (ns != null)
                 {
@@ -82,7 +156,7 @@ namespace OwlTree.Generator
                 }
                 else
                 {
-                    var fns = Helpers.GetFileNamespace(c);
+                    var fns = Helpers.GetFileNamespace(c.syntax);
                     if (fns != null)
                     {
                         usings = usings.Add(UsingDirective(fns.Name));
@@ -90,27 +164,40 @@ namespace OwlTree.Generator
                     }
                 }
 
+                string[] inherited = null;
+                if (c.baseClass != Helpers.Tk_FullNetworkObject)
+                {
+                    var baseData = GeneratorState.GetTypeData(c.baseClass);
+                    inherited = baseData.rpcs.Select(r => baseData.name + "." + r).Concat(baseData.inheritedRpcs).ToArray();
+                }
+                else
+                {
+                    inherited = new string[0];
+                }
+
                 var data = new GeneratorState.TypeData
                 {
                     typeId = curId,
-                    name = fullName,
+                    name = c.name,
+                    baseClass = c.baseClass,
                     ns = nsName,
                     usings = usings.Select(u => u.Name.ToString()).ToArray(),
-                    rpcs = c.Members.OfType<MethodDeclarationSyntax>()
+                    rpcs = c.syntax.Members.OfType<MethodDeclarationSyntax>()
                         .Where(m => Helpers.HasAttribute(m.AttributeLists, Helpers.AttrTk_Rpc))
                         .Select(m => m.Identifier.ValueText).ToArray(),
+                    inheritedRpcs = inherited,
                     projectId = GeneratorState.CurProjectId
                 };
 
                 GeneratorState.AddUsings(usings);
                 if (!GeneratorState.HasTypeData(data))
-                    GeneratorState.AddTypeData(fullName, data);
+                    GeneratorState.AddTypeData(c.name, data);
 
                 if (!recycled)
                     GeneratorState.IncrementTypeId();
             }
 
-            
+
         }
 
         /// <summary>

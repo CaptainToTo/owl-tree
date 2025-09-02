@@ -41,7 +41,7 @@ namespace OwlTree.Generator
 
             // generate network object proxies
             var provider = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.InheritsFrom(c, Helpers.Tk_NetworkObject),
+                predicate: static (node, _) => node is ClassDeclarationSyntax c,
                 transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node
             ).Where(m => m is not null);
 
@@ -58,7 +58,8 @@ namespace OwlTree.Generator
 
                 CacheFinder.GetCache(compilation);
 
-                NetworkObjectAnalyzer.AssignTypeIds(context, list);
+                var tree = NetworkObjectAnalyzer.BuildInheritanceTree(context, list);
+                NetworkObjectAnalyzer.AssignTypeIds(context, tree);
                 NetworkObjectAnalyzer.AssignRpcIds(context, list);
 
                 if (list.Length == 0)

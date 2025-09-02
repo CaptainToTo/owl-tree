@@ -73,7 +73,7 @@ namespace OwlTree.Generator
 
         // Cache Version ========================
 
-        public const int CacheVersion = 2;
+        public const int CacheVersion = 3;
         const string CacheVersionTag = "<OwlTreeCacheVersion>";
         const string CacheVersionClose = "</OwlTreeCacheVersion>";
 
@@ -337,9 +337,11 @@ namespace OwlTree.Generator
         {
             public byte typeId;
             public string name;
+            public string baseClass;
             public string ns;
             public string[] usings;
             public string[] rpcs;
+            public string[] inheritedRpcs;
             public int projectId;
 
             public IEnumerable<string> GetFullRpcNames()
@@ -354,14 +356,26 @@ namespace OwlTree.Generator
             {
                 var str = new StringBuilder($"id:{typeId}\n");
                 str.Append($"name:{name}\n");
+                str.Append($"base:{baseClass}\n");
                 str.Append($"ns:{ns}\n");
+                str.Append($"project:{projectId}\n");
+
                 str.Append("usings:");
                 for (int i = 0; i < usings.Length; i++)
                     str.Append(usings[i] + (i < usings.Length - 1 ? "," : "\n"));
+                if (usings.Length == 0)
+                    str.Append('\n');
+
                 str.Append("rpcs:");
                 for (int i = 0; i < rpcs.Length; i++)
                     str.Append(rpcs[i] + (i < rpcs.Length - 1 ? "," : "\n"));
-                str.Append($"project:{projectId}");
+                if (rpcs.Length == 0)
+                    str.Append('\n');
+                
+                str.Append("inherited:");
+                for (int i = 0; i < inheritedRpcs.Length; i++)
+                    str.Append(inheritedRpcs[i] + (i < inheritedRpcs.Length - 1 ? "," : ""));
+                
                 return str.ToString();
             }
 
@@ -377,10 +391,12 @@ namespace OwlTree.Generator
                     {
                         case "id": data.typeId = byte.Parse(tokens[1]); break;
                         case "name": data.name = tokens[1]; break;
+                        case "base": data.baseClass = tokens[1]; break;
                         case "ns": data.ns = tokens[1]; break;
                         case "usings": data.usings = tokens[1].Split(','); break;
                         case "rpcs": data.rpcs = tokens[1].Split(','); break;
-                        case "project":data.projectId = int.Parse(tokens[1]); break;
+                        case "inherited": data.inheritedRpcs = tokens[1].Split(','); break;
+                        case "project": data.projectId = int.Parse(tokens[1]); break;
                     }
                 }
 
