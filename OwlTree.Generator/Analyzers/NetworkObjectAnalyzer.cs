@@ -81,6 +81,12 @@ namespace OwlTree.Generator
 
                     if (supers != null && supers.Count() > 0)
                     {
+                        if (Helpers.IsGenericType(c))
+                        {
+                            Diagnostics.GenericNetworkObjectType(context, c);
+                            continue;
+                        }
+
                         var super = supers.First();
                         q.Enqueue((name, super, c));
                         workingList.RemoveAt(i);
@@ -258,7 +264,7 @@ namespace OwlTree.Generator
                     continue;
                 }
 
-                if (!Helpers.IsEncodable(m.ParameterList, out var err, out var pErr, out var calleeId, out var callerId))
+                if (!Helpers.ValidateParams(m.ParameterList, out var err, out var pErr, out var calleeId, out var callerId))
                 {
                     if (err == 1)
                         Diagnostics.NonEncodableRpcParam(context, m, pErr);
@@ -266,6 +272,8 @@ namespace OwlTree.Generator
                         Diagnostics.NonClientIdRpcCallee(context, m, pErr);
                     else if (err == 3)
                         Diagnostics.NonClientIdRpcCaller(context, m, pErr);
+                    else if (err == 4)
+                        Diagnostics.NonDefaultRpcCaller(context, m, pErr);
                     continue;
                 }
 

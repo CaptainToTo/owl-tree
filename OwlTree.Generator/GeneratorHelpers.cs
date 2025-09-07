@@ -255,6 +255,11 @@ namespace OwlTree.Generator
                 usings.Select(u => u.Name.ToString() + "." + t).Append(ns + t).Append(t));
         }
 
+        public static bool IsGenericType(ClassDeclarationSyntax c)
+        {
+            return (c.TypeParameterList?.Parameters.Count ?? 0) > 0;
+        }
+
         /// <summary>
         /// Fills the names list all versions of the accessor strings that could be used to access the given node.
         /// The token argument is the name of that node, used to start the accessor chain.<br />
@@ -483,7 +488,7 @@ namespace OwlTree.Generator
         /// If a parameter is found that isn't encodable, returns that parameter in the err argument.
         /// err = 0 for success, err = 1 for non-encodable, err = 2 for non-ClientId RpcCallee, err = 3 for non-ClientId RpcCaller.
         /// </summary>
-        public static bool IsEncodable(ParameterListSyntax paramList, out int err, out ParameterSyntax pErr, out ParameterSyntax calleeId, out ParameterSyntax callerId)
+        public static bool ValidateParams(ParameterListSyntax paramList, out int err, out ParameterSyntax pErr, out ParameterSyntax calleeId, out ParameterSyntax callerId)
         {
             calleeId = null;
             callerId = null;
@@ -514,6 +519,12 @@ namespace OwlTree.Generator
                         err = 3;
                         return false;
                     }
+                    else if (!IsDefaulted(p))
+                    {
+                        pErr = p;
+                        err = 4;
+                        return false;
+                    }
                 }
             }
             pErr = null;
@@ -532,6 +543,15 @@ namespace OwlTree.Generator
         public static bool IsClientId(string type)
         {
             return type == Tk_ClientId || type == Tk_OwlTree + "." + Tk_ClientId;
+        }
+
+        public static bool IsDefaulted(ParameterSyntax p)
+        {
+            if (p.Default == null)
+                return false;
+
+            return p.Default.Value is LiteralExpressionSyntax literal &&
+                literal.IsKind(SyntaxKind.DefaultLiteralExpression);
         }
 
         /// <summary>
