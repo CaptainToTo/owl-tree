@@ -21,7 +21,7 @@ namespace OwlTree.Generator
                 GeneratorState.CurProjectPath = proj.ToLower();
             }
 
-            var foundPath = FindGeneratorPath(proj, "OwlTree.Generator");
+            var foundPath = FindGeneratorPath(proj);
 
             if (foundPath == null)
                 return;
@@ -70,6 +70,58 @@ namespace OwlTree.Generator
 
             string text = File.ReadAllText(csprojPath);
             return OwlTreeTagRegex.IsMatch(text);
+        }
+
+        public static string FindGeneratorPath(string csprojPath)
+        {
+            if (string.IsNullOrWhiteSpace(csprojPath))
+                throw new ArgumentException("Project path cannot be null or empty.", nameof(csprojPath));
+
+            if (!File.Exists(csprojPath))
+                throw new FileNotFoundException("Project file not found.", csprojPath);
+
+            var baseDir = Path.GetDirectoryName(csprojPath)
+                ?? throw new InvalidOperationException("Cannot determine project directory.");
+
+            var doc = XDocument.Load(csprojPath);
+
+            // Look for <ProjectReference Include="..." OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+            var projectRef = doc.Descendants("ProjectReference")
+                .FirstOrDefault(e =>
+                    string.Equals(e.Attribute("OutputItemType")?.Value, "Analyzer", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(e.Attribute("ReferenceOutputAssembly")?.Value, "false", StringComparison.OrdinalIgnoreCase) &&
+                    e.Attribute("Include") != null &&
+                    Path.GetFileName(e.Attribute("Include")!.Value)
+                        .Equals("OwlTree.Generator.csproj", StringComparison.OrdinalIgnoreCase));
+
+            if (projectRef != null)
+            {
+                var include = projectRef.Attribute("Include")?.Value;
+                if (!string.IsNullOrWhiteSpace(include))
+                {
+                    string absPath = Path.GetFullPath(Path.Combine(baseDir, include));
+                    return Path.GetDirectoryName(absPath);
+                }
+            }
+
+            // Look for <Analyzer Include="...">
+            var analyzerRef = doc.Descendants("Analyzer")
+                .FirstOrDefault(e =>
+                    e.Attribute("Include") != null &&
+                    Path.GetFileName(e.Attribute("Include")!.Value)
+                        .Equals("OwlTree.Generator.dll", StringComparison.OrdinalIgnoreCase));
+
+            if (analyzerRef != null)
+            {
+                var include = analyzerRef.Attribute("Include")?.Value;
+                if (!string.IsNullOrWhiteSpace(include))
+                {
+                    string absPath = Path.GetFullPath(Path.Combine(baseDir, include));
+                    return Path.GetDirectoryName(absPath);
+                }
+            }
+
+            return null;
         }
 
         private static string FindGeneratorPath(string startPath, string generatorName)
