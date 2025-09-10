@@ -408,57 +408,6 @@ namespace OwlTree.Generator
         }
 
         /// <summary>
-        /// Tries to get an assigned RPC id value from the given attribute.
-        /// This attribute should be an AssignRpcIdAttribute or AssignTypeIdAttribute.
-        /// </summary>
-        public static int GetAssignedId(AttributeSyntax attr)
-        {
-            var arg = attr.ArgumentList.Arguments.FirstOrDefault();
-
-            if (arg == null)
-                return -1;
-
-            switch (arg.Expression)
-            {
-                // AssignRpcId(10)
-                case LiteralExpressionSyntax literal:
-                    if (literal != null && literal.IsKind(SyntaxKind.NumericLiteralExpression))
-                        return (int)literal.Token.Value;
-                    break;
-
-                // AssignRpcId(MyConst)
-                case IdentifierNameSyntax identifier:
-                    if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out var v))
-                        return v;
-                    break;
-
-                // AssignRpcId(MyClass.MyConst)
-                case MemberAccessExpressionSyntax access:
-                    if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
-                        return v;
-                    break;
-
-                // AssignRpcId((int)MyClass.MyEnum.Val1)
-                case CastExpressionSyntax cast:
-                    switch (cast.Expression)
-                    {
-                        case IdentifierNameSyntax identifier:
-                            if (GeneratorState.TryGetConst(identifier.Identifier.ValueText, out v))
-                                return v;
-                            break;
-
-                        case MemberAccessExpressionSyntax access:
-                            if (GeneratorState.TryGetConstOrEnum(GetAccessorString(access), out v))
-                                return v;
-                            break;
-                    }
-                    break;
-            }
-
-            return -1;
-        }
-
-        /// <summary>
         /// Checks if a given token defines a member scope (public, private, etc).
         /// </summary>
         public static bool IsScopeToken(SyntaxToken t)

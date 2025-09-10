@@ -47,32 +47,6 @@ namespace OwlTree
     public class CalleeIdAttribute : Attribute { }
 
     /// <summary>
-    /// Manually assign an id value to RPCs.
-    /// Setting this manually ensures the id matches across different programs.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-    public class AssignRpcIdAttribute : Attribute {
-        public uint Id = 0;
-
-        public AssignRpcIdAttribute(uint id)
-        {
-            Id = id;
-        }
-
-        public AssignRpcIdAttribute(int id)
-        {
-            Id = (uint)id;
-        }
-    }
-
-    /// <summary>
-    /// Mark a static class as a registry for RPC and type ids, using consts and enums.
-    /// There should only ever be 1 IdRegistry per project.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class IdRegistryAttribute : Attribute { }
-
-    /// <summary>
     /// Tag a method as an RPC. All parameters must be encodable, the method must be virtual, and the return type must be void.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]

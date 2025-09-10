@@ -110,20 +110,4 @@ namespace OwlTree
             return typeof(NetworkObject);
         }
     }
-
-    /// <summary>
-    /// Manually assign an id value to derived NetworkObject types.
-    /// This id is used for spawning new objects, based on type.
-    /// Setting this manually ensures the id matches across different programs.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-    public class AssignTypeIdAttribute : Attribute
-    {
-        public byte Id = 0;
-
-        public AssignTypeIdAttribute(byte id)
-        {
-            Id = id;
-        }
-    }
 }

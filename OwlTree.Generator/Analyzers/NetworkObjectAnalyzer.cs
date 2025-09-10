@@ -128,27 +128,11 @@ namespace OwlTree.Generator
                     curId = GeneratorState.NextTypeId();
                 }
 
-                var attr = Helpers.GetAttribute(c.syntax.AttributeLists, Helpers.AttrTk_AssignTypeId);
-                if (attr != null)
+                if (GeneratorState.HasTypeId(curId))
                 {
-                    var assignedId = Helpers.GetAssignedId(attr);
-                    if (assignedId != -1)
-                    {
-                        curId = (byte)assignedId;
-                    }
-                    else
-                    {
-                        Diagnostics.BadTypeIdAssignment(context, c.syntax, attr);
-                        continue;
-                    }
-
-                    if (GeneratorState.HasTypeId(curId))
-                    {
-                        var collision = GeneratorState.GetTypeData(curId);
-                        Diagnostics.DuplicateTypeIds(context, c.syntax, curId, collision.name);
-                        continue;
-                    }
-
+                    var collision = GeneratorState.GetTypeData(curId);
+                    Diagnostics.DuplicateTypeIds(context, c.syntax, curId, collision.name);
+                    continue;
                 }
 
                 var usings = Helpers.GetAllUsings(c.syntax);
@@ -275,21 +259,6 @@ namespace OwlTree.Generator
                     else if (err == 4)
                         Diagnostics.NonDefaultRpcCaller(context, m, pErr);
                     continue;
-                }
-
-                var attr = Helpers.GetAttribute(m.AttributeLists, Helpers.AttrTk_AssignRpcId);
-                if (attr != null)
-                {
-                    var assignedId = Helpers.GetAssignedId(attr);
-                    if (assignedId != -1)
-                    {
-                        curId = (uint)assignedId;
-                    }
-                    else
-                    {
-                        Diagnostics.BadRpcIdAssignment(context, m, attr);
-                        continue;
-                    }
                 }
 
                 if (GeneratorState.HasRpcId(fullName, curId))

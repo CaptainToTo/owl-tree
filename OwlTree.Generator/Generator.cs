@@ -29,16 +29,6 @@ namespace OwlTree.Generator
 
             context.RegisterSourceOutput(encodableCompilation, IEncodableAnalyzer.CacheEncodables);
 
-            // pre-solve const and enum values
-            var registryProvider = context.SyntaxProvider.CreateSyntaxProvider(
-                predicate: static (node, _) => node is ClassDeclarationSyntax c && Helpers.HasAttribute(c.AttributeLists, Helpers.AttrTk_IdRegistry),
-                transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node
-            ).Where(n => n is not null);
-
-            var registryCompilation = context.CompilationProvider.Combine(registryProvider.Collect());
-
-            context.RegisterSourceOutput(registryCompilation, ConstAndEnumAnalyzer.SolveConstAndEnumValues);
-
             // generate network object proxies
             var provider = context.SyntaxProvider.CreateSyntaxProvider(
                 predicate: static (node, _) => node is ClassDeclarationSyntax c,

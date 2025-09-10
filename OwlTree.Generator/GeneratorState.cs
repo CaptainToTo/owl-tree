@@ -47,8 +47,6 @@ namespace OwlTree.Generator
             str.Append(GetCacheVersionString());
             str.Append(GetProjectsString());
             str.Append(GetEncodablesString());
-            str.Append(GetConstsString());
-            str.Append(GetEnumsString());
             str.Append(GetTypeIdsString());
             str.Append(GetTypeIdString());
             str.Append(GetRpcDataString());
@@ -68,8 +66,6 @@ namespace OwlTree.Generator
 
             FromProjectsString(str);
             FromEncodablesString(str);
-            FromConstsString(str);
-            FromEnumsString(str);
             FromTypeIdsString(str);
             FromTypeIdString(str);
             FromRpcDataString(str);
@@ -99,8 +95,6 @@ namespace OwlTree.Generator
         {
             ClearProjects();
             ClearEncodables();
-            ClearConsts();
-            ClearEnums();
             ClearTypes();
             ClearRpcData();
             ClearUsings();
@@ -370,121 +364,6 @@ namespace OwlTree.Generator
         }
 
         // ======================================
-
-        // Consts Cache =========================
-
-        static Dictionary<string, int> _consts = new();
-
-        public static void ClearConsts() => _consts.Clear();
-
-        public static void AddConst(string k, int v) => _consts.Add(k, v);
-
-        public static bool HasConst(string k) => _consts.ContainsKey(k);
-
-        public static bool HasConstValue(int v) => _consts.ContainsValue(v);
-
-        public static int GetConst(string k) => _consts[k];
-
-        public static string GetConst(int v) => _consts.Where(p => p.Value == v).FirstOrDefault().Key;
-
-        public static bool TryGetConst(string k, out int v) => _consts.TryGetValue(k, out v);
-
-        public static Dictionary<string, int>.Enumerator GetConsts() => _consts.GetEnumerator();
-
-        const string ConstsTag = "<OwlTreeConsts>";
-        const string ConstsClose = "</OwlTreeConsts>";
-
-        private static string GetConstsString()
-        {
-            var str = new StringBuilder(ConstsTag + "\n");
-
-            foreach (var pair in _consts)
-                str.Append($"{pair.Key}:{pair.Value}\n");
-            str.Append(ConstsClose + "\n");
-
-            return str.ToString();
-        }
-
-        private static void FromConstsString(string str)
-        {
-            var start = str.IndexOf(ConstsTag) + ConstsTag.Length;
-            var end = str.IndexOf(ConstsClose);
-
-            var subStr = str.Substring(start, end - start);
-            var consts = subStr.Split('\n');
-
-            foreach (var c in consts)
-            {
-                if (string.IsNullOrEmpty(c))
-                    continue;
-                var tokens = c.Split(':');
-                _consts.Add(tokens[0], int.Parse(tokens[1]));
-            }
-        }
-
-        // ======================================
-
-        // Enum Cache ===========================
-
-        static Dictionary<string, int> _enums = new();
-
-        public static void ClearEnums() => _enums.Clear();
-
-        public static void AddEnum(string k, int v) => _enums.Add(k, v);
-
-        public static bool HasEnum(string k) => _enums.ContainsKey(k);
-
-        public static bool HasEnumValue(int v) => _enums.ContainsValue(v);
-
-        public static int GetEnum(string k) => _enums[k];
-
-        public static string GetEnum(int v) => _enums.Where(p => p.Value == v).FirstOrDefault().Key;
-
-        public static bool TryGetEnum(string k, out int v) => _enums.TryGetValue(k, out v);
-
-        public static Dictionary<string, int>.Enumerator GetEnums() => _consts.GetEnumerator();
-
-        const string EnumsTag = "<OwlTreeEnums>";
-        const string EnumsClose = "</OwlTreeEnums>";
-
-        private static string GetEnumsString()
-        {
-            var str = new StringBuilder(EnumsTag + "\n");
-
-            foreach (var pair in _enums)
-                str.Append($"{pair.Key}:{pair.Value}\n");
-            str.Append(EnumsClose + "\n");
-
-            return str.ToString();
-        }
-
-        private static void FromEnumsString(string str)
-        {
-            var start = str.IndexOf(EnumsTag) + EnumsTag.Length;
-            var end = str.IndexOf(EnumsClose);
-
-            var subStr = str.Substring(start, end - start);
-            var enums = subStr.Split('\n');
-
-            foreach (var c in enums)
-            {
-                if (string.IsNullOrEmpty(c))
-                    continue;
-                var tokens = c.Split(':');
-                _enums.Add(tokens[0], int.Parse(tokens[1]));
-            }
-        }
-
-        // ======================================
-
-        public static bool TryGetConstOrEnum(string k, out int v)
-        {
-            if (TryGetConst(k, out v))
-                return true;
-            if (TryGetEnum(k, out v))
-                return true;
-            return false;
-        }
 
         // Network Object Type Cache =============
 
