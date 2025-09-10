@@ -47,7 +47,8 @@ namespace OwlTree.Generator
             NonClientIdRpcCaller,
             UnnecessaryCalleeIdParam,
             GenericNetworkObjectType,
-            NonDefaultRpcCaller
+            NonDefaultRpcCaller,
+            LibraryCacheFileNotFound
         }
 
         public static string GetId(Ids id)
@@ -59,7 +60,7 @@ namespace OwlTree.Generator
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10000;
             var errorFileName = (GeneratorState.CachePath ?? GeneratorState.CurProjectPath) + "\\" + Helpers.ErrorFilePrefix + timestamp + Helpers.ErrorFileType;
-            File.WriteAllText(errorFileName, "Error Thrown:\n" + e.ToString() + "\n\nCache At Error:\n" + GeneratorState.GetCacheString());
+            File.WriteAllText(errorFileName, "Error Thrown:\n" + e.ToString() + "\n\nCurrent Project:" + GeneratorState.CurProjectPath + "\n\nCache At Error:\n" + GeneratorState.GetCacheString());
             throw new Exception($"OwlTree generator failed to run, check '{errorFileName}' for thrown error. If error persists, delete '{Helpers.CacheFile}' to reset generator state and re-build.");
         }
 
@@ -316,6 +317,22 @@ namespace OwlTree.Generator
                     isEnabledByDefault: true),
                 pErr.GetLocation(),
                 Helpers.GetFullName(m.Identifier.ValueText, m), pErr.Identifier.ValueText);
+
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        internal static void LibraryCacheFileNotFound(SourceProductionContext context, string project)
+        {
+            var diagnostic = Diagnostic.Create(
+                new DiagnosticDescriptor(
+                    GetId(Ids.LibraryCacheFileNotFound),
+                    "Library Cache File Not Found",
+                    "The OwlTree cache file for '{0}' was not found in the same directory as the dll. The library will be excluded from source generation which may cause errors.",
+                    CatUsage,
+                    DiagnosticSeverity.Warning,
+                    isEnabledByDefault: true),
+                null,
+                project);
 
             context.ReportDiagnostic(diagnostic);
         }

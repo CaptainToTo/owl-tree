@@ -76,7 +76,7 @@ namespace OwlTree.Generator
             {
                 var (compilation, list) = tuple;
 
-                CacheFinder.GetCache(compilation);
+                CacheFinder.GetCache(context, compilation);
 
                 if (!GeneratorState.HasEncodable(Helpers.Tk_Byte))
                     AddPrimitives();

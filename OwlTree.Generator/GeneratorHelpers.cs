@@ -23,6 +23,7 @@ namespace OwlTree.Generator
         public const bool RpcUseTcpDefault = true;
 
         public const string CacheFile = ".owltree.cache";
+        public const string CacheFileType = ".cache";
         public const string ErrorFilePrefix = ".generator";
         public const string ErrorFileType = ".log";
         public const string Tk_LibProject = "OwlTreeLibraryProject";
@@ -241,7 +242,7 @@ namespace OwlTree.Generator
         public static IEnumerable<string> GetInheritedTypes(ClassDeclarationSyntax c)
         {
             return c.BaseList?.Types.Where(t => t.Type is IdentifierNameSyntax idx)
-                .Select(t => ((IdentifierNameSyntax)t.Type).Identifier.ValueText);
+                .Select(t => ((IdentifierNameSyntax)t.Type).Identifier.ValueText) ?? Enumerable.Empty<string>();
         }
 
         public static IEnumerable<string> GetPossibleFullTypeNames(ClassDeclarationSyntax c)

@@ -23,6 +23,24 @@ namespace OwlTree.Generator
             File.WriteAllText(CacheFile, GetCacheString());
         }
 
+        public static void WriteLibraryCache()
+        {
+            File.WriteAllText(
+                Path.GetDirectoryName(CurProjectPath) + "/" + CurProjectName + Helpers.CacheFileType,
+                GetLibraryString());
+        }
+
+        public static string GetLibraryString()
+        {
+            var str = new StringBuilder();
+            str.Append(GetCacheVersionString());
+            str.Append(GetLibraryProjectString());
+            str.Append(GetLibraryEncodablesString());
+            str.Append(GetLibraryTypeIdsString());
+            str.Append(GetLibraryRpcDataString());
+            return str.ToString();
+        }
+
         public static string GetCacheString()
         {
             var str = new StringBuilder();
@@ -58,6 +76,25 @@ namespace OwlTree.Generator
             FromRpcIdString(str);
         }
 
+        public static void LoadLibrary(string dllFile, string cacheFile)
+        {
+            if (!File.Exists(dllFile) || !File.Exists(cacheFile))
+                return;
+
+            var str = File.ReadAllText(cacheFile);
+
+            if (!IsCurrentCacheVersion(str))
+                return;
+
+            if (FromLibraryProjectString(dllFile, str))
+                return;
+            var projectId = GetProjectId(dllFile);
+
+            FromLibraryEncodablesString(str, projectId);
+            FromLibraryTypeIdsString(str, projectId);
+            FromLibraryRpcDataString(str, projectId);
+        }
+
         public static void ResetCache()
         {
             ClearProjects();
@@ -73,7 +110,7 @@ namespace OwlTree.Generator
 
         // Cache Version ========================
 
-        public const int CacheVersion = 3;
+        public const int CacheVersion = 4;
         const string CacheVersionTag = "<OwlTreeCacheVersion>";
         const string CacheVersionClose = "</OwlTreeCacheVersion>";
 
@@ -98,32 +135,103 @@ namespace OwlTree.Generator
 
         // Project Paths ========================
 
+        public struct ProjectData
+        {
+            public int id;
+            public string path;
+            public bool isDll;
+            public long timestamp;
+
+            public override string ToString()
+            {
+                return id.ToString() + ";" + path + ";" + isDll + ";" + timestamp;
+            }
+
+            public static ProjectData Parse(string str)
+            {
+                var tokens = str.Split(';');
+                return new ProjectData
+                {
+                    id = int.Parse(tokens[0]),
+                    path = tokens[1].ToLower(),
+                    isDll = bool.Parse(tokens[2]),
+                    timestamp = long.Parse(tokens[3])
+                };
+            }
+        }
+
         public static string CachePath = null;
         public static string CacheFile => CachePath + "/" + Helpers.CacheFile;
 
         public static string CurProjectPath = null;
         public static int CurProjectId = 0;
+        public static string CurProjectName => Path.GetFileNameWithoutExtension(CurProjectPath);
 
         public static bool IsLibraryProject = false;
 
-        static Dictionary<int, string> _projects = new();
+        static Dictionary<int, ProjectData> _projects = new();
 
-        public static void AddProject(string project) => _projects[_projects.Count + 1] = project.ToLower();
+        public static void AddProject(string project)
+        {
+            _projects[_projects.Count + 1] = new ProjectData
+            {
+                id = _projects.Count + 1,
+                path = project.ToLower(),
+                isDll = false,
+                timestamp = 0
+            };
+        }
 
-        public static void AddProject(int id, string project) => _projects[id] = project;
+        public static void AddProject(int id, string project)
+        {
+            _projects[id] = new ProjectData
+            {
+                id = id,
+                path = project.ToLower(),
+                isDll = false,
+                timestamp = 0
+            };
+        }
 
-        public static bool HasProject(string project) => _projects.ContainsValue(project.ToLower());
+        public static void AddLibrary(string dll, long timestamp)
+        {
+            _projects[_projects.Count + 1] = new ProjectData
+            {
+                id = _projects.Count + 1,
+                path = dll.ToLower(),
+                isDll = true,
+                timestamp = timestamp
+            };
+        }
 
-        public static int GetProjectId(string project) => _projects.Where(p => p.Value == project.ToLower()).FirstOrDefault().Key;
+        public static void AddLibrary(int id, string dll, long timestamp)
+        {
+            _projects[id] = new ProjectData
+            {
+                id = id,
+                path = dll.ToLower(),
+                isDll = true,
+                timestamp = timestamp
+            };
+        }
 
-        public static string GetProject(int id) => _projects[id];
+        public static bool HasProject(string project) => _projects.Any(p => p.Value.path == project.ToLower());
 
-        public static IEnumerable<(int id, string project)> GetProjects() => _projects.Select(p => (p.Key, p.Value));
+        public static int GetProjectId(string project) => _projects.Where(p => p.Value.path == project.ToLower()).FirstOrDefault().Key;
+
+        public static ProjectData GetProject(int id) => _projects[id];
+
+        public static ProjectData GetProject(string project) => _projects.Where(p => p.Value.path == project.ToLower()).FirstOrDefault().Value;
+
+        public static IEnumerable<ProjectData> GetProjects() => _projects.Values;
 
         public static void ClearProjects() => _projects.Clear();
 
         const string ProjectsTag = "<OwlTreeProjects>";
         const string ProjectsClose = "</OwlTreeProjects>";
+
+        const string LibraryProjectTag = "<OwlTreeLibraryProject>";
+        const string LibraryProjectClose = "</OwlTreeLibraryProject>";
 
         private static string GetProjectsString()
         {
@@ -149,8 +257,27 @@ namespace OwlTree.Generator
                 if (string.IsNullOrEmpty(project))
                     continue;
                 var tokens = project.Split(',');
-                _projects.Add(int.Parse(tokens[0]), tokens[1]);
+                _projects.Add(int.Parse(tokens[0]), ProjectData.Parse(tokens[1]));
             }
+        }
+
+        private static string GetLibraryProjectString()
+        {
+            return LibraryProjectTag + CurProjectName + ":" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + LibraryProjectClose + "\n";
+        }
+
+        private static bool FromLibraryProjectString(string dll, string str)
+        {
+            var start = str.IndexOf(LibraryProjectTag) + LibraryProjectTag.Length;
+            var end = str.IndexOf(LibraryProjectClose);
+
+            var subStr = str.Substring(start, end - start);
+
+            var tokens = subStr.Split(':');
+            var timestamp = long.Parse(tokens[1]);
+            var exists = HasProject(dll) && GetProject(dll).timestamp == timestamp;
+            AddLibrary(dll, timestamp);
+            return exists;
         }
 
         // ======================================
@@ -211,6 +338,34 @@ namespace OwlTree.Generator
                 var tokens = encodable.Split(':');
                 var values = tokens[1].Split(',');
                 _encodables.Add(tokens[0], (bool.Parse(values[0]),int.Parse(values[1])));
+            }
+        }
+
+        private static string GetLibraryEncodablesString()
+        {
+            var str = new StringBuilder(EncodablesTag + "\n");
+
+            foreach (var pair in _encodables.Where(p => p.Value.projectId != 0))
+                str.Append($"{pair.Key}:{pair.Value.isVariable}\n");
+            str.Append(EncodablesClose + "\n");
+
+            return str.ToString();
+        }
+
+        private static void FromLibraryEncodablesString(string str, int projectId)
+        {
+            var start = str.IndexOf(EncodablesTag) + EncodablesTag.Length;
+            var end = str.IndexOf(EncodablesClose);
+
+            var subStr = str.Substring(start, end - start);
+            var encodables = subStr.Split('\n');
+
+            foreach (var encodable in encodables)
+            {
+                if (string.IsNullOrEmpty(encodable))
+                    continue;
+                var tokens = encodable.Split(':');
+                _encodables.Add(tokens[0], (bool.Parse(tokens[1]),projectId));
             }
         }
 
@@ -379,6 +534,32 @@ namespace OwlTree.Generator
                 return str.ToString();
             }
 
+            public string ToLibraryString()
+            {
+                var str = new StringBuilder();
+                str.Append($"name:{name}\n");
+                str.Append($"base:{baseClass}\n");
+                str.Append($"ns:{ns}\n");
+
+                str.Append("usings:");
+                for (int i = 0; i < usings.Length; i++)
+                    str.Append(usings[i] + (i < usings.Length - 1 ? "," : "\n"));
+                if (usings.Length == 0)
+                    str.Append('\n');
+
+                str.Append("rpcs:");
+                for (int i = 0; i < rpcs.Length; i++)
+                    str.Append(rpcs[i] + (i < rpcs.Length - 1 ? "," : "\n"));
+                if (rpcs.Length == 0)
+                    str.Append('\n');
+                
+                str.Append("inherited:");
+                for (int i = 0; i < inheritedRpcs.Length; i++)
+                    str.Append(inheritedRpcs[i] + (i < inheritedRpcs.Length - 1 ? "," : ""));
+                
+                return str.ToString();
+            }
+
             public static TypeData Parse(string str)
             {
                 var fields = str.Split('\n');
@@ -478,6 +659,38 @@ namespace OwlTree.Generator
                     continue;
                 var tokens = t.Split(new[] { "=>" }, StringSplitOptions.RemoveEmptyEntries);
                 _types.Add(tokens[0], TypeData.Parse(tokens[1]));
+            }
+        }
+
+        private static string GetLibraryTypeIdsString()
+        {
+            var str = new StringBuilder(TypesTag + "\n");
+
+            foreach (var pair in _types)
+                str.Append($"{pair.Key}=>{pair.Value.ToLibraryString()}<=\n");
+            str.Append(TypesClose + "\n");
+
+            return str.ToString();
+        }
+
+        private static void FromLibraryTypeIdsString(string str, int projectId)
+        {
+            var start = str.IndexOf(TypesTag) + TypesTag.Length + 1;
+            var end = str.IndexOf(TypesClose);
+
+            var subStr = str.Substring(start, end - start);
+            var types = subStr.Split(new[] { "<=\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var t in types)
+            {
+                if (string.IsNullOrEmpty(t) || string.IsNullOrWhiteSpace(t))
+                    continue;
+                var tokens = t.Split(new[] { "=>" }, StringSplitOptions.RemoveEmptyEntries);
+                var data = TypeData.Parse(tokens[1]);
+                data.projectId = projectId;
+                data.typeId = NextTypeId();
+                IncrementTypeId();
+                _types.Add(tokens[0], data);
             }
         }
 
@@ -652,13 +865,28 @@ namespace OwlTree.Generator
                 return str.ToString();
             }
 
+            public string ToLibraryString()
+            {
+                var str = new StringBuilder();
+                str.Append($"name:{name}\n");
+                str.Append($"fullName:{fullName}\n");
+                str.Append($"class:{parentClass}\n");
+                str.Append($"perms:{(int)perms}\n");
+                str.Append($"invokeOnCaller:{invokeOnCaller}\n");
+                str.Append($"protocol:{(useTcp ? "TCP" : "UDP")}\n");
+                str.Append("params:");
+                for (int i = 0; i < paramData.Length; i++)
+                    str.Append(paramData[i].ToString() + (i == paramData.Length - 1 ? "" : ","));
+                return str.ToString();
+            }
+
             public static RpcData Parse(string str)
             {
                 var fields = str.Split('\n');
                 var data = new RpcData();
 
                 foreach (var field in fields)
-                {                    
+                {
                     var tokens = field.Split(':');
 
                     switch (tokens[0])
@@ -768,6 +996,38 @@ namespace OwlTree.Generator
                     continue;
                 var tokens = rpc.Split(new[] { "=>" }, System.StringSplitOptions.RemoveEmptyEntries);
                 _rpcIds.Add(tokens[0], RpcData.Parse(tokens[1]));
+            }
+        }
+
+        private static string GetLibraryRpcDataString()
+        {
+            var str = new StringBuilder(RpcDataTag + "\n");
+
+            foreach (var pair in _rpcIds)
+                str.Append($"{pair.Key}=>{pair.Value.ToLibraryString()}<=\n");
+            str.Append(RpcDataClose + "\n");
+
+            return str.ToString();
+        }
+
+        private static void FromLibraryRpcDataString(string str, int projectId)
+        {
+            var start = str.IndexOf(RpcDataTag) + RpcDataTag.Length + 1; // +1 to chop off newline after opening tag
+            var end = str.IndexOf(RpcDataClose);
+
+            var subStr = str.Substring(start, end - start);
+            var rpcs = subStr.Split(new[] { "<=\n" }, System.StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var rpc in rpcs)
+            {
+                if (string.IsNullOrEmpty(rpc) || string.IsNullOrWhiteSpace(rpc))
+                    continue;
+                var tokens = rpc.Split(new[] { "=>" }, System.StringSplitOptions.RemoveEmptyEntries);
+                var data = RpcData.Parse(tokens[1]);
+                data.projectId = projectId;
+                data.id = NextRpcId();
+                IncrementRpcId();
+                _rpcIds.Add(tokens[0], data);
             }
         }
 

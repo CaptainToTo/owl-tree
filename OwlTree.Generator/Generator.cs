@@ -56,7 +56,7 @@ namespace OwlTree.Generator
             {
                 var (compilation, list) = tuple;
 
-                CacheFinder.GetCache(compilation);
+                CacheFinder.GetCache(context, compilation);
 
                 var tree = NetworkObjectAnalyzer.BuildInheritanceTree(context, list);
                 NetworkObjectAnalyzer.AssignTypeIds(context, tree);
@@ -83,6 +83,7 @@ namespace OwlTree.Generator
                 if (GeneratorState.IsLibraryProject)
                 {
                     GeneratorState.WriteCache();
+                    GeneratorState.WriteLibraryCache();
 
                     var diagnostic = Diagnostic.Create(
                     new DiagnosticDescriptor(

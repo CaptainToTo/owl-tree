@@ -10,7 +10,7 @@ namespace OwlTree.Generator
 {
     public static class CacheFinder
     {
-        public static void GetCache(Compilation compilation)
+        public static void GetCache(SourceProductionContext context, Compilation compilation)
         {
             var proj = GetProjectPath(compilation);
             var isLib = IsLibraryProject(proj);
@@ -35,6 +35,8 @@ namespace OwlTree.Generator
             if (!GeneratorState.HasProject(proj))
                 GeneratorState.AddProject(proj);
             GeneratorState.CurProjectId = GeneratorState.GetProjectId(proj);
+
+            LoadLibraryReferences(context, GeneratorState.CurProjectPath);
         }
 
         private static string GetProjectPath(Compilation compilation)
@@ -124,57 +126,45 @@ namespace OwlTree.Generator
             return null;
         }
 
-        private static string FindGeneratorPath(string startPath, string generatorName)
+        public static void LoadLibraryReferences(SourceProductionContext context, string mainProjectPath)
         {
-            if (string.IsNullOrWhiteSpace(startPath))
-                throw new ArgumentException("Start path cannot be null or empty.", nameof(startPath));
+            if (string.IsNullOrWhiteSpace(mainProjectPath))
+                throw new ArgumentException("Project path cannot be null or empty.", nameof(mainProjectPath));
 
-            startPath = Path.GetFullPath(startPath);
+            if (!File.Exists(mainProjectPath))
+                throw new FileNotFoundException("Project file not found.", mainProjectPath);
 
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var queue = new Queue<string>();
-            queue.Enqueue(startPath);
-            visited.Add(startPath);
+            var baseDir = Path.GetDirectoryName(mainProjectPath)
+                ?? throw new InvalidOperationException("Cannot determine project directory.");
 
-            var dll = $"{generatorName}.dll";
-            var csproj = $"{generatorName}.csproj";
+            var doc = XDocument.Load(mainProjectPath);
 
-            while (queue.Count > 0)
+            var refs = doc.Descendants("Reference");
+            var paths = refs.Select(e => e.Attribute("Include")?.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v) && v.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                .Concat(
+                    refs.Select(e => e.Attribute("HintPath")?.Value)
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                )
+                .Select(p => Path.GetFullPath(Path.Combine(baseDir, p)).ToLower());
+
+            foreach (var p in paths)
             {
-                var currentDir = queue.Dequeue();
+                var cacheFile = Directory.GetFiles(Path.GetDirectoryName(p))
+                    .Where(f => f.EndsWith(Helpers.CacheFileType)).FirstOrDefault();
 
-                // Check for DLL or csproj match
-                string dllPath = Path.Combine(currentDir, dll);
-                string csprojPath = Path.Combine(currentDir, csproj);
-
-                if (File.Exists(dllPath) || File.Exists(csprojPath))
-                    return currentDir;
-
-                try
+                if (string.IsNullOrEmpty(cacheFile))
                 {
-                    // Enqueue neighbors: parent + subdirectories
-                    var parent = Directory.GetParent(currentDir)?.FullName;
-                    if (parent != null && visited.Add(parent))
-                        queue.Enqueue(parent);
-
-                    foreach (var dir in Directory.GetDirectories(currentDir))
-                    {
-                        if (visited.Add(dir))
-                            queue.Enqueue(dir);
-                    }
+                    Diagnostics.LibraryCacheFileNotFound(context, p);
+                    continue;
                 }
-                catch
-                {
-                    // Ignore directories we can't read
-                }
+                GeneratorState.LoadLibrary(p, cacheFile);
             }
-
-            return null; // Not found
         }
 
         public static int[] GetIncludedProjects(string mainProjectPath)
         {
-            var knownProjects = GeneratorState.GetProjects().Select(p => p.project);
+            var knownProjects = GeneratorState.GetProjects().Select(p => p.path);
 
             if (string.IsNullOrWhiteSpace(mainProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(mainProjectPath));
