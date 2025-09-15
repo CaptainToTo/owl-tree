@@ -47,16 +47,16 @@ namespace OwlTree
         /// </summary>
         public Connection Connection { get; internal set; }
 
-        internal void InitializeSimulatedProperties()
+        internal void InitializeSyncedProperties()
         {
             var t = GetType();
             var simulated = t.GetFields()
-                .Where(p => typeof(ISimulated).IsAssignableFrom(p.FieldType)).ToArray();
+                .Where(p => typeof(IReplicated).IsAssignableFrom(p.FieldType)).ToArray();
 
             var bufferSize = Math.Max((int)MathF.Ceiling(Connection.Latency * 3f / Connection.TickRate), 16);
             for (int i = 0; i < simulated.Length; i++)
             {
-                var newInstance = (ISimulated)Activator.CreateInstance(simulated[i].FieldType);
+                var newInstance = (IReplicated)Activator.CreateInstance(simulated[i].FieldType);
                 newInstance.Initialize(bufferSize, Connection);
                 simulated[i].SetValue(this, newInstance);
             }

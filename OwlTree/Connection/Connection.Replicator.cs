@@ -1,6 +1,6 @@
 namespace OwlTree
 {
-    public partial class Connection : ISimulator
+    public partial class Connection : IReplicator
     {
         private SimulationBuffer _simBuffer;
 
@@ -20,7 +20,7 @@ namespace OwlTree
         /// </summary>
         public Tick PresentTick => _simBuffer.PresentTick();
         internal Tick GetPresentTick() => _simBuffer.PresentTick();
-        Tick ISimulator.GetPresentTick() => GetPresentTick();
+        Tick IReplicator.GetPresentTick() => GetPresentTick();
         /// <summary>
         /// The expected rate at which <c>ExecuteQueue()</c> should be called in milliseconds.
         /// </summary>
@@ -50,9 +50,9 @@ namespace OwlTree
             return TimeBetween(a, b) / 1000f;
         }
 
-        internal void AddSimulated(ISimulated simulated) => OnResimulation += simulated.OnResimulation;
-        void ISimulator.AddSimulated(ISimulated simulated) => AddSimulated(simulated);
-        internal void RemoveSimulated(ISimulated simulated) => OnResimulation -= simulated.OnResimulation;
-        void ISimulator.RemoveSimulated(ISimulated simulated) => RemoveSimulated(simulated);
+        internal void AddReplicated(IReplicated replicated) => OnResimulation += replicated.OnResimulation;
+        void IReplicator.AddReplicated(IReplicated replicated) => AddReplicated(replicated);
+        internal void RemoveReplicated(IReplicated replicated) => OnResimulation -= replicated.OnResimulation;
+        void IReplicator.RemoveReplicated(IReplicated replicated) => RemoveReplicated(replicated);
     }
 }

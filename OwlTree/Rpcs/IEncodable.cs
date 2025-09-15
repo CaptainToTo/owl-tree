@@ -19,8 +19,7 @@ namespace OwlTree
         }
 
         /// <summary>
-        /// Inserts a byte array representation of the object into bytes, starting at index ind.
-        /// ind should be updated to be after the last byte inserted.
+        /// Inserts a byte array representation of the object into bytes.
         /// </summary>
         public void InsertBytes(Span<byte> bytes);
 

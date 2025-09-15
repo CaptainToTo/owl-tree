@@ -181,6 +181,12 @@ namespace OwlTree
             /// </summary>
             public int simulationTickRate = 20;
 
+            /// <summary>
+            /// Number of past ticks that will be stored for resimulation. This value only matters if you are using 
+            /// a simulation system.
+            /// </summary>
+            public int pastTickCount = 32;
+
             // logging
 
             /// <summary>
