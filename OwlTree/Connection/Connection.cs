@@ -78,30 +78,31 @@ namespace OwlTree
 
             if (IsRelay)
             {
-                _simBuffer = new MessageQueue(Logger);
+                _simBuffer = new MessageQueue(Logger, this, this);
             }
             else
             {
                 switch (args.simulationSystem)
                 {
                     case SimulationSystem.Lockstep:
-                        _simBuffer = new Lockstep(Logger);
+                        _simBuffer = new Lockstep(Logger, this, this);
                         break;
                     case SimulationSystem.Rollback:
-                        _simBuffer = new Rollback(Logger);
+                        _simBuffer = new Rollback(Logger, this, this);
                         break;
                     case SimulationSystem.Snapshot:
-                        _simBuffer = new Snapshot(Logger);
+                        _simBuffer = new Snapshot(Logger, this, this);
                         break;
                     case SimulationSystem.None:
                     default:
-                        _simBuffer = new MessageQueue(Logger);
+                        _simBuffer = new MessageQueue(Logger, this, this);
                         break;
                 }
                 _simBuffer.OnResimulation = (tick) => OnResimulation?.Invoke(tick);
             }
             SimulationSystem = args.simulationSystem;
             TickRate = args.simulationTickRate;
+            SimulationBufferSize = SimulationSystem == SimulationSystem.None ? 1 : args.simulationBufferSize;
 
             NetworkBuffer.Args bufferArgs = new NetworkBuffer.Args(){
                 owlTreeVer = args.owlTreeVersion,

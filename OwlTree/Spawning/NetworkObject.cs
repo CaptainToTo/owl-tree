@@ -53,7 +53,7 @@ namespace OwlTree
             var simulated = t.GetFields()
                 .Where(p => typeof(IReplicated).IsAssignableFrom(p.FieldType)).ToArray();
 
-            var bufferSize = Math.Max((int)MathF.Ceiling(Connection.Latency * 3f / Connection.TickRate), 16);
+            var bufferSize = Connection.SimulationBufferSize;
             for (int i = 0; i < simulated.Length; i++)
             {
                 var newInstance = (IReplicated)Activator.CreateInstance(simulated[i].FieldType);

@@ -21,5 +21,11 @@ namespace OwlTree
         /// Gets the millisecond component of the current timestamp.
         /// </summary>
         public static int Millisecond => DateTimeOffset.UtcNow.Millisecond;
+
+        /// <summary>
+        /// Returns the number milliseconds that have past since the given timestamp.
+        /// If the timestamp is in the future, returns 0.
+        /// </summary>
+        public static int MillisecondsSince(long timestamp) => (int)Math.Max(Now - timestamp, 0);
     }
 }

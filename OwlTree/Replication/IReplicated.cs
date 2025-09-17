@@ -16,7 +16,10 @@ namespace OwlTree
 
     internal interface IReplicator
     {
+        internal Tick GetLocalTick();
         internal Tick GetPresentTick();
+        internal int GetTickRate();
+        internal int GetSimulationBufferSize();
         internal void AddReplicated(IReplicated r);
         internal void RemoveReplicated(IReplicated r);
     }

@@ -1,4 +1,5 @@
 using System;
+using Priority_Queue;
 
 namespace OwlTree
 {
@@ -6,7 +7,7 @@ namespace OwlTree
     /// Stores incoming and outgoing messages. Control simulation tick behavior 
     /// through the message providers used by the rest of the connection.
     /// </summary>
-    public abstract class SimulationBuffer
+    internal abstract class SimulationBuffer
     {
         protected class TickPair
         {
@@ -34,11 +35,15 @@ namespace OwlTree
         }
 
 
-        protected Logger _logger;
+        protected Logger Logger;
+        protected IClientRegistry ClientRegistry;
+        protected IReplicator Replicator;
 
-        public SimulationBuffer(Logger logger)
+        public SimulationBuffer(Logger logger, IClientRegistry registry, IReplicator replicator)
         {
-            _logger = logger;
+            Logger = logger;
+            ClientRegistry = registry;
+            Replicator = replicator;
         }
 
         private readonly object _lock = new();
@@ -47,30 +52,30 @@ namespace OwlTree
         /// The current tick the simulation is on. All outgoing messages 
         /// that will be provided at any given moment belong to this tick.
         /// </summary>
-        public Tick LocalTick()
+        public Tick GetLocalTick()
         {
             lock (_lock)
             {
-                return _localTick;
+                return LocalTick;
             }
         }
-        protected Tick _localTick = new Tick(0);
+        protected Tick LocalTick = new Tick(0);
         
         /// <summary>
         /// The current tick received RPCs that are currently executing belong to.
         /// </summary>
-        public Tick PresentTick()
+        public Tick GetPresentTick()
         {
             lock (_lock)
             {
-                return _presentTick;
+                return PresentTick;
             }
         }
-        protected Tick _presentTick = new Tick(0);
+        protected Tick PresentTick = new Tick(0);
 
         public Action<Tick> OnResimulation = null;
 
-        protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority);
+        protected abstract void InitBufferInternal(int tickRate, int latency, uint curTick);
 
         /// <summary>
         /// Provide the agreed session tick rate, and local latency once these are known
@@ -78,21 +83,11 @@ namespace OwlTree
         /// The current tick should be received from the session authority to start the
         /// simulation at the same tick as the authority.
         /// </summary>
-        public void InitBuffer(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
+        public void InitBuffer(int tickRate, int latency, uint curTick)
         {
             lock (_lock)
             {
-                InitBufferInternal(tickRate, latency, curTick, localId, authority);
-            }
-        }
-
-        protected abstract void UpdateAuthorityInternal(ClientId authority);
-
-        public void UpdateAuthority(ClientId authority)
-        {
-            lock (_lock)
-            {
-                UpdateAuthorityInternal(authority);
+                InitBufferInternal(tickRate, latency, curTick);
             }
         }
 
@@ -200,9 +195,74 @@ namespace OwlTree
             }
         }
 
+        // Helpers =============
+
+        protected static Tick CompensateForLatency(Tick presentTick, int latency, int tickRate)
+        {
+            return new Tick(presentTick.Value + (uint)MathF.Ceiling((float)latency / tickRate));
+        }
+
+        protected void SendNextTick(SimplePriorityQueue<OutgoingMessage, uint> q)
+        {
+            var localId = ClientRegistry.GetLocalId();
+
+            var tickTcpMessage = new OutgoingMessage
+            {
+                tick = LocalTick,
+                caller = localId,
+                callee = ClientId.None,
+                rpcId = new RpcId(RpcId.NextTickId),
+                target = NetworkId.None,
+                protocol = Protocol.Tcp,
+                perms = RpcPerms.AnyToAll,
+                bytes = new byte[Encoder.TickMessageLength]
+            };
+            var tickUdpMessage = new OutgoingMessage
+            {
+                tick = LocalTick,
+                caller = localId,
+                callee = ClientId.None,
+                rpcId = new RpcId(RpcId.NextTickId),
+                target = NetworkId.None,
+                protocol = Protocol.Udp,
+                perms = RpcPerms.AnyToAll,
+                bytes = new byte[Encoder.TickMessageLength]
+            };
+            var timestamp = Timestamp.Now;
+            Encoder.EncodeNextTick(tickTcpMessage.bytes, localId, ClientId.None, LocalTick, timestamp);
+            Encoder.EncodeNextTick(tickUdpMessage.bytes, localId, ClientId.None, LocalTick, timestamp);
+            q.Enqueue(tickTcpMessage, tickTcpMessage.tick);
+            q.Enqueue(tickUdpMessage, tickUdpMessage.tick);
+
+            if (Logger.includes.simulationEncodings)
+                Logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), localId, ClientId.None, LocalTick, timestamp));
+        }
+
+        protected void SendCurTick(SimplePriorityQueue<OutgoingMessage, uint> q, ClientId client)
+        {
+            var localId = ClientRegistry.GetLocalId();
+
+            var outgoing = new OutgoingMessage
+            {
+                caller = localId,
+                callee = client,
+                rpcId = new RpcId(RpcId.CurTickId),
+                tick = LocalTick,
+                protocol = Protocol.Tcp,
+                perms = RpcPerms.AuthorityToClients,
+                bytes = new byte[Encoder.TickMessageLength]
+            };
+            var timestamp = Timestamp.Now;
+            Encoder.EncodeCurTick(outgoing.bytes, localId, client, LocalTick, timestamp);
+            q.Enqueue(outgoing, LocalTick);
+                
+            if (Logger.includes.rpcCallEncodings)
+                Logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.CurTickId), localId, client, LocalTick, timestamp));
+        }
+
         // RPCs ================
 
-        
+
 
         public static string TickEncodingSummary(RpcId rpcId, ClientId source, ClientId callee, Tick tick, long timestamp, Protocol protocol)
         {

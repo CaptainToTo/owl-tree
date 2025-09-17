@@ -136,7 +136,7 @@ namespace OwlTree
 
                         _acceptedRequest = true;
                         _tcpClient.Connect(_tcpEndPoint);
-                        _latency = (int)(Timestamp.Now - ReadPacket.header.timestamp);
+                        _latency = Timestamp.MillisecondsSince(ReadPacket.header.timestamp);
                     }
                     else
                     {
@@ -226,7 +226,7 @@ namespace OwlTree
                             return;
                         }
 
-                        _latency = (int)(Timestamp.Now - ReadPacket.header.timestamp);
+                        _latency = Timestamp.MillisecondsSince(ReadPacket.header.timestamp);
 
                         if (Logger.includes.tcpPostTransform)
                             Logger.WriteRecv($"mutated Post-Transform TCP packet from server by {LocalId}:", ReadPacket);

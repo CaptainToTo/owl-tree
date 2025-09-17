@@ -3,7 +3,18 @@ using System.Collections.Generic;
 
 namespace OwlTree
 {
-    public partial class Connection
+    internal interface IClientRegistry
+    {
+        internal bool ContainsClient(ClientId id);
+        internal IEnumerable<ClientId> GetClients();
+        internal int GetClientCount();
+        internal int GetMaxClients();
+        internal ClientId GetLocalId();
+        internal ClientId GetAuthority();
+        internal bool GetIsAuthority();
+    }
+
+    public partial class Connection : IClientRegistry
     {
         // mirrors buffer state, but on the main thread
         private List<ClientId> _clients = new List<ClientId>();
@@ -12,22 +23,26 @@ namespace OwlTree
         /// The number of connected clients.
         /// </summary>
         public int ClientCount => _clients.Count;
+        int IClientRegistry.GetClientCount() => _clients.Count;
 
         /// <summary>
         /// The maximum number of clients allowed to be connected at once in this session.
         /// This value will not be accurate on clients until the connection is ready.
         /// </summary>
         public int MaxClients => _buffer.MaxClients;
+        int IClientRegistry.GetMaxClients() => _buffer.MaxClients;
 
         /// <summary>
         /// Iterable of all connected clients.
         /// </summary>
         public IEnumerable<ClientId> Clients => _clients;
+        IEnumerable<ClientId> IClientRegistry.GetClients() => _clients;
 
         /// <summary>
         /// Returns true if the given client id currently exists in this session.
         /// </summary>
         public bool ContainsClient(ClientId id) => _clients.Contains(id);
+        bool IClientRegistry.ContainsClient(ClientId id) => ContainsClient(id);
 
         /// <summary>
         /// Invoked when a new client connects. Provides the id of the new client.
@@ -48,17 +63,20 @@ namespace OwlTree
         /// The client id assigned to this local instance. Servers will have a LocalId of <c>ClientId.None</c>.
         /// </summary>
         public ClientId LocalId => IsReady ? _buffer.LocalId : ClientId.None;
+        ClientId IClientRegistry.GetLocalId() => LocalId;
 
         /// <summary>
         /// the client id of the instance assigned as the authority of the session. 
         /// Servers will have an id of <c>ClientId.None</c>.
         /// </summary>
         public ClientId Authority { get; private set; } = ClientId.None;
+        ClientId IClientRegistry.GetAuthority() => Authority;
 
         /// <summary>
         /// Returns true if the local connection is the authority of this session.
         /// </summary>
         public bool IsAuthority => !IsRelay && LocalId == Authority;
+        bool IClientRegistry.GetIsAuthority() => IsAuthority;
 
         /// <summary>
         /// Disconnect the local connection. If this is a server, the server is shut down.
@@ -116,7 +134,7 @@ namespace OwlTree
         public void MigrateHost(ClientId id)
         {
             if (IsClient)
-                    throw new InvalidOperationException("Only the current host or the relay server can initiate a host migration.");
+                throw new InvalidOperationException("Only the current host or the relay server can initiate a host migration.");
             if (IsServer)
                 throw new InvalidOperationException("Server authoritative sessions cannot have authority migrated off of the server.");
             if (!Migratable)
@@ -261,7 +279,7 @@ namespace OwlTree
                 if (Logger.includes.clientEvents)
                     Logger.Write("Local connection requested to be host, but has been downgraded to client. Authority privileges removed.");
             }
-            _simBuffer.InitBuffer(TickRate, Latency, 0, LocalId, Authority);
+            _simBuffer.InitBuffer(TickRate, Latency, 0);
             if (IsServerAuthoritative)
                 _simBuffer.AddTickSource(ClientId.None);
             if (!IsServer && !IsRelay)
@@ -278,7 +296,6 @@ namespace OwlTree
                 NetRole = NetRole.Host;
             if (Logger.includes.clientEvents)
                 Logger.Write("Host migrated, new authority is: " + m.caller.ToString());
-            _simBuffer.UpdateAuthority(Authority);
             OnHostMigration?.Invoke(m.caller);
         }
 

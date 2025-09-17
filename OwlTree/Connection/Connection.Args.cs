@@ -184,8 +184,9 @@ namespace OwlTree
             /// <summary>
             /// Number of past ticks that will be stored for resimulation. This value only matters if you are using 
             /// a simulation system.
+            /// <b>Default = 32</b>
             /// </summary>
-            public int pastTickCount = 32;
+            public int simulationBufferSize = 32;
 
             // logging
 

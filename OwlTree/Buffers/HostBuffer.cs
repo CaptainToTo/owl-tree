@@ -94,7 +94,7 @@ namespace OwlTree
             clientData.tcpPacket.header.appVer = AppVersion;
             clientData.udpPacket.header.owlTreeVer = OwlTreeVersion;
             clientData.udpPacket.header.appVer = AppVersion;
-            clientData.latency = (int)(Timestamp.Now - timestamp);
+            clientData.latency = Timestamp.MillisecondsSince(timestamp);
             UdpSocket.AddEndpoint(udpEndPoint);
 
             if (Logger.includes.connectionAttempts)
@@ -210,10 +210,9 @@ namespace OwlTree
                 return (-1, -1);
             }
             client.failed = 0;
-
-            var time = Timestamp.Now;
-            client.latency = (int)(time - ReadPacket.header.timestamp);
-            client.lastConfirmed = time;
+            
+            client.latency = Timestamp.MillisecondsSince(ReadPacket.header.timestamp);
+            client.lastConfirmed = Timestamp.Now;
 
             // disconnect if receive fails
             if (dataLen <= 0)

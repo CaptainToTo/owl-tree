@@ -5,12 +5,12 @@ namespace OwlTree
     /// <summary>
     /// Simple message queue. Does not implement any simulation management.
     /// </summary>
-    public class MessageQueue : SimulationBuffer
+    internal class MessageQueue : SimulationBuffer
     {
         private ConcurrentQueue<IncomingMessage> _incoming = new();
         private ConcurrentQueue<OutgoingMessage> _outgoing = new();
 
-        public MessageQueue(Logger logger) : base(logger)
+        public MessageQueue(Logger logger, IClientRegistry registry, IReplicator replicator) : base(logger, registry, replicator)
         {
         }
 
@@ -41,7 +41,7 @@ namespace OwlTree
             return _outgoing.TryDequeue(out m);
         }
 
-        protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
+        protected override void InitBufferInternal(int tickRate, int latency, uint curTick)
         {
             // message queue does not maintain simulation buffer
         }
@@ -52,11 +52,6 @@ namespace OwlTree
         }
 
         protected override void RemoveTickSourceInternal(ClientId client)
-        {
-            // message queue does not maintain simulation buffer
-        }
-
-        protected override void UpdateAuthorityInternal(ClientId authority)
         {
             // message queue does not maintain simulation buffer
         }

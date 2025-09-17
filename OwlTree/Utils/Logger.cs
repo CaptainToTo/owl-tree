@@ -47,6 +47,7 @@ namespace OwlTree
                 logSeparators = true;
                 logTimestamp = true;
                 simulationEvents = true;
+                simulationEncodings = true;
                 pings = true;
                 return this;
             }
@@ -238,6 +239,14 @@ namespace OwlTree
             public IncludeRules SimulationEvents()
             {
                 simulationEvents = true;
+                return this;
+            }
+
+            internal bool simulationEncodings { get; private set; }
+
+            public IncludeRules SimulationEncodings()
+            {
+                simulationEncodings = true;
                 return this;
             }
 

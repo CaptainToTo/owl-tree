@@ -1,29 +1,57 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Priority_Queue;
+
+/*
+operation:
+stores past ticks in a message stack, regulates message consumption to consume 1 tick's messages per execute queue.
+
+Distance between present tick and local tick is based on the travel time of init message.
+
+The authority is initialized immediately, clients are initialized once they receive a CurTick message from the authority.
+The CurTick message is sent once the authority adds the new client as a "tick source".
+
+Local tick tries to approximately match with the authority's local tick. After initialization the local
+tick and present tick will walk together, keeping a constant distance.
+
+exitTick will usually be 1 ahead of present tick, and is used to know when to stop consuming messages 
+for the current execute queue.
+
+newestTick is the latest tick received, which represents the most current tick known to have been simulated
+by others in the session.
+
+MaxTicks dictates how many ticks the present simulation can fall behind the session/authority by before performing
+a catchup, which means simulating multiple ticks in a single execute queue. This will shift the
+present tick up to the newestTick, and if the local tick is behind the new present tick (compensated for latency),
+the local tick will be shifted forward, too.
+
+consumed messages will be places in the message stack to be requeued if needed for resimulation.
+
+resimulation is triggered if a new message is received from a tick older that the present tick. When this happens,
+the simulation will be rolled back to the new message's tick. Meaning messages from the past stack will popped and requeued.
+On the next execute queue, all messages from the new message's old tick to the present exit tick will be consumed.
+*/
 
 namespace OwlTree
 {
     /// <summary>
     /// Resimulates past ticks when new messages from past ticks are received.
     /// </summary>
-    public class Rollback : SimulationBuffer
+    internal class Rollback : SimulationBuffer
     {
-        public Rollback(Logger logger) : base(logger)
+        public Rollback(Logger logger, IClientRegistry registry, IReplicator replicator) : base(logger, registry, replicator)
         {
 
         }
 
         private SimplePriorityQueue<IncomingMessage, uint> _incoming = new();
         private MessageStack _past;
-        
+
         // restores the simulation back to this tick
         private void RewindTo(Tick tick)
         {
             foreach (var m in _past.RewindFrom(tick))
                 _incoming.Enqueue(m, m.tick);
-            
+
             _requiresResimulation = true;
             _resimulationStart = true;
             _resimulateFrom = tick;
@@ -48,81 +76,47 @@ namespace OwlTree
 
         private Tick _newestTick = new Tick(0);
 
-        private ClientId _localId;
-        private ClientId _authority;
-
-        protected override void InitBufferInternal(int tickRate, int latency, uint curTick, ClientId localId, ClientId authority)
+        protected override void InitBufferInternal(int tickRate, int latency, uint curTick)
         {
-            var latencyTicks = (int)MathF.Ceiling((float)latency / tickRate);
-            _maxTicks = Math.Max(latencyTicks * 6, 5);
-            _presentTick = new Tick(curTick);
-            _exitTick = _presentTick.Next();
-            _localTick = new Tick(_presentTick.Value + (uint)Math.Max(latencyTicks, 1));
-            _past = new MessageStack(Math.Max(latencyTicks * 3, 5));
+            _maxTicks = Replicator.GetSimulationBufferSize();
+            PresentTick = new Tick(curTick);
+            _exitTick = PresentTick.Next();
+            LocalTick = CompensateForLatency(PresentTick, latency, tickRate);
+            _past = new MessageStack(Replicator.GetSimulationBufferSize());
 
-            _localId = localId;
-            _authority = authority;
-            _tickRate = tickRate;
-            _initialized = _localId == _authority;
             _latency = latency;
+            _tickRate = tickRate;
+            _initialized = ClientRegistry.GetIsAuthority();
 
-            if (_logger.includes.simulationEvents)
-            {
-                var str = $"Rollback simulation buffer initialized with a tick capacity of {_maxTicks} given a latency of {latency} ms.";
-                if (_initialized)
-                    str += $"\nAuthority initialized with a local tick of {_localTick}, and a present tick of {_presentTick}";
-                _logger.Write(str);
-            }
+            if (Logger.includes.simulationEvents)
+                Logger.Write($"Authority Rollback simulation buffer initialized at local tick {LocalTick} and present tick {PresentTick} based on a latency of {latency}ms.");
         }
 
         protected override void NextTickInternal()
         {
-            _localTick = _localTick.Next();
-            _exitTick = _presentTick.Next();
+            LocalTick = LocalTick.Next();
+            _exitTick = PresentTick.Next();
             if (_newestTick > _exitTick && _newestTick - _exitTick > _maxTicks)
             {
                 _exitTick = _newestTick.Prev();
-                if (_logger.includes.simulationEvents)
-                    _logger.Write($"Simulation is too far behind. Catching up from tick {_presentTick} to tick {_exitTick}");
+                var comp = CompensateForLatency(_exitTick, _latency, _tickRate);
+                if (comp > LocalTick)
+                    LocalTick = comp;
+                
+                if (Logger.includes.simulationEvents)
+                    Logger.Write($"Simulation is too far behind. Catching up from tick {PresentTick} to tick {_exitTick}, local tick is now {LocalTick}.");
             }
 
             if (!_initialized) return;
 
-            var tickTcpMessage = new OutgoingMessage{
-                tick = _localTick,
-                caller = _localId,
-                callee = ClientId.None,
-                rpcId = new RpcId(RpcId.NextTickId),
-                target = NetworkId.None,
-                protocol = Protocol.Tcp,
-                perms = RpcPerms.AnyToAll,
-                bytes = new byte[Encoder.TickMessageLength]
-            };
-            var tickUdpMessage = new OutgoingMessage{
-                tick = _localTick,
-                caller = _localId,
-                callee = ClientId.None,
-                rpcId = new RpcId(RpcId.NextTickId),
-                target = NetworkId.None,
-                protocol = Protocol.Udp,
-                perms = RpcPerms.AnyToAll,
-                bytes = new byte[Encoder.TickMessageLength]
-            };
-            var timestamp = Timestamp.Now;
-            Encoder.EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-            Encoder.EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-            _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
-            _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
-
-            if (_logger.includes.rpcCallEncodings)
-                _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), _localId, ClientId.None, _localTick, timestamp));
+            SendNextTick(_outgoing);
         }
 
         protected override bool HasOutgoingInternal() => _outgoing.Count > 0;
 
         protected override void AddOutgoingInternal(OutgoingMessage m)
         {
-            m.tick = _initialized ? _localTick : new Tick(0);
+            m.tick = _initialized ? LocalTick : new Tick(0);
             _outgoing.Enqueue(m, m.tick);
         }
 
@@ -134,11 +128,7 @@ namespace OwlTree
                 return false;
             }
 
-            if (_outgoing.TryDequeue(out m))
-            {
-                return true;
-            }
-            return false;
+            return _outgoing.TryDequeue(out m);
         }
 
         protected override void AddIncomingInternal(IncomingMessage m)
@@ -151,7 +141,7 @@ namespace OwlTree
 
             if (!_sessionTicks.ContainsKey(m.caller))
             {
-                m.tick = _localTick;
+                m.tick = LocalTick;
                 _incoming.Enqueue(m, m.tick);
                 return;
             }
@@ -159,56 +149,30 @@ namespace OwlTree
             // initialize non-authority connections
             if (m.rpcId == RpcId.CurTickId)
             {
-                if (m.caller != _authority) return;
+                if (m.caller != ClientRegistry.GetAuthority()) return;
 
-                if (_logger.includes.rpcReceiveEncodings)
-                    _logger.Write("RECEIVING:\n" + TickEncodingSummary(m.rpcId, m.caller, m.callee, m.tick, (long)m.args[0]));
+                if (Logger.includes.rpcReceiveEncodings)
+                    Logger.Write("RECEIVING:\n" + TickEncodingSummary(m.rpcId, m.caller, m.callee, m.tick, (long)m.args[0]));
 
-                _latency = (int)(Timestamp.Now - (long)m.args[0]);
-                _localTick = new Tick(m.tick.Value + (uint)((float)_latency / _tickRate));
-                _presentTick = m.tick;
-                _exitTick = _presentTick.Next();
+                _latency = Timestamp.MillisecondsSince((long)m.args[0]);
+                LocalTick = CompensateForLatency(m.tick, _latency, _tickRate);
+                PresentTick = m.tick;
+                _exitTick = PresentTick.Next();
                 _initialized = true;
 
-                var tickTcpMessage = new OutgoingMessage{
-                    tick = _localTick,
-                    caller = _localId,
-                    callee = ClientId.None,
-                    rpcId = new RpcId(RpcId.NextTickId),
-                    target = NetworkId.None,
-                    protocol = Protocol.Tcp,
-                    perms = RpcPerms.AnyToAll,
-                    bytes = new byte[Encoder.TickMessageLength]
-                };
-                var tickUdpMessage = new OutgoingMessage{
-                    tick = _localTick,
-                    caller = _localId,
-                    callee = ClientId.None,
-                    rpcId = new RpcId(RpcId.NextTickId),
-                    target = NetworkId.None,
-                    protocol = Protocol.Udp,
-                    perms = RpcPerms.AnyToAll,
-                    bytes = new byte[Encoder.TickMessageLength]
-                };
-                var timestamp = Timestamp.Now;
-                Encoder.EncodeNextTick(tickTcpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-                Encoder.EncodeNextTick(tickUdpMessage.bytes, _localId, ClientId.None, _localTick, timestamp);
-                _outgoing.Enqueue(tickTcpMessage, tickTcpMessage.tick);
-                _outgoing.Enqueue(tickUdpMessage, tickUdpMessage.tick);
+                if (Logger.includes.simulationEvents)
+                    Logger.Write($"Received session tick value from authority of {m.tick}. Compensated for latency, local tick is now {LocalTick}.");
 
-                if (_logger.includes.simulationEvents)
-                    _logger.Write($"Received session tick value from authority of {m.tick}. Compensated for latency, local tick is now {_localTick}.");
-                if (_logger.includes.rpcCallEncodings)
-                    _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.NextTickId), _localId, ClientId.None, _localTick, timestamp));
-                
+                SendNextTick(_outgoing);
+
                 // update tick of any outgoing messages that were enqueued before initialization
                 while (_outgoing.TryFirst(out var outgoing) && outgoing.tick == 0)
                 {
                     _outgoing.Dequeue();
-                    outgoing.tick = _localTick;
+                    outgoing.tick = LocalTick;
                     _outgoing.Enqueue(outgoing, outgoing.tick);
                 }
-                
+
                 return;
             }
 
@@ -226,11 +190,11 @@ namespace OwlTree
             m.tick = _sessionTicks[m.caller].Select(m.protocol);
 
             // if resimulation is required
-            if (m.tick < _presentTick && (!_requiresResimulation || m.tick < _resimulateFrom))
+            if (m.tick < PresentTick && (!_requiresResimulation || m.tick < _resimulateFrom))
             {
                 RewindTo(m.tick);
-                if (_logger.includes.simulationEvents)
-                    _logger.Write($"Received message from past tick {m.tick}, resimulating {_presentTick - m.tick} tick(s) on next ExecuteQueue().");
+                if (Logger.includes.simulationEvents)
+                    Logger.Write($"Received message from past tick {m.tick}, resimulating {PresentTick - m.tick} tick(s) on next ExecuteQueue().");
             }
 
             _incoming.Enqueue(m, m.tick);
@@ -241,18 +205,18 @@ namespace OwlTree
 
             if (_incoming.TryFirst(out m))
             {
-                _presentTick = m.tick;
+                PresentTick = m.tick;
 
                 if (_resimulationStart)
                 {
-                    OnResimulation?.Invoke(_presentTick);
+                    OnResimulation?.Invoke(PresentTick);
                     _resimulationStart = false;
                 }
-                
+
                 if (m.tick >= _exitTick)
                 {
-                    if (_requiresResimulation && _logger.includes.simulationEvents)
-                        _logger.Write($"Resimulation complete, resimulated from tick {_resimulateFrom} to {_presentTick.Prev()}.");
+                    if (_requiresResimulation && Logger.includes.simulationEvents)
+                        Logger.Write($"Resimulation complete, resimulated from tick {_resimulateFrom} to {PresentTick.Prev()}.");
                     _requiresResimulation = false;
                     return false;
                 }
@@ -261,50 +225,31 @@ namespace OwlTree
                     _past?.Push(m);
                 return true;
             }
-            _presentTick = _exitTick;
+            PresentTick = _exitTick;
             _requiresResimulation = false;
             return false;
         }
 
         protected override void AddTickSourceInternal(ClientId client)
         {
-            if (_authority == _localId)
+            if (ClientRegistry.GetIsAuthority())
             {
-                _sessionTicks.Add(client, new TickPair(_localTick, _localTick));
+                _sessionTicks.Add(client, new TickPair(LocalTick, LocalTick));
 
-                var outgoing = new OutgoingMessage{
-                    caller = _localId,
-                    callee = client,
-                    rpcId = new RpcId(RpcId.CurTickId),
-                    tick = _localTick,
-                    protocol = Protocol.Tcp,
-                    perms = RpcPerms.AuthorityToClients,
-                    bytes = new byte[Encoder.TickMessageLength]
-                };
-                var timestamp = Timestamp.Now;
-                Encoder.EncodeCurTick(outgoing.bytes, _localId, client, _localTick, timestamp);
-                _outgoing.Enqueue(outgoing, _localTick);
-
-                if (_logger.includes.simulationEvents)
-                    _logger.Write($"Sending session tick {_localTick} to {client}.");
-                if (_logger.includes.rpcCallEncodings)
-                    _logger.Write("SENDING:\n" + TickEncodingSummary(new RpcId(RpcId.CurTickId), _localId, client, _localTick, timestamp));
+                if (Logger.includes.simulationEvents)
+                    Logger.Write($"Sending session tick {LocalTick} to {client}.");
+                
+                SendCurTick(_outgoing, client);
             }
             else
             {
-                var startTick = new Tick(_localTick - (uint)((float)_latency / _tickRate));
-                _sessionTicks.Add(client, new TickPair(startTick, startTick));
+                _sessionTicks.Add(client, new TickPair(PresentTick, PresentTick));
             }
         }
 
         protected override void RemoveTickSourceInternal(ClientId client)
         {
             _sessionTicks.Remove(client);
-        }
-
-        protected override void UpdateAuthorityInternal(ClientId authority)
-        {
-            _authority = authority;
         }
     }
 }
