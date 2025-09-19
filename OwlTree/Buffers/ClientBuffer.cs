@@ -26,10 +26,10 @@ namespace OwlTree
             _readList.Add(_tcpClient);
             _readList.Add(_udpClient.Socket);
 
-            _tcpPacket = new Packet(BufferSize, true);
+            _tcpPacket = new Packet(BufferSize);
             _tcpPacket.header.owlTreeVer = OwlTreeVersion;
             _tcpPacket.header.appVer = AppVersion;
-            _udpPacket = new Packet(BufferSize, true);
+            _udpPacket = new Packet(BufferSize);
             _udpPacket.header.owlTreeVer = OwlTreeVersion;
             _udpPacket.header.appVer = AppVersion;
 

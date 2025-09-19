@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections;
 using System.Linq;
 using System.Text;
 
@@ -14,7 +15,7 @@ namespace OwlTree
     {
         public struct Header
         {
-            internal const int ByteLength = 32;
+            internal const int ByteLength = 36;
 
             // 2 bytes
             /// <summary>
@@ -37,7 +38,7 @@ namespace OwlTree
             // 4 bytes
             /// <summary>
             /// The number of bytes in the packet, including the header. To get the number of bytes, excluding the header,
-            /// subtract <c>Header.BYTE_LEN</c> from this.
+            /// subtract <c>Header.ByteLength</c> from this.
             /// </summary>
             public int length { get; internal set; }
 
@@ -55,9 +56,21 @@ namespace OwlTree
 
             // 4 bytes
             /// <summary>
+            /// The last packet received. Use to acknowledge a packet as received.
+            /// </summary>
+            public uint acknowledged { get; internal set; }
+
+            // 4 bytes
+            /// <summary>
             /// The ordered id of the packet. Used for reliable UDP packet transfer.
             /// </summary>
             public uint packetNum { get; internal set; }
+
+            // 1 byte
+            /// <summary>
+            /// The number of fragments this packet has been broken into.
+            /// </summary>
+            public byte fragments { get; internal set; }
             
             // 1 byte
             /// <summary>
@@ -72,6 +85,10 @@ namespace OwlTree
             /// Reserved flag for signifying a specific packet is for sending ping requests.
             /// </summary>
             public bool pingRequest { get; internal set; }
+            /// <summary>
+            /// Reserved flag for signifying if a packet has been fragmented.
+            /// </summary>
+            public bool fragmented { get; internal set; }
             /// <summary>
             /// Available header flag for application specific use.
             /// </summary>
@@ -88,10 +105,6 @@ namespace OwlTree
             /// Available header flag for application specific use.
             /// </summary>
             public bool flag4;
-            /// <summary>
-            /// Available header flag for application specific use.
-            /// </summary>
-            public bool flag5;
 
             public void InsertBytes(Span<byte> bytes)
             {
@@ -114,18 +127,23 @@ namespace OwlTree
                 Encoder.InsertBytes(bytes.Slice(ind), hash);
                 ind += 4;
 
+                Encoder.InsertBytes(bytes.Slice(ind), acknowledged);
+                ind += 4;
+
                 Encoder.InsertBytes(bytes.Slice(ind), packetNum);
                 ind += 4;
+
+                bytes[ind] = fragments;
 
                 byte flags = 0;
                 flags |= (byte)(compressionEnabled ? 0x1 : 0);
                 flags |= (byte)(resendRequest ? 0x1 << 1 : 0);
                 flags |= (byte)(pingRequest ? 0x1 << 2 : 0);
-                flags |= (byte)(flag1 ? 0x1 << 3 : 0);
-                flags |= (byte)(flag2 ? 0x1 << 4 : 0);
-                flags |= (byte)(flag3 ? 0x1 << 5 : 0);
-                flags |= (byte)(flag4 ? 0x1 << 6 : 0);
-                flags |= (byte)(flag5 ? 0x1 << 7 : 0);
+                flags |= (byte)(fragmented ? 0x1 << 3 : 0);
+                flags |= (byte)(flag1 ? 0x1 << 4 : 0);
+                flags |= (byte)(flag2 ? 0x1 << 5 : 0);
+                flags |= (byte)(flag3 ? 0x1 << 6 : 0);
+                flags |= (byte)(flag4 ? 0x1 << 7 : 0);
                 bytes[ind] = flags;
             }
 
@@ -153,18 +171,24 @@ namespace OwlTree
                 hash = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
 
+                acknowledged = Encoder.DecodeUInt32(bytes.Slice(ind));
+                ind += 4;
+
                 packetNum = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
+
+                fragments = bytes[ind];
+                ind += 1;
 
                 byte flags = bytes[ind];
                 compressionEnabled = (flags & 0x1) == 1;
                 resendRequest = (flags & (0x1 << 1)) != 0;
                 pingRequest = (flags & (0x1 << 2)) != 0;
-                flag1 = (flags & (0x1 << 3)) != 0;
-                flag2 = (flags & (0x1 << 4)) != 0;
-                flag3 = (flags & (0x1 << 5)) != 0;
-                flag4 = (flags & (0x1 << 6)) != 0;
-                flag5 = (flags & (0x1 << 7)) != 0;
+                fragmented = (flags & (0x1 << 3)) != 0;
+                flag1 = (flags & (0x1 << 4)) != 0;
+                flag2 = (flags & (0x1 << 5)) != 0;
+                flag3 = (flags & (0x1 << 6)) != 0;
+                flag4 = (flags & (0x1 << 7)) != 0;
             }
 
             public void Reset()
@@ -173,28 +197,24 @@ namespace OwlTree
                 length = 0;
                 sender = 0;
                 hash = 0;
+                acknowledged = 0;
+                packetNum = 0;
+                fragments = 0;
                 compressionEnabled = false;
                 resendRequest = false;
                 pingRequest = false;
+                fragmented = false;
                 flag1 = false;
                 flag2 = false;
                 flag3 = false;
                 flag4 = false;
-                flag5 = false;
             }
         }
 
         /// <summary>
         /// The number bytes currently used in the packet.
         /// </summary>
-        public int Length { get { return _tail; } }
-
-        private int _fragmentSize;
-        private int _endOfFragment = 0;
-        private int _startOfNextFragment = 0;
-        private bool _useFragments;
-
-        private bool FragmentationNeeded { get { return _tail > _fragmentSize; } }
+        public int Length => _tail;
 
         private byte[] _buffer; // the actual byte buffer containing
         private int _tail = 0;  // the current end of the buffer
@@ -206,10 +226,8 @@ namespace OwlTree
         /// <summary>
         /// Create a new packet buffer with an initial size of bufferLen.
         /// </summary>
-        public Packet(int bufferLen, bool useFragments = false)
+        public Packet(int bufferLen)
         {
-            _useFragments = useFragments;
-            _fragmentSize = bufferLen;
             _buffer = new byte[bufferLen];
             _tail = Header.ByteLength;
         }
@@ -217,7 +235,7 @@ namespace OwlTree
         /// <summary>
         /// Returns true if the packet is empty.
         /// </summary>
-        public bool IsEmpty { get { return _tail == Header.ByteLength; } }
+        public bool IsEmpty => _tail == Header.ByteLength;
 
         /// <summary>
         /// Returns true if the buffer has space to add the specified number of bytes without needing to resize.
@@ -234,14 +252,7 @@ namespace OwlTree
         /// </summary>
         public void SetSize(int size)
         {
-            if (_useFragments && FragmentationNeeded)
-            {
-                _endOfFragment = Header.ByteLength + size;
-            }
-            else
-            {
-                _tail = Header.ByteLength + size;
-            }
+            _tail = Header.ByteLength + size;
         }
 
         /// <summary>
@@ -249,9 +260,9 @@ namespace OwlTree
         /// </summary>
         internal Span<byte> GetPacket()
         {
-            header.length = (_useFragments && FragmentationNeeded) ? _endOfFragment : _tail;
+            header.length = _tail;
             header.InsertBytes(_buffer);
-            return _buffer.AsSpan(0, (_useFragments && FragmentationNeeded) ? _endOfFragment : _tail);
+            return _buffer.AsSpan(0, _tail);
         }
 
         /// <summary>
@@ -267,7 +278,12 @@ namespace OwlTree
         /// </summary>
         public Span<byte> GetMessages()
         {
-            return _buffer.AsSpan(Header.ByteLength, ((_useFragments && FragmentationNeeded) ? _endOfFragment : _tail) - Header.ByteLength);
+            return _buffer.AsSpan(Header.ByteLength, _tail - Header.ByteLength);
+        }
+
+        public Span<byte> AsSpan(int start, int length)
+        {
+            return _buffer.AsSpan(start, length);
         }
 
         /// <summary>
@@ -278,12 +294,6 @@ namespace OwlTree
         {
             if (!HasSpaceFor(byteCount + 4))
                 Array.Resize(ref _buffer, _buffer.Length * 2);
-
-            if (byteCount + 4 + _tail > _fragmentSize && _endOfFragment == 0)
-            {
-                _endOfFragment = _tail;
-                _startOfNextFragment = _tail;
-            }
 
             Encoder.InsertBytes(_buffer.AsSpan(_tail), byteCount);
             _tail += 4;
@@ -375,44 +385,7 @@ namespace OwlTree
         internal void Reset()
         {
             header.Reset();
-            // if no fragmentation used, just reset indices
-            if (!_useFragments || !FragmentationNeeded)
-            {
-                _tail = Header.ByteLength;
-                _endOfFragment = 0;
-                _startOfNextFragment = 0;
-            }
-            // if fragmentation was used, shift bytes over for next fragment, and find the new end of fragment index
-            else if (FragmentationNeeded)
-            {
-                int nextFragmentLen = Header.ByteLength;
-                int remainingBytes = _tail - _startOfNextFragment;
-                int lastByte = _startOfNextFragment;
-                _endOfFragment = 0;
-                _startOfNextFragment = 0;
-                for (int i = 0; i < remainingBytes;)
-                {
-                    var len = Encoder.DecodeInt32(_buffer.AsSpan(lastByte + i));
-                    // mark the end of the next fragment once the size exceeds cutoff, then continue shifting down
-                    if (nextFragmentLen + len + 4 > _fragmentSize && _endOfFragment == 0)
-                    {
-                        _endOfFragment = nextFragmentLen;
-                        _startOfNextFragment = nextFragmentLen;
-                    }
-                    else
-                        nextFragmentLen += len + 4;
-
-                    Encoder.InsertBytes(_buffer.AsSpan(Header.ByteLength + i), len);
-                    i += 4;
-                    for (int j = 0; j < len; j++)
-                    {
-                        var b = _buffer[lastByte + i + j];
-                        _buffer[Header.ByteLength + i + j] = b;
-                    }
-                    i += len;
-                }
-                _tail = Header.ByteLength + remainingBytes;
-            }
+            _tail = Header.ByteLength;
         }
 
         internal void Clear()
@@ -423,8 +396,6 @@ namespace OwlTree
             }
             header.Reset();
             _tail = Header.ByteLength;
-            _endOfFragment = 0;
-            _startOfNextFragment = 0;
             _start = 0;
         }
 

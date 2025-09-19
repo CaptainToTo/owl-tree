@@ -81,9 +81,9 @@ namespace OwlTree
             var data = new ClientData() {
                 id = NextClientId(),
                 hash = NextHash(),
-                tcpPacket = new Packet(_bufferSize, true),
+                tcpPacket = new Packet(_bufferSize),
                 tcpSocket = tcpSocket,
-                udpPacket = new Packet(_bufferSize, true),
+                udpPacket = new Packet(_bufferSize),
                 udpEndPoint = udpEndPoint,
                 lastConfirmed = Timestamp.Now
             };
