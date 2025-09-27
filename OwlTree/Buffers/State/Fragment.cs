@@ -8,6 +8,8 @@ namespace OwlTree
         {
             internal const int ByteLength = 18;
 
+            // 1 byte for packet or fragment
+
             // 4 bytes
             /// <summary>
             /// The byte index offset this fragment starts at in the original packet.
@@ -19,6 +21,8 @@ namespace OwlTree
             /// The byte length of the fragment, including its header.
             /// </summary>
             public int length { get; internal set; }
+
+            public long timestamp { get; internal set; }
 
             // 4 bytes
             /// <summary>
@@ -41,11 +45,17 @@ namespace OwlTree
             public void InsertBytes(Span<byte> bytes)
             {
                 int ind = 0;
+                bytes[ind] = PacketType.Fragment;
+                ind += 1;
+
                 Encoder.InsertBytes(bytes, start);
                 ind += 4;
 
                 Encoder.InsertBytes(bytes.Slice(ind), length);
                 ind += 4;
+
+                Encoder.InsertBytes(bytes.Slice(ind), timestamp);
+                ind += 8;
 
                 Encoder.InsertBytes(bytes.Slice(ind), hash);
                 ind += 4;
@@ -59,6 +69,11 @@ namespace OwlTree
             public void FromBytes(ReadOnlySpan<byte> bytes)
             {
                 int ind = 0;
+
+                if (!PacketType.IsFragment(bytes[ind]))
+                    throw new ArgumentException("The provided bytes aren't a packet fragment.");
+                ind += 1;
+
                 start = Encoder.DecodeInt32(bytes);
                 ind += 4;
 
@@ -67,6 +82,9 @@ namespace OwlTree
 
                 if (length < ByteLength)
                     throw new ArgumentException("Fragment length is less than the minimum, this is not a complete fragment.");
+                    
+                timestamp = Encoder.DecodeInt64(bytes.Slice(ind));
+                ind += 8;
 
                 hash = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;

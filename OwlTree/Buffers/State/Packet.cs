@@ -6,6 +6,17 @@ using System.Text;
 
 namespace OwlTree
 {
+    internal static class PacketType
+    {
+        public const byte PacketStart = 0;
+        public const byte Fragment = 1;
+        public const byte ResendRequest = 2;
+
+        public static bool IsPacketStart(byte b) => b == PacketStart;
+        public static bool IsFragment(byte b) => b == Fragment;
+        public static bool IsResendRequest(byte b) => b == ResendRequest;
+    }
+
     /// <summary>
     /// Handles concatenating messages into a single buffer so that they can be sent in a single packet.
     /// messages are stacked in the format: <br />
@@ -13,9 +24,13 @@ namespace OwlTree
     /// </summary>
     public class Packet
     {
+        internal const int MaxTransmissionUnit = 1200;
+
         public struct Header
         {
             internal const int ByteLength = 36;
+
+            // 1 byte for packet or fragment
 
             // 2 bytes
             /// <summary>
@@ -71,7 +86,7 @@ namespace OwlTree
             /// The number of fragments this packet has been broken into.
             /// </summary>
             public byte fragments { get; internal set; }
-            
+
             // 1 byte
             /// <summary>
             /// Reserved flag for signifying whether or not compression was used on this packet.
@@ -109,6 +124,9 @@ namespace OwlTree
             public void InsertBytes(Span<byte> bytes)
             {
                 int ind = 0;
+                bytes[ind] = PacketType.PacketStart;
+                ind += 1;
+
                 Encoder.InsertBytes(bytes, owlTreeVer);
                 ind += 2;
 
@@ -150,6 +168,11 @@ namespace OwlTree
             public void FromBytes(ReadOnlySpan<byte> bytes)
             {
                 int ind = 0;
+
+                if (!PacketType.IsPacketStart(bytes[ind]))
+                    throw new ArgumentException("The provided bytes aren't the start of a new packet.");
+                ind += 1;
+
                 owlTreeVer = Encoder.DecodeUInt16(bytes);
                 ind += 2;
 
