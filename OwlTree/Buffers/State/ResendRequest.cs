@@ -105,22 +105,22 @@ namespace OwlTree
             return _buffer.AsSpan(0, header.length);
         }
 
-        public static IEnumerable<uint> GetPacketNums(ReadOnlySpan<byte> bytes)
+        public static IEnumerable<uint> GetPacketNums(byte[] bytes, int fragmentsStart)
         {
-            int ind = 0;
-            while (ind < bytes.Length - 4)
+            int ind = Header.ByteLength;
+            while (ind < fragmentsStart)
             {
-                yield return Encoder.DecodeUInt32(bytes.Slice(ind));
+                yield return Encoder.DecodeUInt32(bytes.AsSpan(ind));
                 ind += 4;
             }
         }
 
-        public static IEnumerable<(uint packetNum, byte fragment)> GetFragments(ReadOnlySpan<byte> bytes)
+        public static IEnumerable<(uint packetNum, byte fragment)> GetFragments(byte[] bytes, int fragmentsStart, int fullLength)
         {
-            int ind = 0;
-            while (ind < bytes.Length - 5)
+            int ind = fragmentsStart;
+            while (ind < fullLength)
             {
-                yield return (Encoder.DecodeUInt32(bytes.Slice(ind)), bytes[ind + 4]);
+                yield return (Encoder.DecodeUInt32(bytes.AsSpan(ind)), bytes[ind + 4]);
                 ind += 5;
             }
         }

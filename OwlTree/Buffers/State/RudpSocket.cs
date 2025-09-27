@@ -414,16 +414,13 @@ namespace OwlTree
                 var length = header.length;
                 var fragmentsStart = header.fragmentsStart;
 
-                var packetNums = buffer.AsSpan(ResendRequest.Header.ByteLength, fragmentsStart - ResendRequest.Header.ByteLength);
-                var fragmentNums = buffer.AsSpan(fragmentsStart, length - fragmentsStart);
-
-                foreach (var p in ResendRequest.GetPacketNums(packetNums))
+                foreach (var p in ResendRequest.GetPacketNums(buffer, fragmentsStart))
                 {
                     foreach (var bytes in _endpoint.GetFragments(p))
                         Socket.SendTo(bytes, _endpoint.Endpoint);
                 }
 
-                foreach (var p in ResendRequest.GetFragments(fragmentNums))
+                foreach (var p in ResendRequest.GetFragments(buffer, fragmentsStart, length))
                 {
                     var bytes = _endpoint.GetFragment(p.packetNum, p.fragment);
                     Socket.SendTo(bytes, _endpoint.Endpoint);
@@ -590,16 +587,13 @@ namespace OwlTree
                 var length = header.length;
                 var fragmentsStart = header.fragmentsStart;
 
-                var packetNums = buffer.AsSpan(ResendRequest.Header.ByteLength, fragmentsStart - ResendRequest.Header.ByteLength);
-                var fragmentNums = buffer.AsSpan(fragmentsStart, length - fragmentsStart);
-
-                foreach (var p in ResendRequest.GetPacketNums(packetNums))
+                foreach (var p in ResendRequest.GetPacketNums(buffer, fragmentsStart))
                 {
                     foreach (var bytes in data.GetFragments(p))
                         Socket.SendTo(bytes, data.Endpoint);
                 }
 
-                foreach (var p in ResendRequest.GetFragments(fragmentNums))
+                foreach (var p in ResendRequest.GetFragments(buffer, fragmentsStart, length))
                 {
                     var bytes = data.GetFragment(p.packetNum, p.fragment);
                     Socket.SendTo(bytes, data.Endpoint);

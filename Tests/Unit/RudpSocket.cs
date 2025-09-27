@@ -22,7 +22,7 @@ public class RudpSocket
 
         Assert.True(endpoint != null, "server RUDP socket failed to bind to an endpoint.");
 
-        var packet = new Packet(512, true);
+        var packet = new Packet(512);
         packet.header.timestamp = 100;
         packet.header.packetNum = 0;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
@@ -90,7 +90,7 @@ public class RudpSocket
 
         Assert.True(endpoint != null, "server RUDP socket failed to bind to an endpoint.");
 
-        var packet = new Packet(512, true);
+        var packet = new Packet(512);
         packet.header.timestamp = 100;
         packet.header.packetNum = 0;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
@@ -158,7 +158,7 @@ public class RudpSocket
 
         Assert.True(endpoint != null, "server RUDP socket failed to bind to an endpoint.");
 
-        var packet = new Packet(512, true);
+        var packet = new Packet(512);
         packet.header.timestamp = Timestamp.Now;
         packet.header.packetNum = 0;
         socket.SendTo(packet.GetPacket().ToArray(), endpoint);
@@ -234,12 +234,14 @@ public class RudpSocket
 
         Assert.True(((IPEndPoint)ep).Port == client.Port, $"data was not received from RUDP socket on port {client.Port}, instead received from {((IPEndPoint)ep).Port}");
 
-        packet.FromBytes(buffer, 0, len);
+        var rrh = new ResendRequest.Header();
+        rrh.FromBytes(buffer.AsSpan(len));
+        var requested = ResendRequest.GetPacketNums(buffer, rrh.fragmentsStart).FirstOrDefault();
 
         File.AppendAllText("logs/RUDP/Ordered/ClientPackets.log", "resend request:\n" + BitConverter.ToString(packet.GetPacket().ToArray()) + "\n\n\n");
 
-        Assert.True(packet.header.resendRequest, "recevied packet wasn't a resend request");
-        Assert.True(packet.header.packetNum == 2, $"resend request wasn't made for packet 2, instead for {packet.header.packetNum}");
+        Assert.True(rrh.length == ResendRequest.Header.ByteLength + 4, "received packet wasn't a resend request");
+        Assert.True(requested == 2, $"resend request wasn't made for packet 2, instead for {requested}");
 
     }
 }
