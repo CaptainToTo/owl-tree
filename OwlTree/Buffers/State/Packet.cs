@@ -24,7 +24,7 @@ namespace OwlTree
     /// </summary>
     public class Packet
     {
-        internal const int MaxTransmissionUnit = 1200;
+        internal const int MaxTransmissionUnit = 1300;
 
         public struct Header
         {
@@ -93,10 +93,6 @@ namespace OwlTree
             /// </summary>
             public bool compressionEnabled { get; internal set; }
             /// <summary>
-            /// Reserved flag for signifying a specific packet number needs to be resent.
-            /// </summary>
-            public bool resendRequest { get; internal set; }
-            /// <summary>
             /// Reserved flag for signifying a specific packet is for sending ping requests.
             /// </summary>
             public bool pingRequest { get; internal set; }
@@ -155,13 +151,12 @@ namespace OwlTree
 
                 byte flags = 0;
                 flags |= (byte)(compressionEnabled ? 0x1 : 0);
-                flags |= (byte)(resendRequest ? 0x1 << 1 : 0);
-                flags |= (byte)(pingRequest ? 0x1 << 2 : 0);
-                flags |= (byte)(fragmented ? 0x1 << 3 : 0);
-                flags |= (byte)(flag1 ? 0x1 << 4 : 0);
-                flags |= (byte)(flag2 ? 0x1 << 5 : 0);
-                flags |= (byte)(flag3 ? 0x1 << 6 : 0);
-                flags |= (byte)(flag4 ? 0x1 << 7 : 0);
+                flags |= (byte)(pingRequest ? 0x1 << 1 : 0);
+                flags |= (byte)(fragmented ? 0x1 << 2 : 0);
+                flags |= (byte)(flag1 ? 0x1 << 3 : 0);
+                flags |= (byte)(flag2 ? 0x1 << 4 : 0);
+                flags |= (byte)(flag3 ? 0x1 << 5 : 0);
+                flags |= (byte)(flag4 ? 0x1 << 6 : 0);
                 bytes[ind] = flags;
             }
 
@@ -205,13 +200,12 @@ namespace OwlTree
 
                 byte flags = bytes[ind];
                 compressionEnabled = (flags & 0x1) == 1;
-                resendRequest = (flags & (0x1 << 1)) != 0;
-                pingRequest = (flags & (0x1 << 2)) != 0;
-                fragmented = (flags & (0x1 << 3)) != 0;
-                flag1 = (flags & (0x1 << 4)) != 0;
-                flag2 = (flags & (0x1 << 5)) != 0;
-                flag3 = (flags & (0x1 << 6)) != 0;
-                flag4 = (flags & (0x1 << 7)) != 0;
+                pingRequest = (flags & (0x1 << 1)) != 0;
+                fragmented = (flags & (0x1 << 2)) != 0;
+                flag1 = (flags & (0x1 << 3)) != 0;
+                flag2 = (flags & (0x1 << 4)) != 0;
+                flag3 = (flags & (0x1 << 5)) != 0;
+                flag4 = (flags & (0x1 << 6)) != 0;
             }
 
             public void Reset()
@@ -224,7 +218,6 @@ namespace OwlTree
                 packetNum = 0;
                 fragments = 0;
                 compressionEnabled = false;
-                resendRequest = false;
                 pingRequest = false;
                 fragmented = false;
                 flag1 = false;

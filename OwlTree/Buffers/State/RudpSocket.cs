@@ -614,7 +614,6 @@ namespace OwlTree
 
                 data.UpdateLatency(header.timestamp);
                 var packetNum = header.packetNum;
-                var isResendRequest = header.resendRequest;
                 var isPingRequest = header.pingRequest;
                 var length = header.length;
                 var fragmented = header.fragmented;
