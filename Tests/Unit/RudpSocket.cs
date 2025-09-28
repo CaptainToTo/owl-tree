@@ -233,12 +233,12 @@ public class RudpSocket
         var len = socket.ReceiveFrom(buffer, ref ep);
 
         Assert.True(((IPEndPoint)ep).Port == client.Port, $"data was not received from RUDP socket on port {client.Port}, instead received from {((IPEndPoint)ep).Port}");
+        File.AppendAllText("logs/RUDP/Ordered/ClientPackets.log", "resend request:\n" + BitConverter.ToString(buffer.AsSpan(len).ToArray()) + "\n\n\n");
 
         var rrh = new ResendRequest.Header();
         rrh.FromBytes(buffer.AsSpan(len));
         var requested = ResendRequest.GetPacketNums(buffer, rrh.fragmentsStart).FirstOrDefault();
 
-        File.AppendAllText("logs/RUDP/Ordered/ClientPackets.log", "resend request:\n" + BitConverter.ToString(packet.GetPacket().ToArray()) + "\n\n\n");
 
         Assert.True(rrh.length == ResendRequest.Header.ByteLength + 4, "received packet wasn't a resend request");
         Assert.True(requested == 2, $"resend request wasn't made for packet 2, instead for {requested}");

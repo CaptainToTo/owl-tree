@@ -101,6 +101,7 @@ namespace OwlTree
 
             header.timestamp = Timestamp.Now;
             header.length = dataLen;
+            header.InsertBytes(_buffer);
 
             return _buffer.AsSpan(0, header.length);
         }

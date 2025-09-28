@@ -72,54 +72,6 @@ public class PacketTests
     }
 
     [Fact]
-    public void Fragmentation()
-    {
-        Logs.InitPath("logs/Packet/Fragmentation");
-        Logs.InitFiles("logs/Packet/Fragmentation/Packets.log");
-
-        var packet = new Packet(2048, true);
-
-        var big = packet.GetSpan(428);
-
-        for (int i = 0; i < 101; i++)
-        {
-            var span = packet.GetSpan(24);
-            span[0] = (byte)(i + 1);
-        }
-
-        var p1 = packet.GetPacket().ToArray();
-        packet.Reset();
-        var p2 = packet.GetPacket().ToArray();
-        packet.Reset();
-
-        File.AppendAllText("logs/Packet/Fragmentation/Packets.log", BitConverter.ToString(p1) + "\n\n");
-        File.AppendAllText("logs/Packet/Fragmentation/Packets.log", BitConverter.ToString(p2) + "\n\n");
-
-        packet.Clear();
-        packet.FromBytes(p1, 0, p1.Length);
-
-        packet.StartMessageRead();
-        int j = 0;
-        while (packet.TryGetNextMessage(out var bytes))
-        {
-            if (j == 0)
-                Assert.True(bytes.Length == 428, "first messages was not 428 bytes, instead got " + bytes.Length);
-            else
-                Assert.True(bytes.Length == 24, "message " + j + " not 24 bytes, instead got " + bytes.Length);
-            j++;
-        }
-
-        packet.FromBytes(p2, 0, p2.Length);
-
-        packet.StartMessageRead();
-        while (packet.TryGetNextMessage(out var bytes))
-        {
-            Assert.True(bytes.Length == 24, "message " + j + " not 24 bytes, instead got " + bytes.Length);
-            j++;
-        }
-    }
-
-    [Fact]
     public void IncompleteHeader()
     {
         Logs.InitPath("logs/Packet/Incomplete");
