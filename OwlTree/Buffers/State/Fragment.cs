@@ -48,7 +48,7 @@ namespace OwlTree
                 bytes[ind] = PacketType.Fragment;
                 ind += 1;
 
-                Encoder.InsertBytes(bytes, start);
+                Encoder.InsertBytes(bytes.Slice(ind), start);
                 ind += 4;
 
                 Encoder.InsertBytes(bytes.Slice(ind), length);
@@ -74,7 +74,7 @@ namespace OwlTree
                     throw new ArgumentException("The provided bytes aren't a packet fragment.");
                 ind += 1;
 
-                start = Encoder.DecodeInt32(bytes);
+                start = Encoder.DecodeInt32(bytes.Slice(ind));
                 ind += 4;
 
                 length = Encoder.DecodeInt32(bytes.Slice(ind));
@@ -87,6 +87,9 @@ namespace OwlTree
                 ind += 8;
 
                 hash = Encoder.DecodeUInt32(bytes.Slice(ind));
+                ind += 4;
+
+                packetNum = Encoder.DecodeUInt32(bytes.Slice(ind));
                 ind += 4;
 
                 fragment = bytes[ind];
