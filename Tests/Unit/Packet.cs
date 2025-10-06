@@ -135,4 +135,77 @@ public class PacketTests
         Assert.True(decode.packetNum == header.packetNum, "packetNum decoded incorrectly, got " + decode.packetNum);
         Assert.True(decode.length == header.length, "length decoded incorrectly, got " + decode.length);
     }
+
+    [Fact]
+    public void ResendRequestHeader()
+    {
+        Logs.InitPath("logs/Packet/Resend");
+        Logs.InitFiles("logs/Packet/Resend/Packets.log");
+
+        var buffer = new byte[75];
+        var header = new ResendRequest.Header();
+        header.fragmentsStart = 40;
+        header.hash = 0;
+        header.length = 100;
+        header.timestamp = 500;
+
+        header.InsertBytes(buffer);
+        File.AppendAllText("logs/Packet/Resend/Packets.log", BitConverter.ToString(buffer) + "\n\n");
+
+        var decode = new ResendRequest.Header();
+        decode.FromBytes(buffer);
+
+        Assert.True(decode.fragmentsStart == header.fragmentsStart, "fragmentsStart  decoded incorrectly, got " + decode.fragmentsStart);
+        Assert.True(decode.timestamp == header.timestamp, "timestamp decoded incorrectly, got " + decode.timestamp);
+        Assert.True(decode.length == header.length, "length decoded incorrectly, got " + decode.length);
+    }
+
+    [Fact]
+    public void ResendPackets()
+    {
+        Logs.InitPath("logs/Packet/Resend");
+        Logs.InitFiles("logs/Packet/Resend/PacketRequest.log");
+
+        var request = new ResendRequest();
+
+        var missingPackets = new uint[] { 3, 4, 7 };
+        var missingFrags = new (uint packetNum, byte fragment)[] { (5, 1), (5, 2), (6, 3), (6, 4) };
+
+        var bytes = request.GetRequest(missingPackets, missingFrags).ToArray();
+
+        File.AppendAllText("logs/Packet/Resend/PacketRequest.log", BitConverter.ToString(bytes) + "\n\n");
+
+        var fragmentsStartCorrect = ResendRequest.Header.ByteLength + 12;
+        var packetLengthCorrect = ResendRequest.Header.ByteLength + 12 + 20;
+        var header = new ResendRequest.Header();
+        header.FromBytes(bytes);
+
+        Assert.True(header.fragmentsStart == fragmentsStartCorrect, "fragments start is incorrect, should be " + fragmentsStartCorrect + ", but got " + header.fragmentsStart);
+        Assert.True(header.length == packetLengthCorrect, "resend request has an incorrect length, should be " + packetLengthCorrect + ", but got " + header.length);
+
+        var decodedPacketNums = ResendRequest.GetPacketNums(bytes, header.fragmentsStart).ToArray();
+
+        var str = "decoded packet nums: ";
+        foreach (var n in decodedPacketNums)
+            str += n.ToString() + " , ";
+
+        File.AppendAllText("logs/Packet/Resend/PacketRequest.log", str + "\n\n");
+
+        Assert.True(missingPackets.Length == decodedPacketNums.Length, "Did not decode the same number of missing packets as was encoded, got " + decodedPacketNums.Length);
+
+        for (int i = 0; i < missingPackets.Length; i++)
+            Assert.True(missingPackets[i] == decodedPacketNums[i], "incorrect packet number, expected " + missingPackets[i] + ", but got " + decodedPacketNums[i]);
+
+        var decodedFragments = ResendRequest.GetFragments(bytes, header.fragmentsStart, header.length).ToArray();
+
+        str = "decoded fragment nums: ";
+        foreach (var n in decodedFragments)
+            str += $"({n.packetNum}, {n.fragment}) , ";
+        File.AppendAllText("logs/Packet/Resend/PacketRequest.log", str + "\n\n");
+
+        Assert.True(missingFrags.Length == decodedFragments.Length, "Did not decode the same number of missing fragments as was encoded, got " + decodedFragments.Length);
+
+        for (int i = 0; i < missingFrags.Length; i++)
+            Assert.True(missingFrags[i] == decodedFragments[i], $"incorrect fragment, expected ({missingFrags[i].packetNum}, {missingFrags[i].fragment}), but got ({decodedFragments[i].packetNum}, {decodedFragments[i].fragment})");
+    }
 }
